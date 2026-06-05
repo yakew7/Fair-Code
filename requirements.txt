@@ -10,7 +10,7 @@ pandas>=3.0.3          # DataFrames, CSV loading, crosstabs
 scikit-learn>=1.9.0    # RandomForestClassifier, train/test split, metrics
 
 # ── Statistical testing ───────────────────────────────────────────────────
-scipy>=1.15.3          # chi2_contingency for proxy variable detection
+scipy>=1.17.1          # chi2_contingency for proxy variable detection
 
 # ── Explainability ────────────────────────────────────────────────────────
 shap>=0.52.0           # SHAP values — feature attribution & bias auditing
