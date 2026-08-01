@@ -16,7 +16,8 @@
 ![Contributions Welcome](https://img.shields.io/badge/Contributions-Welcome-blueviolet?style=flat-square)
 ![Deployed](https://img.shields.io/badge/Deployed-Vercel-black?style=flat-square&logo=vercel)
 ![CI](https://github.com/yakew7/Fair-Code/actions/workflows/audits.yml/badge.svg)
-![Stars] (<a href="https://github.com/yakew7/Fair-Code/stargazers"><img src="https://img.shields.io/github/stars/yakew7/Fair-Code?style=social" alt="Stars" height="28"></a>)
+<a href="https://github.com/yakew7/Fair-Code/stargazers"><img src="https://img.shields.io/github/stars/yakew7/Fair-Code?style=social" alt="Stars" height="28"></a>
+<a href="https://github.com/yakew7/Fair-Code/contributors"><img src="https://img.shields.io/github/contributors/yakew7/Fair-Code?style=social" alt="Stars" height="28"></a>
 
 </div>
 
