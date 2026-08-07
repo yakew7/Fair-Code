@@ -58,7 +58,7 @@ If you are unsure whether an idea fits, open an issue first and ask.
 > `assets/profiler-engine.js` together, and must keep them producing identical results (run
 > `pytest tests/` and cross-check a CSV through both). The same rule covers the two-dataset
 > **compare** (drift) view: `faircode/compare.py` and `assets/profiler-compare.js` must agree too,
-> enforced by `tests/test_js_parity.py::test_python_js_compare_parity` (via `scripts/compare-js.js`).
+> enforced by `tests/test_js_parity.py::test_python_js_compare_parity` (via `scripts/engine-js.js compare`).
 > HTML report changes need the same treatment on both sides: `faircode/report.py`'s `to_html`/
 > `compare_to_html` and their hand-ported equivalents in `assets/profiler-ui.js`/
 > `assets/profiler-compare.js`. Update `SPEC.md` first - it is the source of truth.

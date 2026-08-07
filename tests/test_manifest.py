@@ -184,3 +184,9 @@ def test_every_shipped_manifest_loads_without_error(path):
 
     for attr in manifest.protected_attributes:
         assert attr.column in df.columns
+
+    for row_filter in manifest.row_filters:
+        assert row_filter.column in df.columns, (
+            f"{manifest.name}: row_filters references column "
+            f"'{row_filter.column}', which isn't in {manifest.dataset_path.name}"
+        )

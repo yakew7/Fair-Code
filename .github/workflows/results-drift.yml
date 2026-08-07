@@ -1,0 +1,35 @@
+name: Results Drift
+
+# Static check (no benchmark re-run - see #166) that results/*.csv still
+# matches the permanent copy in paper/results-frozen/. frozen-files.yml
+# stops edits to either directory; this catches the case where they've
+# already drifted apart for some other reason (e.g. one was touched before
+# that check existed). See #173.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check-results-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Diff results/*.csv against paper/results-frozen/*.csv
+        run: |
+          set -euo pipefail
+          status=0
+          for name in results_fairness.csv results_performance.csv summary.csv; do
+            if ! diff -q "results/$name" "paper/results-frozen/$name" > /dev/null; then
+              echo "::error::results/$name has drifted from paper/results-frozen/$name"
+              diff "results/$name" "paper/results-frozen/$name" || true
+              status=1
+            fi
+          done
+          if [ "$status" -ne 0 ]; then
+            echo "::error::results/ and paper/results-frozen/ disagree - see CLAUDE.md §6 (flag it, don't silently fix it)."
+            exit 1
+          fi
+          echo "results/*.csv matches paper/results-frozen/*.csv."

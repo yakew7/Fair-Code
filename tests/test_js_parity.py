@@ -1,6 +1,7 @@
 """Parity tests between the Python and JavaScript profiler implementations."""
 
 from pathlib import Path
+import importlib.util
 import json
 import subprocess
 
@@ -11,6 +12,11 @@ from faircode import compare, profile
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
+
+requires_openpyxl = pytest.mark.skipif(
+    importlib.util.find_spec("openpyxl") is None,
+    reason="optional 'excel' extra not installed",
+)
 
 # Real audit datasets are already tracked in their own audit folders - reuse
 # them instead of keeping a second multi-megabyte copy under tests/fixtures.
@@ -32,7 +38,7 @@ def test_python_js_profiler_parity(csv_name):
     python_result = profile(pd.read_csv(csv))
 
     completed = subprocess.run(
-        ["node", "scripts/profile-js.js", str(csv)],
+        ["node", "scripts/engine-js.js", "profile", str(csv)],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -65,7 +71,7 @@ def test_python_js_json_parity_inconsistent_keys():
     python_result = profile(pd.read_json(json_path))
 
     completed = subprocess.run(
-        ["node", "scripts/profile-json-js.js", str(json_path)],
+        ["node", "scripts/engine-js.js", "profile-json", str(json_path)],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -92,7 +98,7 @@ def test_python_js_json_parity_columns_orientation():
     python_result = profile(pd.read_json(json_path))
 
     completed = subprocess.run(
-        ["node", "scripts/profile-json-js.js", str(json_path)],
+        ["node", "scripts/engine-js.js", "profile-json", str(json_path)],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -108,18 +114,19 @@ def test_python_js_json_parity_columns_orientation():
     assert javascript_result == python_result
 
 
+@requires_openpyxl
 def test_python_js_xlsx_parity():
     """.xlsx support (#158) - the JS engine's parseXLSX() (via SheetJS,
     fetched from the same pinned CDN profiler.html loads) should agree with
     pandas.read_excel() on the same workbook. Skips if the CDN is
-    unreachable rather than failing the suite - see scripts/profile-xlsx-js.js.
+    unreachable rather than failing the suite - see scripts/engine-js.js.
     """
     xlsx_path = FIXTURES / "adult_sample.xlsx"
 
     python_result = profile(pd.read_excel(xlsx_path))
 
     completed = subprocess.run(
-        ["node", "scripts/profile-xlsx-js.js", str(xlsx_path)],
+        ["node", "scripts/engine-js.js", "profile-xlsx", str(xlsx_path)],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -155,7 +162,7 @@ def test_python_js_compare_parity(csv_name):
     python_result = compare(profile(df), profile(df), "a.csv", "b.csv")
 
     completed = subprocess.run(
-        ["node", "scripts/compare-js.js", str(csv), str(csv)],
+        ["node", "scripts/engine-js.js", "compare", str(csv), str(csv)],
         capture_output=True,
         text=True,
         encoding="utf-8",
