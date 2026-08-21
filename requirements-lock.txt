@@ -87,6 +87,6 @@ tornado==6.5.7
 traitlets==5.15.1
 typing_extensions==4.16.0
 wcwidth==0.8.2
-webencodings==0.5.1
+webencodings==0.6.1
 Werkzeug==3.1.8
 xlrd==2.0.1
