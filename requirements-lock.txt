@@ -9,7 +9,7 @@
 # Install with: pip install -r requirements-lock.txt
 # (faircode itself is installed separately, in editable mode, from this checkout: pip install -e ".[benchmark]")
 
-appnope==0.1.4
+appnope==1.0.0
 asttokens==3.0.2
 attrs==26.1.0
 beautifulsoup4==4.15.0
