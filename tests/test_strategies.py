@@ -65,6 +65,16 @@ def test_strategy_features_deduplicates_overlapping_names():
     assert set(cols) == {"a", "b", "c"}
 
 
+def test_strategy_features_raises_on_unknown_strategy():
+    with pytest.raises(ValueError, match="unknown strategy: 'in_procesing'"):
+        strategy_features("in_procesing", CORE, PROXIES, PROTECTED)
+
+
+def test_strategy_features_raises_on_empty_string():
+    with pytest.raises(ValueError, match="unknown strategy: ''"):
+        strategy_features("", CORE, PROXIES, PROTECTED)
+
+
 # ── encode_features ──────────────────────────────────────────────────────────
 def test_encode_features_passes_numeric_columns_through():
     df = pd.DataFrame({"age": [20.0, 30.0, 40.0]})
