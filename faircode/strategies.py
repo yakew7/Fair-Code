@@ -99,7 +99,7 @@ def strategy_features(strategy: str, core: list, proxies: list, protected: list)
         return list(dict.fromkeys(core + proxies + protected))
     if strategy == "unawareness":
         return list(dict.fromkeys(core + proxies))
-if strategy in ("unawareness_proxy_removal", "in_processing", "post_processing"):
+    if strategy in ("unawareness_proxy_removal", "in_processing", "post_processing"):
         return list(dict.fromkeys(core))
     raise ValueError(f"unknown strategy: {strategy!r}")
 
