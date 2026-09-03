@@ -1,4 +1,4 @@
-S<div align="center">
+<div align="center">
 
 # Fair Code - Algorithmic Bias Detection & Mitigation
 
@@ -187,9 +187,9 @@ Fair-Code/
 │   ├── benchmark.py                     #   orchestrator - manifests → strategies → metrics → tables
 │   ├── figures.py                       #   renders results_fairness.csv → figures/*.png (300 dpi)
 │   ├── cli.py                           #   `faircode profile` / `compare` / `benchmark` entry point
-|   ├── _explainers/                     # generated mirror of explainers/*.md
-|   ├── _results_frozen/                 # generated mirror of paper/results-frozen/*.csv
-|   └── mcp_server.py                    # 6 MCP tools exposing Fair-Code engine over MCP
+│   ├── mcp_server.py                    #   `faircode-mcp` entry point - 6 MCP tools (SPEC.md section 11)
+│   ├── _explainers/                     #   generated mirror of explainers/*.md, for the MCP tools
+│   └── _results_frozen/                 #   generated mirror of paper/results-frozen/*.csv, for the MCP tools
 ├── tests/
 │   ├── fixtures/                        #   sample datasets for loader/edge-case tests
 │   ├── test_benchmark.py                # end-to-end benchmark harness tests
