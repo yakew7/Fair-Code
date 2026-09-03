@@ -34,7 +34,10 @@ ALLOWLIST = {
     ".github/ISSUE_TEMPLATE/new_audit.yml",
     ".github/ISSUE_TEMPLATE/new_explainer.yml",
 }
-ALLOW_PREFIXES = ("paper/results-frozen/",)  # frozen evidence, never modified
+ALLOW_PREFIXES = (
+    "paper/results-frozen/",  # frozen evidence, never modified
+    "faircode/_explainers/",  # generated mirror of explainers/*.md, checking the source already covers it
+)
 
 
 def _tracked_files():
