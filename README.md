@@ -930,8 +930,13 @@ Parquet isn't supported client-side yet - use the CLI below.
 
 **CLI - `faircode`.** Reads `.csv`, `.tsv`, `.xlsx`, `.json`, and `.parquet`
 (delimiter is auto-detected for anything else). JSON input supports the
-Pandas `records`, `split`, and `columns` orientations. `.xlsx` needs the
-optional `excel` extra, `.parquet` needs the optional `parquet` extra.
+Pandas `records` and `split` orientations; `columns` and `index` both
+serialize to the same dict-of-dicts shape, so there's no reliable way to
+tell them apart from the file alone - rather than risk silently
+transposing the data, that shape raises a clear "ambiguous JSON
+orientation" error pointing you at `split`, which round-trips
+unambiguously. `.xlsx` needs the optional `excel` extra, `.parquet` needs
+the optional `parquet` extra.
 
 ```bash
 pip install -e .                                   # installs the faircode console script
