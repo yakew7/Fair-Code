@@ -69,7 +69,7 @@ def test_read_table_csv(tmp_path):
 
 @pytest.mark.parametrize(
     "orient",
-    ["records", "split", "columns"],
+    ["records", "split"],
 )
 def test_read_table_json_orientations(tmp_path, orient):
     path = tmp_path / "data.json"
@@ -82,6 +82,20 @@ def test_read_table_json_orientations(tmp_path, orient):
         expected.reset_index(drop=True),
         check_dtype=False,
     )
+
+
+def test_read_table_json_columns_orient_raises_ambiguous_error(tmp_path):
+    # orient="columns" serializes to the same dict-of-dicts shape as
+    # orient="index" - relying on it round-tripping was only ever correct
+    # because pandas' own default guess happens to be "columns", not
+    # because the shape is actually unambiguous (see the ambiguous-JSON
+    # coverage in tests/test_json_edge_cases.py, and #405). read_table()
+    # now raises for any dict-of-dicts JSON rather than guess.
+    path = tmp_path / "data.json"
+    pd.DataFrame(ROWS).to_json(path, orient="columns")
+    with pytest.raises(ValueError, match="Ambiguous JSON orientation"):
+        read_table(str(path))
+
 
 def test_read_table_json_split_orient_without_index_key(tmp_path):
     # A minimal, hand-written split-orient file that omits the optional

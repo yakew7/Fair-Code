@@ -54,53 +54,39 @@ def read_table(path: str) -> pd.DataFrame:
         if isinstance(parsed, dict) and {"columns", "data"} <= parsed.keys():
             return pd.read_json(path, orient="split")
 
-        # Detect index-oriented JSON.
+        # Detect index/columns-oriented JSON: a dict whose every top-level
+        # value is itself a dict of scalars.
         #
-        # pandas' "columns" and "index" orientations both use a
-        # dict-of-dicts representation, so their shapes are inherently
-        # ambiguous in JSON.
-        #
-        # Heuristic: when the dict-of-dicts is scalar and rectangular, prefer
-        # the orientation implied by which dimension is larger (rows vs
-        # columns). For square cases, use value type-homogeneity to prefer
-        # columns-orient (columns are often homogeneous; rows often mix types).
+        # pandas' "columns" and "index" orientations both serialize to this
+        # exact same dict-of-dicts shape, so there is no reliable way to
+        # infer which one produced a given file from its shape or value
+        # types alone - a columns-oriented export can have more columns
+        # than rows (breaking a "larger dimension is the index" heuristic),
+        # and an all-string index-oriented export (the common case for this
+        # repo's own demographic columns) gives a type-homogeneity tie-break
+        # nothing to key off. Guessing risks silently transposing or
+        # mislabeling the data, which for a fairness-auditing tool can flip
+        # which group looks disadvantaged with no visible sign anything went
+        # wrong. Fail loudly instead and point at the one orientation that
+        # round-trips unambiguously.
         if isinstance(parsed, dict) and parsed and all(
             isinstance(value, dict) for value in parsed.values()
         ):
-            inner_key_sets = [set(row.keys()) for row in parsed.values()]
+            cells_are_scalar = all(
+                not isinstance(cell, (dict, list))
+                for row in parsed.values()
+                for cell in row.values()
+            )
 
-            same_inner_keys = len({frozenset(keys) for keys in inner_key_sets}) == 1
-
-            if same_inner_keys:
-                inner_keys = inner_key_sets[0]
-
-                cells_are_scalar = all(
-                    not isinstance(cell, (dict, list))
-                    for row in parsed.values()
-                    for cell in row.values()
+            if cells_are_scalar:
+                raise ValueError(
+                    "Ambiguous JSON orientation: this file is a dict of "
+                    "dicts, which pandas' \"columns\" and \"index\" "
+                    "orientations both produce identically, so it can't be "
+                    "told apart reliably. Re-export it with "
+                    "orient=\"split\" (df.to_json(path, orient=\"split\")), "
+                    "which this loader always parses correctly."
                 )
-
-                if cells_are_scalar:
-                    outer_n = len(parsed)
-                    inner_n = len(inner_keys)
-
-                    if outer_n != inner_n:
-                        orient = "index" if outer_n > inner_n else "columns"
-                        return pd.read_json(path, orient=orient)
-
-                    # Square case: prefer columns-orient when values are more type-homogeneous
-                    # by column than by row.
-                    row_type_score = sum(
-                        len({type(cell) for cell in row.values()})
-                        for row in parsed.values()
-                    )
-                    col_type_score = sum(
-                        len({type(parsed[row_key][col_key]) for row_key in parsed})
-                        for col_key in inner_keys
-                    )
-
-                    orient = "index" if row_type_score > col_type_score else "columns"
-                    return pd.read_json(path, orient=orient)
         return pd.read_json(path)
 
     if suffix == ".parquet":
@@ -133,5 +119,4 @@ def get_xlsx_sheet_info(path: str) -> tuple[str, list[str]] | None:
         return None
     if not book.sheet_names:
         return None
-
     return book.sheet_names[0], book.sheet_names[1:]

@@ -104,21 +104,100 @@ def test_deeply_nested_json_python_current_behavior(tmp_path):
     assert df.to_dict(orient="records") == [{"a": {"c": 1}}]
 
 
-# ── Index-oriented JSON ──────────────────────────────────────────────────────
-def test_index_oriented_json_preserves_dataframe_shape(tmp_path):
+# ── Index/columns-oriented JSON ───────────────────────────────────────────────
+# pandas' "columns" and "index" orientations serialize to the exact same
+# dict-of-dicts shape, so there is no shape or type heuristic that reliably
+# tells them apart - guessing risks silently transposing the data (see #405
+# and the follow-up review on #410). read_table() now refuses to guess and
+# raises a clear "ambiguous JSON orientation" error instead, pointing callers
+# at orient="split", which round-trips correctly.
+def test_index_oriented_json_raises_ambiguous_error(tmp_path):
     original = pd.DataFrame(
         {"sex": ["M", "F"], "age": [30, 40]},
         index=["a", "b"],
     )
-
     index_path = tmp_path / "index.json"
     original.to_json(index_path, orient="index")
-    loaded_index = read_table(str(index_path))
-    pd.testing.assert_frame_equal(loaded_index, original)
+    with pytest.raises(ValueError, match="Ambiguous JSON orientation"):
+        read_table(str(index_path))
 
-    # Ensure columns-oriented dict-of-dicts with a non-default index isn't
-    # misclassified as index-oriented and transposed.
+
+def test_columns_oriented_json_raises_ambiguous_error(tmp_path):
+    original = pd.DataFrame(
+        {"sex": ["M", "F"], "age": [30, 40]},
+        index=["a", "b"],
+    )
     columns_path = tmp_path / "columns.json"
     original.to_json(columns_path, orient="columns")
-    loaded_columns = read_table(str(columns_path))
-    pd.testing.assert_frame_equal(loaded_columns, original)
+    with pytest.raises(ValueError, match="Ambiguous JSON orientation"):
+        read_table(str(columns_path))
+
+
+def test_wide_columns_oriented_json_raises_ambiguous_error(tmp_path):
+    # A non-square, columns-oriented export with more columns than rows -
+    # e.g. several demographic fields for a handful of records. A heuristic
+    # that assumes "more rows than columns" (or vice versa) implies the
+    # index dimension silently transposes exactly this shape; this must
+    # raise instead of guessing wrong.
+    original = pd.DataFrame(
+        {
+            "sex": ["M", "F", "F"],
+            "race": ["A", "B", "A"],
+            "region": ["N", "S", "E"],
+            "income": [50000, 62000, 47000],
+            "age": [30, 40, 25],
+        }
+    )
+    assert original.shape == (3, 5)
+    wide_path = tmp_path / "wide.json"
+    original.to_json(wide_path, orient="columns")
+    with pytest.raises(ValueError, match="Ambiguous JSON orientation"):
+        read_table(str(wide_path))
+
+
+def test_square_all_string_index_oriented_json_raises_ambiguous_error(tmp_path):
+    # A square, all-string dict-of-dicts - the normal shape for a small
+    # demographic dataset - gives a type-homogeneity tie-break nothing to
+    # key off, since every column is the same type. This must raise instead
+    # of silently defaulting to the wrong orientation.
+    original = pd.DataFrame(
+        {
+            "sex": ["M", "F", "M"],
+            "race": ["A", "B", "A"],
+            "region": ["N", "S", "E"],
+        }
+    )
+    assert original.shape == (3, 3)
+    square_path = tmp_path / "square.json"
+    original.to_json(square_path, orient="index")
+    with pytest.raises(ValueError, match="Ambiguous JSON orientation"):
+        read_table(str(square_path))
+
+
+def test_non_square_index_oriented_json_raises_ambiguous_error(tmp_path):
+    # More rows than columns - the shape the old "larger dimension wins"
+    # heuristic happened to guess right for by coincidence. Still ambiguous
+    # in principle, so this must raise rather than rely on that coincidence.
+    original = pd.DataFrame(
+        {"sex": ["M", "F", "M", "F", "M"]},
+        index=["a", "b", "c", "d", "e"],
+    )
+    assert original.shape == (5, 1)
+    tall_path = tmp_path / "tall.json"
+    original.to_json(tall_path, orient="index")
+    with pytest.raises(ValueError, match="Ambiguous JSON orientation"):
+        read_table(str(tall_path))
+
+
+def test_split_oriented_json_round_trips_correctly(tmp_path):
+    # The one dict-of-dicts-adjacent shape that IS unambiguous, and the
+    # format the ambiguous-orientation error above points users at - must
+    # keep working and must not be caught by the dict-of-dicts check.
+    original = pd.DataFrame(
+        {"sex": ["M", "F"], "age": [30, 40]},
+        index=["a", "b"],
+    )
+    split_path = tmp_path / "split.json"
+    original.to_json(split_path, orient="split")
+    loaded = read_table(str(split_path))
+    pd.testing.assert_frame_equal(loaded, original)
