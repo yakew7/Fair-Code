@@ -49,7 +49,7 @@ mistune==3.3.3
 narwhals==2.20.0
 nbclient==0.11.0
 nbconvert==7.17.1
-nbformat==5.10.4
+nbformat==5.11.1
 nest-asyncio2==1.7.2
 numpy==2.4.4
 openpyxl==3.1.5
