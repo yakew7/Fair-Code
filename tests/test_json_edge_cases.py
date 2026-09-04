@@ -9,6 +9,7 @@ import json
 import subprocess
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 from faircode.loaders_extra import read_table
@@ -101,3 +102,23 @@ def test_deeply_nested_json_python_current_behavior(tmp_path):
     path = _write_json(tmp_path, json.dumps({"a": {"b": {"c": 1}}}))
     df = read_table(str(path))
     assert df.to_dict(orient="records") == [{"a": {"c": 1}}]
+
+
+# ── Index-oriented JSON ──────────────────────────────────────────────────────
+def test_index_oriented_json_preserves_dataframe_shape(tmp_path):
+    original = pd.DataFrame(
+        {"sex": ["M", "F"], "age": [30, 40]},
+        index=["a", "b"],
+    )
+
+    index_path = tmp_path / "index.json"
+    original.to_json(index_path, orient="index")
+    loaded_index = read_table(str(index_path))
+    pd.testing.assert_frame_equal(loaded_index, original)
+
+    # Ensure columns-oriented dict-of-dicts with a non-default index isn't
+    # misclassified as index-oriented and transposed.
+    columns_path = tmp_path / "columns.json"
+    original.to_json(columns_path, orient="columns")
+    loaded_columns = read_table(str(columns_path))
+    pd.testing.assert_frame_equal(loaded_columns, original)
