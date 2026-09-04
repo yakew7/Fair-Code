@@ -35,7 +35,7 @@ ipython_pygments_lexers==1.1.1
 itsdangerous==2.2.0
 jedi==0.20.0
 Jinja2==3.1.6
-joblib==1.5.3
+joblib==1.6.0
 jsonschema==4.26.0
 jsonschema-specifications==2025.9.1
 jupyter_client==8.9.1
