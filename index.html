@@ -901,7 +901,7 @@
     flex-shrink: 0;
     width: 44px;
   }
-  .step-content h4 {
+  .step-content h3 {
     font-family: var(--sans);
     font-size: 16px;
     font-weight: 600;
@@ -1951,35 +1951,35 @@
       <div class="method-step">
         <span class="step-num">01</span>
         <div class="step-content">
-          <h4>Load Dataset</h4>
+          <h3>Load Dataset</h3>
           <p>Real-world data with demographic signals: ProPublica COMPAS, Kaggle recruitment datasets.</p>
         </div>
       </div>
       <div class="method-step">
         <span class="step-num">02</span>
         <div class="step-content">
-          <h4>Train Biased Model</h4>
+          <h3>Train Biased Model</h3>
           <p>Include protected attributes (race, gender, age) alongside predictive features.</p>
         </div>
       </div>
       <div class="method-step">
         <span class="step-num">03</span>
         <div class="step-content">
-          <h4>Measure Fairness Gap</h4>
+          <h3>Measure Fairness Gap</h3>
           <p>Calculate positive prediction rate differences across demographic groups. Each gap ships with a 95% bootstrap confidence interval and a permutation-test p-value, so a real disparity can be told apart from sampling noise.</p>
         </div>
       </div>
       <div class="method-step">
         <span class="step-num">04</span>
         <div class="step-content">
-          <h4>Remove Attributes + Proxies</h4>
+          <h3>Remove Attributes + Proxies</h3>
           <p>Drop protected attributes <em>and</em> correlated proxy variables that smuggle bias back in.</p>
         </div>
       </div>
       <div class="method-step">
         <span class="step-num">05</span>
         <div class="step-content">
-          <h4>Retrain & Re-measure</h4>
+          <h3>Retrain & Re-measure</h3>
           <p>Fair model trained on merit features only. Gap measured again. Results compared.</p>
         </div>
       </div>
