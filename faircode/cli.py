@@ -390,10 +390,14 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
 
-        fairness_df, performance_df = run_benchmark(
-            root=args.root, audits=args.manifests or None,
-            n_resamples=args.n_resamples, n_permutations=args.n_permutations,
-        )
+        try:
+            fairness_df, performance_df = run_benchmark(
+                root=args.root, audits=args.manifests or None,
+                n_resamples=args.n_resamples, n_permutations=args.n_permutations,
+            )
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
         if fairness_df.empty:
             print(f"error: no audit.yaml manifests found under {args.root}", file=sys.stderr)
             return 2

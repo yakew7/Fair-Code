@@ -760,6 +760,27 @@ def test_cli_benchmark_no_manifests_found_error(tmp_path, capsys):
     assert f"error: no audit.yaml manifests found under {empty_dir}" in captured.err
 
 
+def test_cli_benchmark_malformed_manifest_returns_2_with_clean_error(monkeypatch, tmp_path, capsys):
+    """A malformed manifest or degenerate dataset used to crash `faircode
+    benchmark` with a raw traceback (yaml.YAMLError/KeyError/sklearn
+    ValueError) instead of the same clean CLI error every other anticipated
+    failure in this subcommand already gets (#403)."""
+    pytest.importorskip("sklearn", reason="benchmark extra required")
+    pytest.importorskip("fairlearn", reason="benchmark extra required")
+    pytest.importorskip("yaml", reason="benchmark extra required")
+
+    def raise_value_error(**kwargs):
+        raise ValueError("bad_audit/audit.yaml: 'target'")
+
+    monkeypatch.setattr("faircode.benchmark.run_benchmark", raise_value_error)
+
+    exit_code = main(["benchmark", "--out", str(tmp_path / "results")])
+
+    assert exit_code == 2
+    captured = capsys.readouterr()
+    assert "error: bad_audit/audit.yaml: 'target'" in captured.err
+
+
 @pytest.mark.skipif(not SMALL_AUDIT.is_file(), reason="German Credit Lending fixture not found")
 def test_cli_benchmark_success_run(tmp_path, capsys):
     """Lines 274-283: Full benchmark execution against the German Credit Lending fixture."""

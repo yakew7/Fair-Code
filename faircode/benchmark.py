@@ -34,6 +34,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import yaml
 from sklearn.model_selection import train_test_split
 
 from .manifest import discover_manifests, load_manifest
@@ -195,8 +196,16 @@ def run_benchmark(root=".", audits=None, n_resamples=2000, n_permutations=2000):
     all_fairness = []
     all_performance = []
     for path in paths:
-        manifest = load_manifest(path)
-        fairness_rows, performance_rows = run_audit(manifest, n_resamples, n_permutations)
+        try:
+            manifest = load_manifest(path)
+            fairness_rows, performance_rows = run_audit(manifest, n_resamples, n_permutations)
+        except (yaml.YAMLError, KeyError, ValueError) as exc:
+            # A malformed manifest (bad YAML syntax, a missing required key)
+            # or a degenerate dataset (e.g. filtered down to 0 rows, which
+            # sklearn's train_test_split rejects with its own ValueError)
+            # would otherwise propagate as a raw, manifest-path-less
+            # traceback all the way to the CLI.
+            raise ValueError(f"{path}: {exc}") from exc
         all_fairness.extend(fairness_rows)
         all_performance.extend(performance_rows)
     return pd.DataFrame(all_fairness), pd.DataFrame(all_performance)

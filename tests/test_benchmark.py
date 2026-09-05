@@ -283,3 +283,53 @@ def test_run_benchmark_seeds_global_random_state(monkeypatch):
     run_benchmark(audits=[SMALL_AUDIT], n_resamples=N_RESAMPLES, n_permutations=N_PERMUTATIONS)
 
     assert seeds_used == [GLOBAL_SEED]
+
+
+# ── run_benchmark() fails loudly, with the manifest path, on bad input (#403) ─
+# A malformed manifest or degenerate dataset used to propagate a raw
+# yaml.YAMLError/KeyError/sklearn ValueError all the way to the CLI with no
+# indication of which manifest was responsible.
+def test_run_benchmark_wraps_malformed_yaml_with_manifest_path(tmp_path):
+    audit_dir = tmp_path / "Bad Audit"
+    audit_dir.mkdir()
+    (audit_dir / "audit.yaml").write_text("name: toy\n  bad_indent: [unclosed\n")
+
+    with pytest.raises(ValueError, match=str(audit_dir / "audit.yaml")):
+        run_benchmark(root=str(tmp_path), n_resamples=N_RESAMPLES, n_permutations=N_PERMUTATIONS)
+
+
+def test_run_benchmark_wraps_missing_required_key_with_manifest_path(tmp_path):
+    audit_dir = tmp_path / "Bad Audit"
+    audit_dir.mkdir()
+    (audit_dir / "audit.yaml").write_text(yaml.dump({
+        "name": "toy",
+        "dataset": {"path": "toy.csv"},
+        # no "target" key
+        "protected_attributes": [
+            {"name": "g", "type": "categorical", "column": "g",
+             "disadvantaged_values": ["a"], "advantaged_values": ["b"]},
+        ],
+        "core_features": ["x"],
+    }))
+
+    with pytest.raises(ValueError, match=str(audit_dir / "audit.yaml")):
+        run_benchmark(root=str(tmp_path), n_resamples=N_RESAMPLES, n_permutations=N_PERMUTATIONS)
+
+
+def test_run_benchmark_wraps_degenerate_zero_row_dataset_with_manifest_path(tmp_path):
+    audit_dir = tmp_path / "Bad Audit"
+    audit_dir.mkdir()
+    pd.DataFrame({"label": [], "g": [], "x": []}).to_csv(audit_dir / "toy.csv", index=False)
+    (audit_dir / "audit.yaml").write_text(yaml.dump({
+        "name": "toy",
+        "dataset": {"path": "toy.csv"},
+        "target": {"column": "label", "method": "binary"},
+        "protected_attributes": [
+            {"name": "g", "type": "categorical", "column": "g",
+             "disadvantaged_values": ["a"], "advantaged_values": ["b"]},
+        ],
+        "core_features": ["x"],
+    }))
+
+    with pytest.raises(ValueError, match=str(audit_dir / "audit.yaml")):
+        run_benchmark(root=str(tmp_path), n_resamples=N_RESAMPLES, n_permutations=N_PERMUTATIONS)
