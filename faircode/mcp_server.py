@@ -71,6 +71,13 @@ RESULTS_FROZEN_FILES = {
     "performance": RESULTS_FROZEN_DIR / "results_performance.csv",
 }
 _RESULTS_ROW_LIMIT = 200
+# Both frozen CSVs' own precision (float64, 15-17 significant digits) isn't
+# meaningful at this granularity - every explainer citing these numbers
+# already rounds to 3 decimal places. 6 keeps headroom for small effect
+# sizes while cutting the unfiltered-call payload the row cap alone still
+# leaves too large.
+_RESULTS_ROUND_DECIMALS = 6
+_RESULTS_NUMERIC_COLUMNS = ("value", "ci_low", "ci_high", "p_value")
 
 
 def _read_table_or_raise(path: str):
@@ -311,6 +318,9 @@ def _get_benchmark_results_impl(kind="fairness", audit=None, model=None, strateg
         if column in df.columns:
             df = df[df[column] == value]
     total = len(df)
+    for column in _RESULTS_NUMERIC_COLUMNS:
+        if column in df.columns:
+            df[column] = df[column].round(_RESULTS_ROUND_DECIMALS)
     head = df.head(_RESULTS_ROW_LIMIT).astype(object)
     rows = head.where(head.notna(), None).to_dict(orient="records")
     return {"results": rows, "total_matches": total, "truncated": total > len(rows)}

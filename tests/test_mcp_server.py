@@ -442,6 +442,22 @@ def test_get_benchmark_results_nan_cells_become_none():
     assert result["results"][0]["ci_high"] is None
 
 
+def test_get_benchmark_results_rounds_float_precision():
+    # Raw CSV value is -0.06555690919543475 (17 significant digits) - the row
+    # cap alone still leaves a large payload once every float carries that
+    # many digits it doesn't need for a fairness-metric lookup (#395).
+    result = _get_benchmark_results_impl(
+        audit="ai_fair_recruitment", model="logistic_regression",
+        strategy="baseline", protected_attribute="gender",
+        metric="demographic_parity_diff")
+
+    row = result["results"][0]
+    assert row["value"] == -0.065557
+    for key in ("value", "ci_low", "ci_high", "p_value"):
+        decimals = str(float(row[key])).split(".")[-1]
+        assert len(decimals) <= 6
+
+
 def test_get_benchmark_results_no_match_returns_empty_not_an_error():
     result = _get_benchmark_results_impl(audit="not_a_real_audit")
 
