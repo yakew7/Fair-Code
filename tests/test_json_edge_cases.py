@@ -201,3 +201,17 @@ def test_split_oriented_json_round_trips_correctly(tmp_path):
     original.to_json(split_path, orient="split")
     loaded = read_table(str(split_path))
     pd.testing.assert_frame_equal(loaded, original)
+
+
+# ── Table-oriented JSON ────────────────────────────────────────────────────────
+def test_table_oriented_json_round_trips_correctly(tmp_path):
+    # orient="table" - the only pandas JSON orientation that round-trips
+    # dtypes via its embedded schema - used to fall through to the plain
+    # pd.read_json(path) call and raise pandas' own internal "Mixing dicts
+    # with non-Series may lead to ambiguous ordering" error instead of
+    # being recognized and read correctly.
+    original = pd.DataFrame({"sex": ["M", "F"], "age": [30, 40]})
+    table_path = tmp_path / "table.json"
+    original.to_json(table_path, orient="table")
+    loaded = read_table(str(table_path))
+    pd.testing.assert_frame_equal(loaded, original)

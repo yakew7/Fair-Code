@@ -54,6 +54,15 @@ def read_table(path: str) -> pd.DataFrame:
         if isinstance(parsed, dict) and {"columns", "data"} <= parsed.keys():
             return pd.read_json(path, orient="split")
 
+        # Detect table-orient JSON: {"schema": {...}, "data": [...]} - a
+        # real, valid pandas export (the only orientation that round-trips
+        # dtypes) that otherwise falls through to the plain pd.read_json(path)
+        # call below and raises pandas' own internal "Mixing dicts with
+        # non-Series may lead to ambiguous ordering" error instead of a clear
+        # one.
+        if isinstance(parsed, dict) and {"schema", "data"} <= parsed.keys():
+            return pd.read_json(path, orient="table")
+
         # Detect index/columns-oriented JSON: a dict whose every top-level
         # value is itself a dict of scalars.
         #
