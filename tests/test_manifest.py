@@ -127,6 +127,16 @@ def test_categorical_protected_attribute_needs_a_values_list():
         pa.disadvantaged_mask(df)
 
 
+def test_numeric_threshold_protected_attribute_needs_a_threshold():
+    with pytest.raises(ValueError, match="needs a 'threshold' field"):
+        ProtectedAttribute(name="age", type="numeric_threshold", column="age")
+
+
+def test_age_interval_threshold_protected_attribute_needs_a_threshold():
+    with pytest.raises(ValueError, match="needs a 'threshold' field"):
+        ProtectedAttribute(name="age", type="age_interval_threshold", column="age")
+
+
 # ── TargetSpec / RowFilter / ProtectedAttribute behaviour ───────────────────
 def test_target_spec_methods():
     df = pd.DataFrame({"income": [10, 60, 30, 90], "flag": ["yes", "no", "yes", "no"]})
