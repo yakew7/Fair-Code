@@ -81,8 +81,13 @@ class ProtectedAttribute:
     disadvantaged: str = "below"  # "below" | "above" - which side of threshold is disadvantaged
 
     def __post_init__(self):
-        if self.type in ("numeric_threshold", "age_interval_threshold") and self.threshold is None:
-            raise ValueError(f"{self.name}: type {self.type!r} needs a 'threshold' field")
+        if self.type in ("numeric_threshold", "age_interval_threshold"):
+            if self.threshold is None:
+                raise ValueError(f"{self.name}: type {self.type!r} needs a 'threshold' field")
+            if self.disadvantaged not in ("below", "above"):
+                raise ValueError(
+                    f"{self.name}: disadvantaged must be 'below' or 'above', got {self.disadvantaged!r}"
+                )
 
     def disadvantaged_mask(self, df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
         """Returns (disadvantaged_mask, known_mask) - both boolean Series aligned to df.

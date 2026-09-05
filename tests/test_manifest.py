@@ -137,6 +137,18 @@ def test_age_interval_threshold_protected_attribute_needs_a_threshold():
         ProtectedAttribute(name="age", type="age_interval_threshold", column="age")
 
 
+def test_numeric_threshold_rejects_a_typo_d_disadvantaged_value():
+    with pytest.raises(ValueError, match="disadvantaged must be 'below' or 'above'"):
+        ProtectedAttribute(name="age", type="numeric_threshold", column="age",
+                           threshold=30, disadvantaged="Below")
+
+
+def test_age_interval_threshold_rejects_a_typo_d_disadvantaged_value():
+    with pytest.raises(ValueError, match="disadvantaged must be 'below' or 'above'"):
+        ProtectedAttribute(name="age", type="age_interval_threshold", column="age",
+                           threshold=70, disadvantaged="ABOVE")
+
+
 # ── TargetSpec / RowFilter / ProtectedAttribute behaviour ───────────────────
 def test_target_spec_methods():
     df = pd.DataFrame({"income": [10, 60, 30, 90], "flag": ["yes", "no", "yes", "no"]})
