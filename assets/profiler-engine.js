@@ -729,7 +729,17 @@
     var inters = intersections(table, detected, o.intersection_floor, o.cross);
 
     var refFlags = [];
-    if (o.reference) refFlags = applyReference(dimensions, o.reference, o.reference_flag);
+    if (o.reference) {
+      var refMatched = dimensions.some(function (d) {
+        return Object.prototype.hasOwnProperty.call(o.reference, d.name);
+      });
+      if (!refMatched) {
+        throw new Error(
+          "reference file's column(s) don't match any profiled dimension: "
+          + Object.keys(o.reference).sort().join(", "));
+      }
+      refFlags = applyReference(dimensions, o.reference, o.reference_flag);
+    }
 
     var overall = 0;
     if (dimensions.length) {

@@ -140,6 +140,30 @@ def test_python_js_cross_parity_on_unmatched_column(tmp_path):
     assert "cross column(s) don't match any profiled dimension: nonexistent_col" in completed.stderr
 
 
+def test_python_js_reference_parity_on_unmatched_column(tmp_path):
+    """A reference baseline whose column(s) don't match any profiled
+    dimension raises the same error on both engines instead of the JS
+    engine silently applying nothing (#419)."""
+    csv = CSV_PATHS["adult.csv"]
+    reference = {"totally_wrong_col": {"a": 0.5, "b": 0.5}}
+
+    with pytest.raises(ValueError, match="reference file's column\\(s\\) don't match any profiled dimension: totally_wrong_col"):
+        profile(pd.read_csv(csv), opts={"reference": reference})
+
+    opts_path = tmp_path / "opts.json"
+    opts_path.write_text(json.dumps({"opts": {"reference": reference}}), encoding="utf-8")
+
+    completed = subprocess.run(
+        ["node", "scripts/engine-js.js", "profile", str(csv), str(opts_path)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    assert completed.returncode != 0
+    assert "reference file's column(s) don't match any profiled dimension: totally_wrong_col" in completed.stderr
+
+
 def test_python_js_json_parity_inconsistent_keys():
     """Records-orient JSON where later records add columns the first one
     doesn't have (#144). The JS parseJSON() used to derive columns from only

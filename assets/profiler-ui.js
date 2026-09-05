@@ -187,15 +187,20 @@
     renderMapping(table.columns);
   }
 
-  // Re-run the engine with the current overrides + opts and re-render in place.
+  // Re-run the engine with the current overrides + opts and re-render in
+  // place. Returns whether it succeeded, so a caller that just changed
+  // currentOpts (e.g. applying a reference baseline) can tell a genuine
+  // success apart from an error masked by its own already-shown status text.
   function reprofile(scroll) {
-    if (!currentTable) return;
+    if (!currentTable) return true;
     try {
       var result = E.profile(currentTable, currentOverrides, currentOpts);
       errorEl.hidden = true;
       render(result, currentName, scroll);
+      return true;
     } catch (err) {
       showError('Could not re-profile: ' + err.message);
+      return false;
     }
   }
 
@@ -495,7 +500,18 @@
     reader.onerror = function () { showError('Could not read the reference file.'); };
     function applyReferenceTable(table, sheetInfo) {
       try {
+        var previousReference = currentOpts.reference;
         currentOpts.reference = E.parseReference(table);
+
+        // Validate before showing "scored vs X" - a reference whose columns
+        // don't match anything profiled (e.g. a typo'd column name) now
+        // makes E.profile() throw inside reprofile(); without checking its
+        // result first, the status text above would still claim success
+        // while the error banner it also shows says otherwise.
+        if (!reprofile(false)) {
+          currentOpts.reference = previousReference;
+          return;
+        }
 
         if (sheetInfo && sheetInfo.ignoredSheets.length > 0) {
           referenceStatus.textContent =
@@ -511,7 +527,6 @@
         }
         referenceStatus.hidden = false;
         referenceClearBtn.hidden = false;
-        reprofile(false);
       } catch (err) {
         showError('Could not read reference baseline: ' + err.message);
       }
