@@ -34,6 +34,20 @@ repos:
         pass_filenames: false
         files: '^(explainers/.*\.md|assets/explainers-data\.json|scripts/generate_og_images\.py)$'
 
+      - id: check-broken-links
+        name: check for broken internal markdown links
+        entry: python3 scripts/check_broken_links.py
+        language: system
+        pass_filenames: false
+        files: '\.md$'
+
+      - id: check-explainer-count
+        name: check "current explainer count" mentions haven't drifted
+        entry: python3 scripts/check_explainer_count.py
+        language: system
+        pass_filenames: false
+        files: '^(explainers/.*\.md|README\.md|CONTRIBUTORS\.md|METRICS\.md|ROADMAP\.md)$'
+
       - id: pytest
         name: pytest (full suite)
         entry: python3 -m pytest tests/ -q
