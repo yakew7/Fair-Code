@@ -356,6 +356,12 @@ Explainers live in `explainers/` and should make one fairness concept easy to un
 | `precision-recall-curve.md` | Why ROC/AUC looks fine while precision collapses under the class imbalance most fairness audits actually live in, with per-group average-precision detection code |
 | `equal-opportunity.md` | Why passing the true-positive-rate check (Equal Opportunity) doesn't mean passing the false-positive-rate one (Equalized Odds), with two real frozen results showing them coincide and diverge |
 | `intersectional-bias.md` | Why checking one protected attribute at a time can hide a compounding gap at the intersection, with a real superadditive result and crosstab detection code |
+| `accuracy-equality.md` | Why equal accuracy across groups can hide two completely different, offsetting error profiles |
+| `bootstrap-confidence-intervals.md` | Why a fairness gap without a confidence interval attached is a number, not a finding, and how bootstrap CIs and permutation tests tell the two apart |
+| `counterfactual-explanation.md` | What changed the outcome for one prediction, and how that differs from counterfactual fairness's "should the outcome have changed at all" |
+| `fairness-through-unawareness.md` | Why removing the protected attribute doesn't remove what correlates with it |
+| `lime.md` | A local, approximate surrogate model - the other major way to explain one prediction, alongside SHAP |
+| `mitigation-strategies.md` | Where in the pipeline you intervene - pre-, in-, or post-processing - changes what a fairness fix can and can't do |
 
 ### A good explainer should include
 
