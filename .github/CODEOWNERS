@@ -28,6 +28,7 @@
 # Python packaging
 /pyproject.toml @yakew7
 /Makefile @yakew7
+/requirements.txt @yakew7
 /requirements-lock.txt @yakew7
 
 # Scripts & tests
