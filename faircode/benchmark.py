@@ -165,15 +165,24 @@ def run_audit(manifest, n_resamples=2000, n_permutations=2000, random_state=None
                     inter = intersectional_report(
                         y_pred, mask_a, mask_b, n_resamples, n_permutations, random_state=rs)
                     isr = inter["intersectional"]
+                    # An empty "both" or "neither" cell makes the gap
+                    # undefined (NaN) - intersectional_report still runs
+                    # significance_report on it unconditionally, which can
+                    # report p_value=0.0/significant=True on a meaningless
+                    # comparison. Don't trust either field in that case.
+                    cell_empty = (inter["cell_sizes"]["both"] == 0
+                                  or inter["cell_sizes"]["neither"] == 0)
                     fairness_rows.append({
                         "audit": manifest.name, "strategy": strategy, "model": model_name,
                         "protected_attribute": f"{pa_a.name}_x_{pa_b.name}",
                         "metric": "intersectional_demographic_parity_diff",
                         "value": isr["gap"], "ci_low": isr["ci_low"], "ci_high": isr["ci_high"],
-                        "p_value": isr["p_value"], "significant": isr["significant"],
+                        "p_value": None if cell_empty else isr["p_value"],
+                        "significant": False if cell_empty else isr["significant"],
                         "n_disadvantaged": isr["n_a"], "n_advantaged": isr["n_b"],
                         "small_sample_warning": isr["small_sample_warning"],
-                        "note": "superadditive" if inter["superadditive"] else None,
+                        "note": ("empty_intersectional_cell" if cell_empty
+                                  else "superadditive" if inter["superadditive"] else None),
                     })
     return fairness_rows, performance_rows
 

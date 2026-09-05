@@ -23,7 +23,7 @@ import pytest
 
 pytest.importorskip("sklearn", reason="the benchmark harness needs the optional benchmark extra")
 pytest.importorskip("fairlearn", reason="the benchmark harness needs the optional benchmark extra")
-pytest.importorskip("yaml", reason="the benchmark harness needs the optional benchmark extra")
+yaml = pytest.importorskip("yaml", reason="the benchmark harness needs the optional benchmark extra")
 
 from faircode.benchmark import GLOBAL_SEED, run_audit, run_benchmark, write_report
 from faircode.manifest import load_manifest
@@ -183,10 +183,67 @@ def test_intersectional_row_has_required_keys(two_attr_result):
                 "n_disadvantaged", "n_advantaged", "small_sample_warning", "note"):
         assert key in row.index
 
-    # note is either None or the literal string "superadditive" - never a
+    # note is None, "superadditive", or "empty_intersectional_cell" - never a
     # different/unexpected value the intersectional_report() -> row mapping
     # could have mangled.
-    assert row["note"] in (None, "superadditive")
+    assert row["note"] in (None, "superadditive", "empty_intersectional_cell")
+
+
+# ── Empty intersectional cell doesn't fabricate significance (#413) ─────────
+# intersectional_report() calls significance_report(y[both], y[neither], ...)
+# unconditionally; when the "both" (doubly-disadvantaged) cell is empty, the
+# permutation test over a zero-length array can report p_value=0.0 and
+# significant=True on an undefined (gap=NaN) comparison - the opposite of a
+# false negative, actively fabricating a finding. Constructed so every row
+# has attr_a xor attr_b disadvantaged, never both - guaranteeing the "both"
+# cell is empty regardless of how train_test_split splits the data.
+EMPTY_CELL_AUDIT_NAME = "empty_intersectional_cell_toy"
+
+
+@pytest.fixture(scope="module")
+def empty_cell_result(tmp_path_factory):
+    audit_dir = tmp_path_factory.mktemp(EMPTY_CELL_AUDIT_NAME)
+    n = 40
+    attr_a = ["disadv"] * 10 + ["ok"] * 10 + ["ok"] * 20
+    attr_b = ["ok"] * 10 + ["disadv"] * 10 + ["ok"] * 20
+    df = pd.DataFrame({
+        "label": [0, 1] * (n // 2),
+        "attr_a": attr_a,
+        "attr_b": attr_b,
+        "x": list(range(n)),
+    })
+    assert not ((df["attr_a"] == "disadv") & (df["attr_b"] == "disadv")).any()
+    dataset_path = audit_dir / "toy.csv"
+    df.to_csv(dataset_path, index=False)
+
+    manifest_dict = {
+        "name": EMPTY_CELL_AUDIT_NAME,
+        "dataset": {"path": "toy.csv"},
+        "target": {"column": "label", "method": "binary"},
+        "protected_attributes": [
+            {"name": "attr_a", "type": "categorical", "column": "attr_a",
+             "disadvantaged_values": ["disadv"], "advantaged_values": ["ok"]},
+            {"name": "attr_b", "type": "categorical", "column": "attr_b",
+             "disadvantaged_values": ["disadv"], "advantaged_values": ["ok"]},
+        ],
+        "core_features": ["x"],
+    }
+    manifest_path = audit_dir / "audit.yaml"
+    manifest_path.write_text(yaml.dump(manifest_dict))
+    manifest = load_manifest(manifest_path)
+    return run_audit(manifest, n_resamples=N_RESAMPLES, n_permutations=N_PERMUTATIONS)
+
+
+def test_empty_intersectional_cell_is_not_reported_significant(empty_cell_result):
+    fairness_rows, _ = empty_cell_result
+    df = pd.DataFrame(fairness_rows)
+    intersectional = df[df["protected_attribute"] == "attr_a_x_attr_b"]
+    assert len(intersectional) == 5 * 3
+
+    assert intersectional["value"].isna().all()
+    assert (~intersectional["significant"]).all()
+    assert intersectional["p_value"].isna().all()
+    assert (intersectional["note"] == "empty_intersectional_cell").all()
 
 
 # ── run_benchmark() itself (#271) ────────────────────────────────────────────
