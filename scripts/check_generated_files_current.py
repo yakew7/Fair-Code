@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """Fails if the generated site files (explainer pages, sitemap, OG images,
-llms-full.txt) are out of date relative to their sources.
+llms-full.txt) or the MCP results-frozen mirror (faircode/_results_frozen/)
+are out of date relative to their sources.
 
 Used by .github/workflows/build-explainers.yml, run *after* the workflow's
-own `build_explainers.py`/`generate_og_images.py` steps have already
-regenerated everything fresh into the working tree.
+own `build_explainers.py`/`generate_og_images.py`/
+`freeze_paper_results.mirror_for_mcp()` steps have already regenerated
+everything fresh into the working tree.
 
 Text-based generated files (explainer HTML, explainers-data.js,
-sitemap.xml, llms-full.txt) are compared byte-for-byte against the fresh
-regeneration via `git diff` - they've never shown any platform-dependent
-variation, confirmed across two separate incidents below.
+sitemap.xml, llms-full.txt, faircode/_results_frozen/*.csv) are compared
+byte-for-byte against the fresh regeneration via `git diff` - they've
+never shown any platform-dependent variation, confirmed across two
+separate incidents below.
 
 One field is deliberately excluded from that byte-exact comparison:
 build_explainers.py's `datePublished`/`dateModified` (JSON-LD) and
@@ -69,6 +72,7 @@ TEXT_GLOBS = [
     "llms-full.txt",
     "faircode/_explainers/*.md",
     "faircode/_explainers/data.json",
+    "faircode/_results_frozen/*.csv",
 ]
 
 _JSONLD_DATE_LINE = re.compile(

@@ -11,7 +11,9 @@ name: Build Explainers
 # scripts/check_generated_files_current.py's docstring). Also verifies the
 # plain-prose "N explainers" mentions in README.md, CONTRIBUTORS.md,
 # METRICS.md, and ROADMAP.md haven't drifted from the real count of
-# explainers/*.md (scripts/check_explainer_count.py).
+# explainers/*.md (scripts/check_explainer_count.py), and that
+# faircode/_results_frozen/*.csv (the MCP get_benchmark_results tool's
+# package-internal mirror) is byte-exact with paper/results-frozen/*.csv.
 #
 # main requires a PR (branch protection), and github-actions[bot] isn't in
 # that ruleset's bypass list, so this can no longer auto-commit a fix by
@@ -28,8 +30,11 @@ on:
       - "assets/explainers-data.json"
       - "assets/explainers-ui.js"
       - "faircode/_explainers/**"
+      - "faircode/_results_frozen/**"
+      - "paper/results-frozen/**"
       - "scripts/build_explainers.py"
       - "scripts/generate_og_images.py"
+      - "scripts/freeze_paper_results.py"
       - "scripts/check_generated_files_current.py"
       - "scripts/check_explainer_count.py"
       - "README.md"
@@ -42,8 +47,11 @@ on:
       - "assets/explainers-data.json"
       - "assets/explainers-ui.js"
       - "faircode/_explainers/**"
+      - "faircode/_results_frozen/**"
+      - "paper/results-frozen/**"
       - "scripts/build_explainers.py"
       - "scripts/generate_og_images.py"
+      - "scripts/freeze_paper_results.py"
       - "scripts/check_generated_files_current.py"
       - "scripts/check_explainer_count.py"
       - "README.md"
@@ -74,6 +82,13 @@ jobs:
 
       - name: Generate OG/Twitter social preview images
         run: python3 scripts/generate_og_images.py
+
+      - name: Regenerate the MCP results-frozen mirror
+        # mirror_for_mcp() is a plain byte-for-byte copy of paper/results-frozen/*.csv
+        # into faircode/_results_frozen/ (stdlib-only, no scikit-learn/pyyaml
+        # needed) - the same "regenerate fresh, then diff against HEAD" pattern
+        # the explainer steps above already use.
+        run: python3 -c "from scripts.freeze_paper_results import mirror_for_mcp; mirror_for_mcp()"
 
       - name: Fail if generated files are out of date
         # scripts/check_generated_files_current.py deliberately does NOT

@@ -39,6 +39,15 @@ def _empty_repo(tmp_path, monkeypatch, script):
     monkeypatch.setattr(script, "TEXT_GLOBS", [])
 
 
+def test_text_globs_covers_the_results_frozen_mcp_mirror():
+    # faircode/_results_frozen/*.csv (closes #394) - without this, nothing
+    # ever notices if paper/results-frozen/*.csv is edited directly and the
+    # MCP get_benchmark_results tool's package-internal mirror silently
+    # drifts out of sync.
+    script = _script()
+    assert "faircode/_results_frozen/*.csv" in script.TEXT_GLOBS
+
+
 def test_normalize_dates_strips_jsonld_dates_and_lastmod():
     script = _script()
     text = (
