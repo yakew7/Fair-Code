@@ -117,6 +117,29 @@ def test_python_js_profiler_parity_with_overrides_cross_and_thresholds(tmp_path)
     assert any("reference" in d for d in python_result["dimensions"])
 
 
+def test_python_js_cross_parity_on_unmatched_column(tmp_path):
+    """An unmatched `cross` column raises the same error on both engines
+    instead of the JS engine silently falling back to the first two detected
+    dimensions with no error (#420)."""
+    csv = CSV_PATHS["adult.csv"]
+
+    with pytest.raises(ValueError, match="cross column\\(s\\) don't match any profiled dimension: nonexistent_col"):
+        profile(pd.read_csv(csv), opts={"cross": ["age", "nonexistent_col"]})
+
+    opts_path = tmp_path / "opts.json"
+    opts_path.write_text(json.dumps({"opts": {"cross": ["age", "nonexistent_col"]}}), encoding="utf-8")
+
+    completed = subprocess.run(
+        ["node", "scripts/engine-js.js", "profile", str(csv), str(opts_path)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    assert completed.returncode != 0
+    assert "cross column(s) don't match any profiled dimension: nonexistent_col" in completed.stderr
+
+
 def test_python_js_json_parity_inconsistent_keys():
     """Records-orient JSON where later records add columns the first one
     doesn't have (#144). The JS parseJSON() used to derive columns from only

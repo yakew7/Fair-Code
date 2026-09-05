@@ -720,6 +720,12 @@
     dimensions.forEach(function (d) { keptNames[d.name] = 1; });
     detected = detected.filter(function (d) { return keptNames[d.name]; });
 
+    if (o.cross && o.cross.length) {
+      var unknownCross = o.cross.filter(function (name) { return !keptNames[name]; });
+      if (unknownCross.length) {
+        throw new Error("cross column(s) don't match any profiled dimension: " + unknownCross.join(", "));
+      }
+    }
     var inters = intersections(table, detected, o.intersection_floor, o.cross);
 
     var refFlags = [];
