@@ -44,6 +44,20 @@ def test_classify_keyword_precedence_for_an_ambiguous_name():
     assert classify_name("birth_state") == "age"
 
 
+def test_classify_rejects_ambiguous_stem_prefix_false_positives():
+    # A different failure mode from the precedence case above: these are
+    # plain English words that happen to start with a demographic keyword
+    # ('race'/'state'/'country'/'city'/'region'), not columns with any
+    # actual demographic meaning. Plain prefix matching used to
+    # misclassify all of them (#404).
+    assert classify_name("raceway") is None
+    assert classify_name("statement") is None
+    assert classify_name("stateless") is None
+    assert classify_name("countryside") is None
+    assert classify_name("citycenter") is None
+    assert classify_name("regional_manager") is None
+
+
 def test_detect_includes_low_cardinality_categorical():
     df = pd.DataFrame({"smoker": ["y", "n"] * 25})
     kinds = {d["name"]: d["kind"] for d in detect_columns(df)}

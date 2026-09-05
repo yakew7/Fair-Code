@@ -344,8 +344,12 @@
     });
   }
 
+  // Keywords whose prefix form collides with ordinary English words - see
+  // faircode/detect.py's EXACT_ONLY_KEYWORDS, must mirror it exactly.
+  var EXACT_ONLY_KEYWORDS = { race: 1, state: 1, city: 1, region: 1, country: 1 };
+
   function tokenMatches(token, keyword) {
-    if (keyword.length < 4) return token === keyword;
+    if (keyword.length < 4 || EXACT_ONLY_KEYWORDS.hasOwnProperty(keyword)) return token === keyword;
     return token.indexOf(keyword) === 0; // prefix match
   }
 

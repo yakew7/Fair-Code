@@ -21,6 +21,14 @@ KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
 
 MAX_CATEGORICAL_CARD = 20
 
+# Keywords whose prefix form collides with ordinary English words - "race",
+# "state", "city", "region", and "country" would otherwise prefix-match
+# "raceway", "statement"/"stateless", "citycenter", "regional", and
+# "countryside" respectively, none of which are demographic columns. These
+# stay exact-match-only regardless of length; every other 4+ char keyword
+# still uses prefix matching (see _token_matches).
+EXACT_ONLY_KEYWORDS = frozenset({"race", "state", "city", "region", "country"})
+
 # Kinds a user may force a column to via a manual override. Anything else
 # (e.g. "ignore") excludes the column from analysis. Mirror in profiler-engine.js.
 VALID_KINDS = ("sex", "race", "age", "geography", "categorical")
@@ -38,12 +46,15 @@ def _tokens(name: str) -> list[str]:
 
 
 def _token_matches(token: str, keyword: str) -> bool:
-    """Exact match for short keywords (<4 chars); prefix match for longer ones.
+    """Exact match for short keywords (<4 chars) and EXACT_ONLY_KEYWORDS;
+    prefix match for other keywords of 4+ chars.
 
     Prefix (not substring) avoids 'age' matching 'agency' while still catching
-    'agegroup', 'statecode', 'ethnicity', etc.
+    'statecode', 'ethnicity', etc. EXACT_ONLY_KEYWORDS carves out the stems
+    whose prefix form collides with ordinary English words instead ('race'
+    matching 'raceway', 'state' matching 'statement').
     """
-    if len(keyword) < 4:
+    if len(keyword) < 4 or keyword in EXACT_ONLY_KEYWORDS:
         return token == keyword
     return token.startswith(keyword)
 
