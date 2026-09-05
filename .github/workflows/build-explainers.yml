@@ -51,6 +51,9 @@ on:
       - "METRICS.md"
       - "ROADMAP.md"
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest

@@ -29,6 +29,9 @@ on:
       - "assets/icons/logo.svg"
       - "scripts/generate_favicons.py"
 
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
