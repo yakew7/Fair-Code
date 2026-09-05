@@ -103,6 +103,16 @@ def test_unknown_target_method_fails_loudly():
         spec.compute(df)
 
 
+def test_target_spec_equals_needs_a_value_field():
+    with pytest.raises(ValueError, match="'equals' needs a 'value' field"):
+        TargetSpec(column="flag", method="equals")
+
+
+def test_target_spec_isin_needs_a_values_field():
+    with pytest.raises(ValueError, match="'isin' needs a 'values' field"):
+        TargetSpec(column="flag", method="isin")
+
+
 def test_unknown_protected_attribute_type_fails_loudly():
     pa = ProtectedAttribute(name="g", type="not_a_real_type", column="g")
     df = pd.DataFrame({"g": [1, 2, 3]})

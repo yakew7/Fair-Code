@@ -51,6 +51,12 @@ class TargetSpec:
     value: object | None = None
     values: list | None = None
 
+    def __post_init__(self):
+        if self.method == "equals" and self.value is None:
+            raise ValueError(f"{self.column}: target method 'equals' needs a 'value' field")
+        if self.method == "isin" and self.values is None:
+            raise ValueError(f"{self.column}: target method 'isin' needs a 'values' field")
+
     def compute(self, df: pd.DataFrame) -> pd.Series:
         col = df[self.column]
         if self.method == "binary":
