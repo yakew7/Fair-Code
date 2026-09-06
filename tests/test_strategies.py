@@ -14,7 +14,8 @@ import pytest
 
 pytest.importorskip("fairlearn", reason="faircode.strategies needs the optional fairlearn extra")
 
-from faircode.strategies import STRATEGIES, encode_features, strategy_features
+import faircode.strategies as strategies
+from faircode.strategies import STRATEGIES, encode_features, fit_post_processing, strategy_features
 
 CORE = ["income", "education"]
 PROXIES = ["zip_code"]
@@ -109,3 +110,50 @@ def test_encode_features_only_touches_requested_columns():
     out = encode_features(df, ["a"])
     assert list(out.columns) == ["a"]
     assert "b" not in out.columns
+
+
+# -- fit_post_processing: calibration split ----------------------------------
+class _RecordingModel:
+    def fit(self, X, y):
+        self.fit_rows = X.index.tolist()
+
+
+class _RecordingOptimizer:
+    def __init__(self, **kwargs):
+        self.init_kwargs = kwargs
+
+    def fit(self, X, y, sensitive_features):
+        self.calibration_rows = X.index.tolist()
+
+
+@pytest.mark.parametrize(
+    ("y_train", "expected_stratify"),
+    [
+        (np.array([0] * 19 + [1]), None),
+        (np.array([0] * 18 + [1, 1]), "labels"),
+    ],
+)
+def test_post_processing_only_stratifies_when_every_class_has_two_members(
+        monkeypatch, y_train, expected_stratify):
+    captured = {}
+    real_split = strategies.train_test_split
+
+    def recording_split(*args, **kwargs):
+        captured["stratify"] = kwargs["stratify"]
+        return real_split(*args, **kwargs)
+
+    monkeypatch.setattr(strategies, "train_test_split", recording_split)
+    monkeypatch.setattr(strategies, "ThresholdOptimizer", _RecordingOptimizer)
+    X_train = pd.DataFrame({"feature": np.arange(len(y_train))})
+    sensitive_train = np.array([0, 1] * (len(y_train) // 2))
+    model = _RecordingModel()
+
+    optimizer = fit_post_processing(
+        model, X_train, y_train, sensitive_train, random_state=42)
+
+    if expected_stratify is None:
+        assert captured["stratify"] is None
+    else:
+        np.testing.assert_array_equal(captured["stratify"], y_train)
+    assert set(model.fit_rows).isdisjoint(optimizer.calibration_rows)
+    assert set(model.fit_rows) | set(optimizer.calibration_rows) == set(X_train.index)
