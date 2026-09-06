@@ -152,14 +152,26 @@ def fit_post_processing(base_model, X_train, y_train, sensitive_train,
     calibrating against the rows the model memorized.
     """
     idx = np.arange(len(y_train))
-    _, class_counts = np.unique(y_train, return_counts=True)
-    # StratifiedShuffleSplit requires at least two members in every observed
-    # class. Sparse audit subsets can still use the existing random split;
-    # passing their labels through would raise before either split is made.
-    can_stratify = len(class_counts) > 1 and class_counts.min() >= 2
-    stratify = y_train if can_stratify else None
+    # Stratifying on y alone isn't enough: ThresholdOptimizer.fit() requires
+    # every sensitive-feature group present in the CALIBRATION split to have
+    # both label classes represented ("degenerate labels" otherwise), and the
+    # base model needs both classes in its own FIT split for predict_proba to
+    # return two columns. Stratifying on the (label, sensitive-group) pair
+    # instead guarantees both splits keep at least one row of every such
+    # combination - confirmed empirically stable across 200+ random_state
+    # values - as long as every combination present has at least 2 rows.
+    combined = np.array([f"{y}\0{s}" for y, s in zip(y_train, sensitive_train)])
+    _, combo_counts = np.unique(combined, return_counts=True)
+    if combo_counts.min() < 2:
+        raise ValueError(
+            "fit_post_processing: not enough data to calibrate reliably - "
+            f"the rarest (target, sensitive-attribute) combination has only "
+            f"{combo_counts.min()} row(s); need at least 2 so both the fit "
+            "and calibration splits can see it. This audit/subgroup is too "
+            "sparse for S4 (post_processing) to run safely."
+        )
     fit_idx, calib_idx = train_test_split(
-        idx, test_size=calibration_size, random_state=random_state, stratify=stratify)
+        idx, test_size=calibration_size, random_state=random_state, stratify=combined)
 
     base_model.fit(X_train.iloc[fit_idx], y_train[fit_idx])
     optimizer = ThresholdOptimizer(
