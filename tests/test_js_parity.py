@@ -140,6 +140,35 @@ def test_python_js_profiler_parity_sniffs_quoted_newlines(tmp_path):
     assert javascript_result == python_result
 
 
+def test_python_js_profiler_parity_rejects_negative_age_sentinels(tmp_path):
+    """Signed sentinel ages stay missing in both profiler engines."""
+    csv = tmp_path / "negative-age-sentinels.csv"
+    csv.write_text(
+        "age,sex\n25,F\n30,M\nage -5,F\n-1,M\n45,F\n",
+        encoding="utf-8",
+    )
+
+    python_result = profile(pd.read_csv(csv))
+    completed = subprocess.run(
+        ["node", "scripts/engine-js.js", "profile", str(csv)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    javascript_result = json.loads(completed.stdout)
+
+    python_result = dict(python_result)
+    javascript_result = dict(javascript_result)
+    python_result.pop("flags", None)
+    javascript_result.pop("flags", None)
+
+    assert javascript_result == python_result
+    age = next(d for d in python_result["dimensions"] if d["name"] == "age")
+    assert "75+" not in {group["label"] for group in age["groups"]}
+    assert age["missing_pct"] == 0.4
+
+
 def test_python_js_profiler_parity_with_overrides_cross_and_thresholds(tmp_path):
     """Non-default options - --map/--cross/--reference/thresholds - only ever
     had cross-engine parity coverage for their default-off path (issue #376).

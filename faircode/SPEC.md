@@ -64,8 +64,9 @@ editable per-column dropdowns in the web profiler.
 
 Age columns come in three shapes - normalize to numeric bands:
 
-- **Numeric** (e.g. `34`): use directly.
-- **Interval string** (e.g. `[70-80)`): take the lower bound integer via the first run of digits.
+- **Non-negative numeric** (e.g. `34`): use directly.
+- **Interval string** (e.g. `[70-80)`): take the lower bound via the first signed number.
+- **Negative numeric or signed-string sentinel** (e.g. `-1`, `"unknown: -999"`): treat as missing; it must never fall through to the `75+` band.
 - **Anything else**: treat as categorical (skip numeric handling).
 
 Fixed bands (left-closed): `0–18`, `18–30`, `30–45`, `45–60`, `60–75`, `75+`.
