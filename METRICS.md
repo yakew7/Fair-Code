@@ -3,7 +3,7 @@
 # Fair Code - Metrics Tracker
 
 ![Stars](https://img.shields.io/badge/Stars-46-brightgreen?style=flat-square&logo=github)
-![Contributors](https://img.shields.io/badge/Contributors-27-blue?style=flat-square)
+![Contributors](https://img.shields.io/badge/Contributors-28-blue?style=flat-square)
 ![Forks](https://img.shields.io/badge/Forks-31-orange?style=flat-square)
 ![Watching](https://img.shields.io/badge/Watching-8-yellow?style=flat-square)
 ![Explainers](https://img.shields.io/badge/Explainers-53-blueviolet?style=flat-square)
@@ -94,7 +94,7 @@ Weekly snapshot of project health. Updated every Friday.
 | Stars | 46 | 50+ | End of 2026 |
 | Forks | 31 | 25+ | End of 2026 |
 | Watching | 8 | 12+ | End of 2026 |
-| Contributors | 27 | 20+ | End of 2026 |
+| Contributors | 28 | 20+ | End of 2026 |
 | Social reach | 30K+ | 40K+ | End of 2026 |
 | Countries reached | 20 | 20+ | End of 2026 |
 | Issues closed | 68 (past 7 days) | Track weekly | Ongoing |
