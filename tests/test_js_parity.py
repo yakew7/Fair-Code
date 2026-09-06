@@ -140,6 +140,32 @@ def test_python_js_profiler_parity_sniffs_quoted_newlines(tmp_path):
     assert javascript_result == python_result
 
 
+def test_python_js_profiler_parity_detects_dates_appended_after_numeric_ages(tmp_path):
+    """A merged-in birthdate block cannot become a fabricated elderly group."""
+    csv = tmp_path / "mixed-age-and-birthdate.csv"
+    ages = [str(age) for age in range(20, 80)]
+    dates = ["1985-03-21", "1990-07-14", "2001-11-02"] * 20
+    csv.write_text("age\n" + "\n".join(ages + dates) + "\n", encoding="utf-8")
+
+    python_result = profile(pd.read_csv(csv))
+    completed = subprocess.run(
+        ["node", "scripts/engine-js.js", "profile", str(csv)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    javascript_result = json.loads(completed.stdout)
+
+    python_result = dict(python_result)
+    javascript_result = dict(javascript_result)
+    python_result.pop("flags", None)
+    javascript_result.pop("flags", None)
+
+    assert javascript_result == python_result
+    assert all(dim["name"] != "age" for dim in python_result["dimensions"])
+
+
 def test_python_js_profiler_parity_with_overrides_cross_and_thresholds(tmp_path):
     """Non-default options - --map/--cross/--reference/thresholds - only ever
     had cross-engine parity coverage for their default-off path (issue #376).

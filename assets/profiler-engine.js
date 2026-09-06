@@ -16,6 +16,7 @@
   var IMBALANCE_FLAG = 3.0;
   var MISSING_FLAG = 0.05;
   var AGE_BANDS = [0, 18, 30, 45, 60, 75];
+  var DATE_SAMPLE_SIZE = 200;
   var MAX_CATEGORICAL_CARD = 20;
   var MAX_DIMENSION_GROUPS = 50;
   var MIN_GROUP_SIZE = 100;  // warn when a subgroup has fewer than N rows (SPEC 3)
@@ -462,14 +463,23 @@
   }
 
   function looksLikeDates(rows, col) {
-    var sample = [], i;
-    for (i = 0; i < rows.length && sample.length < 50; i++) {
-      if (rows[i][col] !== null) sample.push(String(rows[i][col]));
+    var values = [], sample = [], i;
+    for (i = 0; i < rows.length; i++) {
+      if (rows[i][col] !== null && rows[i][col] !== undefined) {
+        values.push(String(rows[i][col]));
+      }
     }
-    if (!sample.length) return false;
+    if (!values.length) return false;
+    if (values.length <= DATE_SAMPLE_SIZE) {
+      sample = values;
+    } else {
+      for (i = 0; i < DATE_SAMPLE_SIZE; i++) {
+        sample.push(values[Math.floor(i * (values.length - 1) / (DATE_SAMPLE_SIZE - 1))]);
+      }
+    }
     var hits = 0;
     for (i = 0; i < sample.length; i++) if (DATE_RE.test(sample[i])) hits++;
-    return hits / sample.length > 0.5;
+    return hits / sample.length >= 0.5;
   }
 
   function skewness(values) {

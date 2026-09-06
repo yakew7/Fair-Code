@@ -68,6 +68,10 @@ Age columns come in three shapes - normalize to numeric bands:
 - **Interval string** (e.g. `[70-80)`): take the lower bound integer via the first run of digits.
 - **Anything else**: treat as categorical (skip numeric handling).
 
+Before numeric normalization, date detection checks a deterministic sample of up to **200**
+non-null values spread across the whole column. If at least 50% of that sample is date-shaped, the
+column stays categorical so later date rows cannot be converted into fabricated numeric age bands.
+
 Fixed bands (left-closed): `0–18`, `18–30`, `30–45`, `45–60`, `60–75`, `75+`.
 The band shares are then analyzed exactly like a categorical column.
 
@@ -212,6 +216,7 @@ in Python, `profile(table, overrides, opts)` in JS, and `--min-share` / `--inter
 | `IMBALANCE_FLAG`       | 3.0     | imbalance-ratio flag             |
 | `MISSING_FLAG`         | 0.05    | missing-data flag                |
 | `AGE_BANDS`            | 0,18,30,45,60,75 | age band edges          |
+| `DATE_SAMPLE_SIZE`     | 200          | whole-column date-detection sample cap |
 | `PSI_EPSILON`          | 0.0001  | share floor in PSI (§8)          |
 | `PSI_MODERATE`         | 0.10    | PSI ≥ this → moderate drift (§8) |
 | `PSI_SIGNIFICANT`      | 0.25    | PSI ≥ this → significant drift (§8) |

@@ -11,7 +11,13 @@ import pytest
 
 from faircode import profile
 from faircode.detect import classify_name, detect_columns
-from faircode.profiler import _age_band, _age_to_numeric, _skewness, parse_reference
+from faircode.profiler import (
+    _age_band,
+    _age_to_numeric,
+    _looks_like_dates,
+    _skewness,
+    parse_reference,
+)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -92,6 +98,20 @@ def test_age_band_edges():
     assert _age_band(17) == "0-18"
     assert _age_band(18) == "18-30"
     assert _age_band(80) == "75+"
+
+
+def test_date_detection_samples_appended_values_across_the_column():
+    ages = list(range(20, 80))
+    dates = ["1985-03-21", "1990-07-14", "2001-11-02"] * 20
+
+    assert _looks_like_dates(pd.Series(ages + dates)) is True
+
+
+def test_date_detection_samples_large_columns_beyond_the_head():
+    ages = list(range(20, 60)) * 4
+    dates = ["1985-03-21", "1990-07-14"] * 90
+
+    assert _looks_like_dates(pd.Series(ages + dates)) is True
 
 
 def test_skewness_symmetric_is_zero():
