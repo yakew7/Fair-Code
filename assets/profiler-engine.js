@@ -107,7 +107,7 @@
           if (text[i + 1] === '"') { field += '"'; i++; }
           else inQuotes = false;
         } else field += c;
-      } else if (c === '"') {
+      } else if (c === '"' && field === '') {
         inQuotes = true;
       } else if (c === delimiter) {
         row.push(field); field = '';
