@@ -21,6 +21,7 @@ IMBALANCE_FLAG = 3.0
 MISSING_FLAG = 0.05
 REFERENCE_DEVIATION_FLAG = 0.05  # under-representation vs a reference baseline
 AGE_BANDS = [0, 18, 30, 45, 60, 75]  # left-closed edges; final band is "75+"
+DATE_SAMPLE_SIZE = 200  # deterministic whole-column sample for date detection
 MAX_DIMENSION_GROUPS = 50  # drop identifier/date-like columns (geography exempt)
 MIN_GROUP_SIZE = 100  # warn when a subgroup has fewer than N rows (default: 100)
 
@@ -86,12 +87,19 @@ def _r(x, dp: int = 0):
 
 # ── Age handling (SPEC section 2) ───────────────────────────────────────────
 def _looks_like_dates(series) -> bool:
-    """True if a sample of values look like dates (e.g. birthdates), not ages."""
-    sample = series.dropna().astype(str).head(50)
-    if len(sample) == 0:
+    """True if a whole-column sample looks like dates, not numeric ages."""
+    values = series.dropna().astype(str)
+    if len(values) == 0:
         return False
+    if len(values) <= DATE_SAMPLE_SIZE:
+        sample = values
+    else:
+        last = len(values) - 1
+        sample = values.iloc[
+            [i * last // (DATE_SAMPLE_SIZE - 1) for i in range(DATE_SAMPLE_SIZE)]
+        ]
     hits = sum(1 for v in sample if _DATE_RE.search(v))
-    return hits / len(sample) > 0.5
+    return hits / len(sample) >= 0.5
 
 
 

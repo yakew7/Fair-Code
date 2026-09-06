@@ -140,6 +140,12 @@ def test_python_js_profiler_parity_sniffs_quoted_newlines(tmp_path):
     assert javascript_result == python_result
 
 
+def test_python_js_profiler_parity_detects_dates_appended_after_numeric_ages(tmp_path):
+    """A merged-in birthdate block cannot become a fabricated elderly group."""
+    csv = tmp_path / "mixed-age-and-birthdate.csv"
+    ages = [str(age) for age in range(20, 80)]
+    dates = ["1985-03-21", "1990-07-14", "2001-11-02"] * 20
+    csv.write_text("age\n" + "\n".join(ages + dates) + "\n", encoding="utf-8")
 def test_python_js_profiler_parity_rejects_negative_age_sentinels(tmp_path):
     """Signed sentinel ages stay missing in both profiler engines."""
     csv = tmp_path / "negative-age-sentinels.csv"
@@ -164,6 +170,7 @@ def test_python_js_profiler_parity_rejects_negative_age_sentinels(tmp_path):
     javascript_result.pop("flags", None)
 
     assert javascript_result == python_result
+    assert all(dim["name"] != "age" for dim in python_result["dimensions"])
     age = next(d for d in python_result["dimensions"] if d["name"] == "age")
     assert "75+" not in {group["label"] for group in age["groups"]}
     assert age["missing_pct"] == 0.4
