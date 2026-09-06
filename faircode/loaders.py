@@ -30,14 +30,19 @@ def read_table(path: str) -> pd.DataFrame:
             ) from exc
 
     if suffix == ".tsv":
-        return pd.read_csv(path, sep="\t")
+        return _read_delimited(path, default="\t")
 
     if suffix == ".csv":
-        return pd.read_csv(path)
+        return _read_delimited(path, default=",")
 
+    return _read_delimited(path, default=",")
+
+
+def _read_delimited(path: str, *, default: str) -> pd.DataFrame:
+    """Read delimited text, using the extension's convention only as fallback."""
     with open(path, "r", encoding="utf-8", errors="replace", newline="") as fh:
         sample = fh.read(SNIFF_SAMPLE_BYTES)
-    return pd.read_csv(path, sep=_sniff_delimiter(sample))
+    return pd.read_csv(path, sep=_sniff_delimiter(sample, default=default))
 
 
 def _sniff_delimiter(sample: str, default: str = ",") -> str:

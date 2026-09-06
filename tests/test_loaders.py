@@ -67,6 +67,19 @@ def test_read_table_csv(tmp_path):
     df = read_table(str(path))
     assert list(df.columns) == ["patient_id", "sex", "age"]
 
+
+@pytest.mark.parametrize(
+    ("suffix", "separator"),
+    [(".csv", ";"), (".tsv", ",")],
+)
+def test_read_table_sniffs_delimiter_despite_extension(tmp_path, suffix, separator):
+    path = tmp_path / f"data{suffix}"
+    expected = _write_csv(path, sep=separator)
+
+    actual = read_table(str(path))
+
+    pd.testing.assert_frame_equal(actual, expected)
+
 @pytest.mark.parametrize(
     "orient",
     ["records", "split"],
