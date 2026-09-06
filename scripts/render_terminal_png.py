@@ -9,6 +9,7 @@ Usage: python3 scripts/render_terminal_png.py <input.txt> <output.png>
 from __future__ import annotations
 
 import sys
+import textwrap
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
@@ -24,8 +25,23 @@ TEXT_COLOR = (248, 248, 243)
 MAX_WIDTH_CHARS = 92
 
 
+def _wrapped_lines(text: str) -> list[str]:
+    wrapper = textwrap.TextWrapper(
+        width=MAX_WIDTH_CHARS,
+        expand_tabs=False,
+        replace_whitespace=False,
+        drop_whitespace=False,
+        break_long_words=True,
+        break_on_hyphens=False,
+    )
+    lines = []
+    for line in text.rstrip("\n").split("\n"):
+        lines.extend(wrapper.wrap(line) or [""])
+    return lines
+
+
 def render(text: str, out_path):
-    lines = text.rstrip("\n").split("\n")
+    lines = _wrapped_lines(text)
     font = ImageFont.truetype(str(FONT_PATH), FONT_SIZE)
 
     # Measure with a scratch image, since char width needs a real font metric.
@@ -34,7 +50,7 @@ def render(text: str, out_path):
     char_width = draw.textlength("M", font=font)
 
     max_line_len = max((len(line) for line in lines), default=0)
-    width = int(PAD_X * 2 + char_width * min(max_line_len, MAX_WIDTH_CHARS))
+    width = int(PAD_X * 2 + char_width * max_line_len)
     height = PAD_Y * 2 + LINE_HEIGHT * len(lines)
 
     img = Image.new("RGB", (width, height), BG_COLOR)

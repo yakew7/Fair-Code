@@ -19,6 +19,8 @@ All notable changes to Fair Code are documented here, newest first.
 
 ## [2.2.0] - 02 Sep 2026
 
+- **Terminal screenshots silently clipped text beyond 92 characters** (closes #443) - `render_terminal_png.py` now wraps each captured line before measuring and drawing the canvas, preserving explicit blank lines and every rendered glyph within the documented width.
+
 - **`fit_post_processing()` crashed while splitting a singleton target class** (closes #446) - stratification now checks every observed class count before passing labels to scikit-learn, while retaining stratified calibration splits whenever all classes support them.
 
 Three rounds of a fresh MCP-focused audit, each finding real gaps through direct verification
