@@ -127,11 +127,11 @@ def _compare_dimension(dim_a: dict, dim_b: dict) -> dict:
     }
 
 
-def _build_flags(result_a: dict, result_b: dict, score_delta: int,
+def _build_flags(result_a: dict, result_b: dict, score_delta: int | None,
                  dimensions: list, added: list, removed: list,
                  name_a: str, name_b: str) -> list:
     flags: list[str] = []
-    if score_delta <= -SCORE_DROP_FLAG:
+    if score_delta is not None and score_delta <= -SCORE_DROP_FLAG:
         flags.append(
             f"overall representation score dropped {abs(score_delta)} points "
             f"({result_a['overall_score']} → {result_b['overall_score']})"
@@ -184,15 +184,20 @@ def compare(result_a: dict, result_b: dict, name_a="A", name_b="B") -> dict:
     removed = [d["name"] for d in result_a["dimensions"] if d["name"] not in dims_b]
 
     dimensions = [_compare_dimension(dims_a[n], dims_b[n]) for n in shared]
-    score_delta = result_b["overall_score"] - result_a["overall_score"]
+    scores = (result_a["overall_score"], result_b["overall_score"])
+    score_delta = scores[1] - scores[0] if None not in scores else None
     flags = _build_flags(result_a, result_b, score_delta, dimensions,
                          added, removed, name_a, name_b)
 
     return {
         "a": {"name": name_a, "n_rows": result_a["n_rows"],
-              "overall_score": result_a["overall_score"], "grade": result_a["grade"]},
+              "overall_score": result_a["overall_score"], "grade": result_a["grade"],
+              "dimensions_detected": result_a["dimensions_detected"],
+              "note": result_a["note"]},
         "b": {"name": name_b, "n_rows": result_b["n_rows"],
-              "overall_score": result_b["overall_score"], "grade": result_b["grade"]},
+              "overall_score": result_b["overall_score"], "grade": result_b["grade"],
+              "dimensions_detected": result_b["dimensions_detected"],
+              "note": result_b["note"]},
         "score_delta": score_delta,
         "dimensions": dimensions,
         "added_dimensions": added,

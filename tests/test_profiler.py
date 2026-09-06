@@ -173,13 +173,15 @@ def test_single_group_scores_zero():
     assert dim["dimension_score"] == 0
 
 
-def test_empty_demographics_overall_zero():
+def test_empty_demographics_are_explicitly_unmeasured():
     # High-cardinality continuous columns -> nothing detected as demographic.
     df = pd.DataFrame({"price": [i * 1.5 for i in range(100)],
                        "qty": list(range(100))})
     result = profile(df)
-    assert result["overall_score"] == 0
-    assert result["grade"] == "F"
+    assert result["overall_score"] is None
+    assert result["grade"] is None
+    assert result["dimensions_detected"] is False
+    assert result["note"] == "No demographic columns detected."
     assert result["dimensions"] == []
 
 

@@ -267,12 +267,20 @@ def test_to_terminal_renders_proxy_hints(mock_profile_result):
 
 
 def test_to_terminal_no_dimensions_detected():
-    out = to_terminal({
-        "n_rows": 10, "n_cols": 2, "overall_score": 0, "grade": "F",
+    result = {
+        "n_rows": 10, "n_cols": 2, "overall_score": None, "grade": None,
+        "dimensions_detected": False, "note": "No demographic columns detected.",
         "dimensions": [], "flags": [],
-    })
+    }
+
+    out = to_terminal(result)
+    html_out = to_html(result)
 
     assert "No demographic columns detected." in out
+    assert "Grade F" not in out
+    assert "0/100" not in out
+    assert "Not measured" in html_out
+    assert "None/100" not in html_out
 
 
 def test_compare_to_terminal_smoke(mock_compare_result):
@@ -316,3 +324,20 @@ def test_compare_to_terminal_no_shared_dimensions():
     })
 
     assert "No shared demographic dimensions to compare." in out
+
+
+def test_compare_reports_unmeasured_score_without_formatting_none():
+    result = {
+        "score_delta": None,
+        "a": {"name": "A", "overall_score": 100, "n_rows": 10, "grade": "A"},
+        "b": {"name": "B", "overall_score": None, "n_rows": 10, "grade": None},
+        "added_dimensions": [], "removed_dimensions": [], "flags": [], "dimensions": [],
+    }
+
+    terminal_out = compare_to_terminal(result)
+    html_out = compare_to_html(result)
+
+    assert "score not measured" in terminal_out
+    assert "Overall score change: not available" in terminal_out
+    assert "score change not available" in html_out
+    assert "None" not in html_out

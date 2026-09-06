@@ -56,8 +56,21 @@ def test_profile_dataset_matches_the_shape_profile_returns(tmp_path):
     result = _profile_dataset_impl(str(path))
 
     assert set(result) == {"n_rows", "n_cols", "overall_score", "grade",
-                            "dimensions", "intersections", "flags", "provenance"}
+                          "dimensions_detected", "note", "dimensions",
+                          "intersections", "flags", "provenance"}
     assert result["n_rows"] == 10
+
+
+def test_profile_dataset_exposes_unmeasured_state(tmp_path):
+    path = tmp_path / "identifiers.csv"
+    path.write_text("id\n" + "\n".join(str(i) for i in range(40)), encoding="utf-8")
+
+    result = _profile_dataset_impl(str(path), include_provenance=False)
+
+    assert result["overall_score"] is None
+    assert result["grade"] is None
+    assert result["dimensions_detected"] is False
+    assert result["note"] == "No demographic columns detected."
 
 
 def test_profile_dataset_provenance_default_on_and_matches_the_file_hash(tmp_path):

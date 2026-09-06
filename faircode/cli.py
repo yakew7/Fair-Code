@@ -290,6 +290,12 @@ def main(argv: list[str] | None = None) -> int:
             print(to_json(result, provenance=provenance))
         else:
             print(to_terminal(result))
+        if args.fail_under is not None and result["overall_score"] is None:
+            print(
+                "error: cannot apply --fail-under: no demographic columns detected",
+                file=sys.stderr,
+            )
+            return 2
         if args.fail_under is not None and result["overall_score"] < args.fail_under:
             print(
                 f"error: representation score {result['overall_score']}/100 is below "

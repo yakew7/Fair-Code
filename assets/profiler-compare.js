@@ -328,7 +328,8 @@
     currentCmp = cmp;
     reportActionsEl.hidden = false;
     var d = cmp.score_delta;
-    var deltaClass = d > 0 ? 'up' : d < 0 ? 'down' : 'flat';
+    var measured = d !== null;
+    var deltaClass = measured && d > 0 ? 'up' : measured && d < 0 ? 'down' : 'flat';
     var arrow = d === 0 ? '=' : '→';
 
     var summary =
@@ -337,7 +338,7 @@
         '<div class="drift-arrow" aria-hidden="true">' + arrow + '</div>' +
         scoreCell(cmp.b) +
         '<div class="drift-delta ' + deltaClass + '">' +
-          'score ' + signed(d, 0) + '</div>' +
+          (measured ? 'score ' + signed(d, 0) : 'score change not available') + '</div>' +
       '</div>';
 
     var flags = '';
@@ -371,12 +372,14 @@
       resultsEl.scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'nearest' });
     }
 
-    announcer.textContent = 'Comparison complete. Overall score change ' + signed(d, 0) +
-      ' points. ' + cmp.flags.length + ' drift flag' + (cmp.flags.length === 1 ? '' : 's') + '.';
+    announcer.textContent = 'Comparison complete. Overall score change ' +
+      (measured ? signed(d, 0) + ' points' : 'not available') + '. ' + cmp.flags.length +
+      ' drift flag' + (cmp.flags.length === 1 ? '' : 's') + '.';
   }
 
   function scoreCell(side) {
-    return '<div class="drift-score"><span class="n">' + side.overall_score + '</span>' +
+    return '<div class="drift-score"><span class="n">' +
+      (side.overall_score === null ? 'N/A' : side.overall_score) + '</span>' +
       '<span class="l">' + esc(side.name) + '</span></div>';
   }
 
@@ -428,17 +431,27 @@
   function buildCompareHtmlReport(cmp) {
     var a = cmp.a, b = cmp.b;
     var scoreDelta = cmp.score_delta;
-    var deltaClass = scoreDelta > 0 ? 'up' : (scoreDelta < 0 ? 'down' : 'flat');
+    var measured = scoreDelta !== null;
+    var deltaClass = measured && scoreDelta > 0 ? 'up' : (measured && scoreDelta < 0 ? 'down' : 'flat');
     var arrow = scoreDelta === 0 ? '=' : '→';
+
+    function reportScore(side) {
+      if (side.overall_score === null) {
+        return '<span class="n">N/A</span><span class="l">' + esc(side.name) +
+          ' (' + side.n_rows.toLocaleString() + ' rows, not measured)</span>';
+      }
+      return '<span class="n">' + side.overall_score + '</span><span class="l">' +
+        esc(side.name) + ' (' + side.n_rows.toLocaleString() + ' rows, Grade ' +
+        side.grade + ')</span>';
+    }
 
     var summaryHtml =
       '<div class="drift-summary">' +
-      '<div class="drift-score"><span class="n">' + a.overall_score + '</span><span class="l">' +
-        esc(a.name) + ' (' + a.n_rows.toLocaleString() + ' rows, Grade ' + a.grade + ')</span></div>' +
+      '<div class="drift-score">' + reportScore(a) + '</div>' +
       '<div class="drift-arrow" aria-hidden="true">' + arrow + '</div>' +
-      '<div class="drift-score"><span class="n">' + b.overall_score + '</span><span class="l">' +
-        esc(b.name) + ' (' + b.n_rows.toLocaleString() + ' rows, Grade ' + b.grade + ')</span></div>' +
-      '<div class="drift-delta ' + deltaClass + '">score ' + signed(scoreDelta, 0) + ' pts</div>' +
+      '<div class="drift-score">' + reportScore(b) + '</div>' +
+      '<div class="drift-delta ' + deltaClass + '">' +
+        (measured ? 'score ' + signed(scoreDelta, 0) + ' pts' : 'score change not available') + '</div>' +
       '</div>';
 
     var cardsHtml;
