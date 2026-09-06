@@ -50,6 +50,30 @@ def test_render_strips_a_single_trailing_newline_only(tmp_path):
         assert img.size[1] == script.PAD_Y * 2 + script.LINE_HEIGHT * 3
 
 
+def test_render_wraps_long_lines_without_clipping_pixels(tmp_path):
+    script = _script()
+    capped_path = tmp_path / "capped.png"
+    wrapped_path = tmp_path / "wrapped.png"
+
+    script.render("ok\n" + "X" * script.MAX_WIDTH_CHARS, capped_path)
+    script.render("ok\n" + "X" * 150, wrapped_path)
+
+    def text_pixel_count(path):
+        with Image.open(path) as img:
+            pixels = img.load()
+            return sum(
+                pixels[x, y] != script.BG_COLOR
+                for y in range(img.height)
+                for x in range(img.width)
+            )
+
+    with Image.open(wrapped_path) as img:
+        assert img.size[1] == script.PAD_Y * 2 + script.LINE_HEIGHT * 3
+    # All 150 glyphs are present across two rows. The old renderer clipped the
+    # overflow and produced approximately the same ink count as the 92-char image.
+    assert text_pixel_count(wrapped_path) > text_pixel_count(capped_path) * 1.5
+
+
 def test_main_wrong_arg_count_exits_2(capsys, monkeypatch):
     script = _script()
     monkeypatch.setattr("sys.argv", ["render_terminal_png.py", "only_one_arg"])
