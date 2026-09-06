@@ -430,13 +430,18 @@
   // ── Age handling (SPEC section 2) ──────────────────────────────────────
   function ageToNumeric(value) {
     if (value === null || value === undefined) return null;
-    if (typeof value === 'number') return value;
-    var m = String(value).match(/\d+/);
-    return m ? parseFloat(m[0]) : null;
+    var numeric;
+    if (typeof value === 'number') numeric = value;
+    else {
+      var m = String(value).match(/[+-]?\d+(?:\.\d+)?/);
+      if (!m) return null;
+      numeric = parseFloat(m[0]);
+    }
+    return Number.isFinite(numeric) && numeric >= AGE_BANDS[0] ? numeric : null;
   }
 
   function ageBand(num) {
-    if (num === null) return null;
+    if (num === null || !Number.isFinite(num) || num < AGE_BANDS[0]) return null;
     for (var i = 0; i < AGE_BANDS.length - 1; i++) {
       if (num >= AGE_BANDS[i] && num < AGE_BANDS[i + 1]) {
         return AGE_BANDS[i] + '-' + AGE_BANDS[i + 1];

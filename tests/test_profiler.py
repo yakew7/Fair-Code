@@ -87,11 +87,29 @@ def test_age_to_numeric():
     assert _age_to_numeric("n/a") is None
 
 
+def test_age_to_numeric_rejects_negative_sentinels_in_numeric_and_string_cells():
+    assert _age_to_numeric(-1) is None
+    assert _age_to_numeric(-999.0) is None
+    assert _age_to_numeric("-5") is None
+    assert _age_to_numeric("unknown: -1") is None
+
+
 def test_age_band_edges():
+    assert _age_band(-1) is None
     assert _age_band(0) == "0-18"
     assert _age_band(17) == "0-18"
     assert _age_band(18) == "18-30"
     assert _age_band(80) == "75+"
+
+
+def test_negative_age_sentinels_are_missing_instead_of_an_elderly_group():
+    df = pd.DataFrame({"age": [25, 30, 45, 22, 60] + [-1] * 10})
+
+    dim = profile(df)["dimensions"][0]
+
+    assert "75+" not in {group["label"] for group in dim["groups"]}
+    assert sum(group["count"] for group in dim["groups"]) == 5
+    assert dim["missing_pct"] == 0.6667
 
 
 def test_skewness_symmetric_is_zero():
