@@ -77,15 +77,48 @@
 
   // ── Delimiter sniffing (SPEC-adjacent; mirrors faircode/loaders.py) ─────
   // Picks whichever of , \t ; | appears the same number of times on every
-  // sampled line - so a tab-separated export saved as .csv still parses.
+  // sampled logical row - so quoted newlines do not corrupt the sample.
   var DELIMITER_CANDIDATES = [',', '\t', ';', '|'];
 
+  function logicalRowDelimiterCounts(text, delimiter) {
+    var counts = [], count = 0, inQuotes = false;
+    var atFieldStart = true, hasContent = false;
+    for (var i = 0; i < text.length && counts.length < 5; i++) {
+      var c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') i++;
+          else inQuotes = false;
+        }
+      } else if (c === '"' && atFieldStart) {
+        inQuotes = true;
+        hasContent = true;
+      } else if (c === delimiter) {
+        count++;
+        atFieldStart = true;
+        hasContent = true;
+      } else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        if (hasContent) counts.push(count);
+        count = 0;
+        atFieldStart = true;
+        hasContent = false;
+      } else {
+        atFieldStart = false;
+        hasContent = true;
+      }
+    }
+    if (counts.length < 5 && hasContent && !inQuotes) counts.push(count);
+    return counts;
+  }
+
   function sniffDelimiter(text) {
-    var sample = text.slice(0, 8192).split(/\r\n|\r|\n/).filter(Boolean).slice(0, 5);
-    if (!sample.length) return ',';
+    var sample = text.slice(0, 8192);
+    if (!sample) return ',';
     var best = ',', bestCount = -1;
     DELIMITER_CANDIDATES.forEach(function (d) {
-      var counts = sample.map(function (line) { return line.split(d).length - 1; });
+      var counts = logicalRowDelimiterCounts(sample, d);
+      if (!counts.length) return;
       var first = counts[0];
       if (first <= 0) return;
       var consistent = counts.every(function (c) { return c === first; });
