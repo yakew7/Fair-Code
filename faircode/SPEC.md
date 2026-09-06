@@ -199,6 +199,10 @@ with `imbalance_ratio ≥ 3`, every dimension with `missing_pct ≥ 0.05`, and e
 
 ## 7. Defaults (single place to tune)
 
+Human-readable terminal, browser, and exported HTML reports show at most the first **12** groups
+per dimension. Whenever a dimension contains more groups, every report surface must state exactly
+how many groups were omitted; the structured result remains complete.
+
 The flagging thresholds are overridable per run without editing source: `profile(df, opts={...})`
 in Python, `profile(table, overrides, opts)` in JS, and `--min-share` / `--intersection-floor` /
 `--imbalance-flag` / `--missing-flag` / `--min-group-size` on the CLI. Omitted knobs fall back to the defaults below.
