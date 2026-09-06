@@ -424,16 +424,17 @@ def profile(df: pd.DataFrame, overrides=None, opts=None) -> dict:
                 + ", ".join(sorted(o["reference"])))
         ref_flags = _apply_reference(dimensions, o["reference"], o["reference_flag"])
 
-    if dimensions:
-        overall = _r(sum(d["dimension_score"] for d in dimensions) / len(dimensions))
-    else:
-        overall = 0
+    dimensions_detected = bool(dimensions)
+    overall = (_r(sum(d["dimension_score"] for d in dimensions) / len(dimensions))
+               if dimensions_detected else None)
 
     return {
         "n_rows": len(df),
         "n_cols": len(df.columns),
         "overall_score": overall,
-        "grade": _grade(overall),
+        "grade": _grade(overall) if overall is not None else None,
+        "dimensions_detected": dimensions_detected,
+        "note": None if dimensions_detected else "No demographic columns detected.",
         "dimensions": dimensions,
         "intersections": intersections,
         "flags": _build_flags(dimensions, intersections,

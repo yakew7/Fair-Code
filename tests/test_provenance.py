@@ -118,7 +118,8 @@ def test_engine_result_keys_are_untouched(dataset, capsys):
     assert main(["profile", str(dataset), "--json"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert set(payload) == {"n_rows", "n_cols", "overall_score", "grade",
-                            "dimensions", "intersections", "flags", "provenance"}
+                           "dimensions_detected", "note", "dimensions",
+                           "intersections", "flags", "provenance"}
 
 
 def test_overrides_and_thresholds_are_recorded(dataset, capsys):

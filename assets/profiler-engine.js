@@ -741,7 +741,7 @@
       refFlags = applyReference(dimensions, o.reference, o.reference_flag);
     }
 
-    var overall = 0;
+    var overall = null;
     if (dimensions.length) {
       var sum = 0;
       dimensions.forEach(function (d) { sum += d.dimension_score; });
@@ -752,7 +752,9 @@
       n_rows: table.rows.length,
       n_cols: table.columns.length,
       overall_score: overall,
-      grade: grade(overall),
+      grade: overall === null ? null : grade(overall),
+      dimensions_detected: dimensions.length > 0,
+      note: dimensions.length ? null : 'No demographic columns detected.',
       dimensions: dimensions,
       intersections: inters,
       flags: buildFlags(dimensions, inters, o.imbalance_flag, o.missing_flag).concat(refFlags)
@@ -882,10 +884,11 @@
     var dimensions = shared.map(function (n) {
       return compareDimension(dimsA[n], dimsB[n]);
     });
-    var scoreDelta = resultB.overall_score - resultA.overall_score;
+    var scoreDelta = (resultA.overall_score === null || resultB.overall_score === null)
+      ? null : resultB.overall_score - resultA.overall_score;
 
     var flags = [];
-    if (scoreDelta <= -SCORE_DROP_FLAG) {
+    if (scoreDelta !== null && scoreDelta <= -SCORE_DROP_FLAG) {
       flags.push('overall representation score dropped ' + Math.abs(scoreDelta) +
                  ' points (' + resultA.overall_score + ' → ' + resultB.overall_score + ')');
     }
@@ -923,9 +926,11 @@
 
     return {
       a: { name: nameA, n_rows: resultA.n_rows,
-           overall_score: resultA.overall_score, grade: resultA.grade },
+           overall_score: resultA.overall_score, grade: resultA.grade,
+           dimensions_detected: resultA.dimensions_detected, note: resultA.note },
       b: { name: nameB, n_rows: resultB.n_rows,
-           overall_score: resultB.overall_score, grade: resultB.grade },
+           overall_score: resultB.overall_score, grade: resultB.grade,
+           dimensions_detected: resultB.dimensions_detected, note: resultB.note },
       score_delta: scoreDelta, dimensions: dimensions,
       added_dimensions: added, removed_dimensions: removed, flags: flags
     };

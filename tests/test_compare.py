@@ -138,3 +138,14 @@ def test_overall_score_drop_is_flagged():
     cmp = compare(profile(a), profile(b))
     assert cmp["score_delta"] < 0
     assert any("overall representation score dropped" in f for f in cmp["flags"])
+
+
+def test_unmeasured_profile_has_no_score_delta():
+    measured = profile(pd.DataFrame({"sex": ["M", "F"] * 20}))
+    unmeasured = profile(pd.DataFrame({"id": range(40)}))
+
+    cmp = compare(measured, unmeasured)
+
+    assert cmp["score_delta"] is None
+    assert cmp["b"]["dimensions_detected"] is False
+    assert not any("overall representation score dropped" in f for f in cmp["flags"])

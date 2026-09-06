@@ -136,8 +136,12 @@ count is `0` (an absent subgroup) or `< intersection_floor` of total rows (defau
 ## 5. Headline score & grade
 
 ```
-overall_score = round( mean( dimension_score for every detected dimension ) )   # 0 if none
+overall_score = round( mean( dimension_score for every detected dimension ) )
 ```
+
+If no dimensions are detected, the result is unmeasured: `overall_score`, `grade`, and comparison
+`score_delta` are `null`, `dimensions_detected` is `false`, and `note` explains that no demographic
+columns were detected. A missing measurement must not be interpreted as the numeric score zero.
 
 Grade bands:
 
@@ -166,6 +170,8 @@ dict, JS uses a plain object):
   "n_cols": 11,
   "overall_score": 72,
   "grade": "B",
+  "dimensions_detected": true,
+  "note": null,
   "dimensions": [
     {
       "name": "gender", "kind": "sex", "n_groups": 2,
@@ -238,7 +244,8 @@ For a shared dimension, take the **union** of group labels. Each label has `shar
   `appeared` (`a = 0, b > 0`), `disappeared` (`a > 0, b = 0`), or `shifted`. Groups are ordered by
   **descending `|share_delta|`**, then label ascending (deterministic tie-break, both engines agree).
 
-Top level: `score_delta = overall_score_b − overall_score_a`. `flags` is assembled from: an
+Top level: `score_delta = overall_score_b − overall_score_a` when both scores are measured, and
+`null` otherwise. `flags` is assembled from: an
 overall-score drop of `≥ SCORE_DROP_FLAG` points, every dimension whose `drift_level ≠ none`, every
 `appeared`/`disappeared` group, and every added/removed dimension.
 

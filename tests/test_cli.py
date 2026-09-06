@@ -61,6 +61,19 @@ def test_profile_fail_under_equal_threshold_returns_zero(tmp_path, capsys):
     assert captured.err == ""
 
 
+def test_profile_fail_under_reports_unmeasured_dataset(tmp_path, capsys):
+    path = tmp_path / "identifiers.csv"
+    path.write_text("id\n" + "\n".join(str(i) for i in range(40)), encoding="utf-8")
+
+    exit_code = main(["profile", str(path), "--json", "--fail-under", "90"])
+
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    assert exit_code == 2
+    assert result["overall_score"] is None
+    assert "cannot apply --fail-under: no demographic columns detected" in captured.err
+
+
 def test_compare_fail_on_drift_returns_nonzero_and_explains(tmp_path, capsys):
     path_a = tmp_path / "a.csv"
     path_a.write_text("sex\n" + "M\n" * 50 + "F\n" * 50, encoding="utf-8")

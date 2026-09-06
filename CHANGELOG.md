@@ -19,6 +19,9 @@ All notable changes to Fair Code are documented here, newest first.
 
 ## [2.2.0] - 02 Sep 2026
 
+- **A profile with no detected dimensions looked identical to a failed fairness score** (closes #444) - Python, the web engine, JSON/MCP output, comparisons, and reports now represent the unmeasured state with null score/grade values plus an explicit detection flag and note; `--fail-under` reports that the threshold cannot be applied instead of treating the dataset as a zero.
+- **`fit_post_processing()` crashed while splitting a singleton target class** (closes #446) - stratification now checks every observed class count before passing labels to scikit-learn, while retaining stratified calibration splits whenever all classes support them.
+
 Three rounds of a fresh MCP-focused audit, each finding real gaps through direct verification
 (not guessed), fixing them, and adding one Phase 2 capability - completing the "read-only lookups
 against `paper/results-frozen/` and `explainers/`" plan named as a follow-up when the MCP server
