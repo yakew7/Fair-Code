@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 
 from faircode import compare, profile
+from faircode.loaders import read_table
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -93,6 +94,37 @@ def test_python_js_profiler_parity_preserves_mid_field_quotes(tmp_path):
     python_result = profile(pd.read_csv(csv))
     completed = subprocess.run(
         ["node", "scripts/engine-js.js", "profile", str(csv)],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    javascript_result = json.loads(completed.stdout)
+
+    python_result = dict(python_result)
+    javascript_result = dict(javascript_result)
+    python_result.pop("flags", None)
+    javascript_result.pop("flags", None)
+
+    assert javascript_result == python_result
+
+
+def test_python_js_profiler_parity_sniffs_quoted_newlines(tmp_path):
+    """Embedded newlines do not split logical rows during delimiter sniffing."""
+    dataset = tmp_path / "sniff_quoted_newline.dat"
+    dataset.write_text(
+        'sex;race;age;notes\n'
+        'M;White;25;"single line"\n'
+        'F;Black;30;"multi\nline note"\n'
+        'M;White;45;"ok"\n'
+        'F;Asian;22;"fine"\n'
+        'M;White;50;"good"\n',
+        encoding="utf-8",
+    )
+
+    python_result = profile(read_table(str(dataset)))
+    completed = subprocess.run(
+        ["node", "scripts/engine-js.js", "profile", str(dataset)],
         capture_output=True,
         text=True,
         encoding="utf-8",
