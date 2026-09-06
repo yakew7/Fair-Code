@@ -364,6 +364,10 @@ def build_server():
         demographic representation: per-dimension imbalance/missing/skew,
         intersectional gaps, and an overall score/grade.
 
+        `overall_score`/`grade` are `null` when `dimensions_detected` is false
+        (no demographic columns were found) - a dataset that couldn't be
+        measured, not one that scored zero. `note` explains why in that case.
+
         `overrides` forces a column's dimension when auto-detection misses or
         mislabels it, e.g. {"gndr": "sex"}. `cross` picks two columns for the
         intersectional gap (default: the first two detected dimensions).
@@ -400,7 +404,9 @@ def build_server():
         disappeared, or shifted share, plus a population-stability-index-based
         drift level per dimension. `overrides` and the threshold args are
         applied identically to both datasets - see profile_dataset for what
-        each one does. `include_provenance` (default true) attaches
+        each one does, including when a side's `overall_score`/`grade` come
+        back `null` (unmeasured, not zero) - `score_delta` is `null` whenever
+        either side is. `include_provenance` (default true) attaches
         `dataset_hash_a`/`dataset_hash_b` alongside the resolved thresholds.
 
         `proxy_hints` (default false), when true, attaches `proxy_hints_a`/

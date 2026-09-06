@@ -347,7 +347,7 @@ def compare_to_html(cmp: dict) -> str:
     score_delta = cmp["score_delta"]
     delta_class = ("flat" if score_delta is None else
                    "up" if score_delta > 0 else "down" if score_delta < 0 else "flat")
-    arrow = "=" if score_delta == 0 else "→"
+    arrow = "?" if score_delta is None else "=" if score_delta == 0 else "→"
 
     def score_summary(dataset: dict) -> tuple[str, str]:
         if dataset["overall_score"] is None:

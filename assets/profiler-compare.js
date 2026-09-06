@@ -330,7 +330,7 @@
     var d = cmp.score_delta;
     var measured = d !== null;
     var deltaClass = measured && d > 0 ? 'up' : measured && d < 0 ? 'down' : 'flat';
-    var arrow = d === 0 ? '=' : '→';
+    var arrow = !measured ? '?' : d === 0 ? '=' : '→';
 
     var summary =
       '<div class="drift-summary">' +
@@ -433,7 +433,7 @@
     var scoreDelta = cmp.score_delta;
     var measured = scoreDelta !== null;
     var deltaClass = measured && scoreDelta > 0 ? 'up' : (measured && scoreDelta < 0 ? 'down' : 'flat');
-    var arrow = scoreDelta === 0 ? '=' : '→';
+    var arrow = !measured ? '?' : scoreDelta === 0 ? '=' : '→';
 
     function reportScore(side) {
       if (side.overall_score === null) {
