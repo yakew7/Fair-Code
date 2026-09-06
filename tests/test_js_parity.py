@@ -146,6 +146,13 @@ def test_python_js_profiler_parity_detects_dates_appended_after_numeric_ages(tmp
     ages = [str(age) for age in range(20, 80)]
     dates = ["1985-03-21", "1990-07-14", "2001-11-02"] * 20
     csv.write_text("age\n" + "\n".join(ages + dates) + "\n", encoding="utf-8")
+def test_python_js_profiler_parity_rejects_negative_age_sentinels(tmp_path):
+    """Signed sentinel ages stay missing in both profiler engines."""
+    csv = tmp_path / "negative-age-sentinels.csv"
+    csv.write_text(
+        "age,sex\n25,F\n30,M\nage -5,F\n-1,M\n45,F\n",
+        encoding="utf-8",
+    )
 
     python_result = profile(pd.read_csv(csv))
     completed = subprocess.run(
@@ -164,6 +171,9 @@ def test_python_js_profiler_parity_detects_dates_appended_after_numeric_ages(tmp
 
     assert javascript_result == python_result
     assert all(dim["name"] != "age" for dim in python_result["dimensions"])
+    age = next(d for d in python_result["dimensions"] if d["name"] == "age")
+    assert "75+" not in {group["label"] for group in age["groups"]}
+    assert age["missing_pct"] == 0.4
 
 
 def test_python_js_profiler_parity_with_overrides_cross_and_thresholds(tmp_path):

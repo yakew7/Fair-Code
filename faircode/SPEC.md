@@ -64,8 +64,9 @@ editable per-column dropdowns in the web profiler.
 
 Age columns come in three shapes - normalize to numeric bands:
 
-- **Numeric** (e.g. `34`): use directly.
-- **Interval string** (e.g. `[70-80)`): take the lower bound integer via the first run of digits.
+- **Non-negative numeric** (e.g. `34`): use directly.
+- **Interval string** (e.g. `[70-80)`): take the lower bound via the first signed number.
+- **Negative numeric or signed-string sentinel** (e.g. `-1`, `"unknown: -999"`): treat as missing; it must never fall through to the `75+` band.
 - **Anything else**: treat as categorical (skip numeric handling).
 
 Before numeric normalization, date detection checks a deterministic sample of up to **200**
@@ -202,6 +203,10 @@ with `imbalance_ratio ≥ 3`, every dimension with `missing_pct ≥ 0.05`, and e
 ---
 
 ## 7. Defaults (single place to tune)
+
+Human-readable terminal, browser, and exported HTML reports show at most the first **12** groups
+per dimension. Whenever a dimension contains more groups, every report surface must state exactly
+how many groups were omitted; the structured result remains complete.
 
 The flagging thresholds are overridable per run without editing source: `profile(df, opts={...})`
 in Python, `profile(table, overrides, opts)` in JS, and `--min-share` / `--intersection-floor` /

@@ -31,6 +31,7 @@ first shipped.
 
 ### Fixed
 - **Date strings appended after the first 50 age rows were fabricated into the `75+` band** (closes #432) - date detection now uses a deterministic sample spread across the whole column in both profiler engines.
+- **Negative age sentinels became a fabricated `75+` group** (closes #431) - both profiler engines now reject negative numeric and signed-string ages as missing before banding, skew, and intersection calculations.
 - **Terminal screenshots silently clipped text beyond 92 characters** (closes #443) - `render_terminal_png.py` now wraps each captured line before measuring and drawing the canvas, preserving explicit blank lines and every rendered glyph within the documented width.
 - **MCP tools accepted `path="-"` (stdin), which could hang or corrupt the stdio JSON-RPC transport** (closes #385) - `"-"` is a real, documented CLI shorthand for reading a terminal/pipe on stdin; the MCP server runs *over* stdio, so a tool call reading stdin would block on/consume the same stream the server needs for its own protocol frames. Now rejected with a clear error in the single chokepoint every path argument funnels through.
 - **MCP tools silently dropped the multi-sheet `.xlsx` "ignored sheet" notice** (closes #386) - the CLI already reports this for every dataset-reading path; none of the three Phase 1 tools did. Now attached as `sheet_note`/`sheet_note_a`+`sheet_note_b`/`sheet_notes`.

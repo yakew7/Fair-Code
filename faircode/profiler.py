@@ -108,13 +108,17 @@ def _age_to_numeric(value):
     if value is None or (isinstance(value, float) and math.isnan(value)):
         return None
     if isinstance(value, (int, float)):
-        return float(value)
-    match = re.search(r"\d+", str(value))
-    return float(match.group()) if match else None
+        numeric = float(value)
+    else:
+        match = re.search(r"[+-]?\d+(?:\.\d+)?", str(value))
+        if match is None:
+            return None
+        numeric = float(match.group())
+    return numeric if math.isfinite(numeric) and numeric >= AGE_BANDS[0] else None
 
 
 def _age_band(num) -> str | None:
-    if num is None:
+    if num is None or not math.isfinite(num) or num < AGE_BANDS[0]:
         return None
     edges = AGE_BANDS
     for i in range(len(edges) - 1):

@@ -91,6 +91,26 @@ def test_to_html_renders_key_figures(mock_profile_result):
     assert "skew +0.30" in html_out
 
 
+def test_to_html_reports_groups_omitted_by_display_cap(mock_profile_result):
+    dimension = mock_profile_result["dimensions"][0]
+    dimension["groups"] = [
+        {
+            "label": f"Group {index}",
+            "share": 1 / 15,
+            "count": 10,
+            "ci_low": None,
+            "ci_high": None,
+        }
+        for index in range(15)
+    ]
+
+    html_out = to_html(mock_profile_result)
+
+    assert "Group 11" in html_out
+    assert "Group 12" not in html_out
+    assert '<div class="dim-more">… and 3 more groups</div>' in html_out
+
+
 def test_to_html_renders_proxy_hints(mock_profile_result):
     mock_profile_result["proxy_hints"] = [
         {"a": "sex", "b": "region", "p_value": 1.64e-22, "cramers_v": 0.98}
