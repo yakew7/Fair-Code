@@ -152,7 +152,12 @@ def fit_post_processing(base_model, X_train, y_train, sensitive_train,
     calibrating against the rows the model memorized.
     """
     idx = np.arange(len(y_train))
-    stratify = y_train if len(np.unique(y_train)) > 1 else None
+    _, class_counts = np.unique(y_train, return_counts=True)
+    # StratifiedShuffleSplit requires at least two members in every observed
+    # class. Sparse audit subsets can still use the existing random split;
+    # passing their labels through would raise before either split is made.
+    can_stratify = len(class_counts) > 1 and class_counts.min() >= 2
+    stratify = y_train if can_stratify else None
     fit_idx, calib_idx = train_test_split(
         idx, test_size=calibration_size, random_state=random_state, stratify=stratify)
 
