@@ -1,9 +1,12 @@
 """Tests for the S0-S2 mitigation strategies + feature encoding (faircode.strategies).
 
-S3/S4 (fairlearn in-processing/post-processing) are exercised end-to-end by
-tests/test_benchmark.py instead of unit-tested in isolation here - they need a
-real model + real fairlearn mitigator to mean anything, which belongs in an
-integration test, not a column-set check.
+S3/S4's day-to-day feature-selection behavior (strategy_features) is a plain
+column-set check, tested directly below. Their full model-fitting behavior is
+otherwise exercised end-to-end by tests/test_benchmark.py, not unit-tested
+here - a real audit run means more than a synthetic one. The exception is
+fit_post_processing's insufficient-data guard below: it's cheap, deterministic,
+needs no mocking (it raises before ever touching fairlearn), and is exactly
+the kind of edge case a full benchmark run won't reliably exercise on its own.
 
 Run from the repo root:  pytest tests/ -q
 """
@@ -12,9 +15,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+pytest.importorskip("sklearn", reason="faircode.strategies needs the optional benchmark extra")
 pytest.importorskip("fairlearn", reason="faircode.strategies needs the optional fairlearn extra")
 
-import faircode.strategies as strategies
+from sklearn.ensemble import RandomForestClassifier
+
 from faircode.strategies import STRATEGIES, encode_features, fit_post_processing, strategy_features
 
 CORE = ["income", "education"]
@@ -112,48 +117,47 @@ def test_encode_features_only_touches_requested_columns():
     assert "b" not in out.columns
 
 
-# -- fit_post_processing: calibration split ----------------------------------
-class _RecordingModel:
-    def fit(self, X, y):
-        self.fit_rows = X.index.tolist()
+# -- fit_post_processing: calibration split (#446) ---------------------------
+# A guard that only checked "does y have 2+ classes with 2+ members each"
+# (rather than every (label, sensitive-group) combination) still let a
+# calibration split land with zero examples of a class for one sensitive
+# group - ThresholdOptimizer.fit() then raises "Degenerate labels for
+# sensitive feature value X", or, if the FIT split lost a class entirely,
+# predict_proba returns one column and a plain IndexError follows. Both
+# crash confusingly, one or more layers inside fairlearn/sklearn, instead of
+# failing clearly in fit_post_processing itself.
+def test_fit_post_processing_raises_clearly_on_a_too_sparse_combination():
+    # Only 1 positive example total, so the (label=1, sensitive-group) pair
+    # it belongs to can never appear in both the fit and calibration splits -
+    # genuinely impossible to calibrate reliably, regardless of split luck.
+    n = 20
+    X_train = pd.DataFrame({"a": np.arange(n, dtype=float), "b": np.arange(n, dtype=float)[::-1]})
+    y_train = np.zeros(n, dtype=int)
+    y_train[5] = 1
+    sensitive_train = np.array([0, 1] * (n // 2))
+
+    for random_state in (0, 1, 7, 42, 100):
+        with pytest.raises(ValueError, match="not enough data to calibrate reliably"):
+            fit_post_processing(
+                RandomForestClassifier(random_state=42, n_estimators=10),
+                X_train, y_train, sensitive_train, random_state=random_state)
 
 
-class _RecordingOptimizer:
-    def __init__(self, **kwargs):
-        self.init_kwargs = kwargs
+def test_fit_post_processing_succeeds_on_marginally_small_but_viable_data():
+    # 2 positive examples per sensitive group (the minimum every (label,
+    # group) combination needs) - small, but every combination can appear on
+    # both sides of the split. Runs with real RandomForestClassifier and
+    # real fairlearn ThresholdOptimizer, not mocks - this is exactly the
+    # scenario the old guard's "column-set-only" testing missed.
+    rng = np.random.default_rng(0)
+    n = 40
+    X_train = pd.DataFrame({"a": rng.random(n), "b": rng.random(n)})
+    y_train = np.zeros(n, dtype=int)
+    y_train[[0, 1, 20, 21]] = 1   # 2 positives in each half (each sensitive group)
+    sensitive_train = np.array([0] * 20 + [1] * 20)
 
-    def fit(self, X, y, sensitive_features):
-        self.calibration_rows = X.index.tolist()
-
-
-@pytest.mark.parametrize(
-    ("y_train", "expected_stratify"),
-    [
-        (np.array([0] * 19 + [1]), None),
-        (np.array([0] * 18 + [1, 1]), "labels"),
-    ],
-)
-def test_post_processing_only_stratifies_when_every_class_has_two_members(
-        monkeypatch, y_train, expected_stratify):
-    captured = {}
-    real_split = strategies.train_test_split
-
-    def recording_split(*args, **kwargs):
-        captured["stratify"] = kwargs["stratify"]
-        return real_split(*args, **kwargs)
-
-    monkeypatch.setattr(strategies, "train_test_split", recording_split)
-    monkeypatch.setattr(strategies, "ThresholdOptimizer", _RecordingOptimizer)
-    X_train = pd.DataFrame({"feature": np.arange(len(y_train))})
-    sensitive_train = np.array([0, 1] * (len(y_train) // 2))
-    model = _RecordingModel()
-
-    optimizer = fit_post_processing(
-        model, X_train, y_train, sensitive_train, random_state=42)
-
-    if expected_stratify is None:
-        assert captured["stratify"] is None
-    else:
-        np.testing.assert_array_equal(captured["stratify"], y_train)
-    assert set(model.fit_rows).isdisjoint(optimizer.calibration_rows)
-    assert set(model.fit_rows) | set(optimizer.calibration_rows) == set(X_train.index)
+    for random_state in (0, 1, 7, 42, 100):
+        optimizer = fit_post_processing(
+            RandomForestClassifier(random_state=42, n_estimators=10),
+            X_train, y_train, sensitive_train, random_state=random_state)
+        assert optimizer is not None
