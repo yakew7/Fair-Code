@@ -246,6 +246,12 @@ def to_html(result: dict) -> str:
             f' <span class="meta">({esc("  ".join(meta_parts))})</span>'
             if meta_parts else ""
         )
+        more_html = ""
+        if len(d["groups"]) > DISPLAY_GROUPS:
+            more_html = (
+                f'<div class="dim-more">… and '
+                f'{len(d["groups"]) - DISPLAY_GROUPS} more groups</div>'
+            )
 
         dim_blocks.append(
             f'<section class="dim"><h2>{esc(d["name"])} '
@@ -255,7 +261,7 @@ def to_html(result: dict) -> str:
             f'<thead><tr><th scope="col">Group</th><th scope="col" class="num">Share</th>'
             f'<th scope="col" class="num">95% CI</th><th scope="col" class="num">Count</th>'
             f'<th scope="col" class="bar"></th></tr></thead>'
-            f'<tbody>{"".join(rows)}</tbody></table>{reference_html}</section>'
+            f'<tbody>{"".join(rows)}</tbody></table>{more_html}{reference_html}</section>'
         )
 
     flag_html = ""

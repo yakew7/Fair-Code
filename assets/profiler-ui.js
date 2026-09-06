@@ -631,11 +631,14 @@
       if (d.skewness !== null) metaParts.push('skew ' + (d.skewness >= 0 ? '+' : '') + d.skewness.toFixed(2));
       var metaHtml = metaParts.length
         ? ' <span class="meta">(' + esc(metaParts.join('  ')) + ')</span>' : '';
+      var moreHtml = d.groups.length > DISPLAY_GROUPS
+        ? '<div class="dim-more">… and ' + (d.groups.length - DISPLAY_GROUPS) + ' more groups</div>'
+        : '';
 
       return '<section class="dim"><h2>' + esc(d.name) +
         ' <span class="kind">' + esc(d.kind) + '</span> ' +
         '<span class="score">' + d.dimension_score + '/100</span>' + metaHtml + '</h2>' +
-        '<table>' + rows + '</table>' + referenceHtml + '</section>';
+        '<table>' + rows + '</table>' + moreHtml + referenceHtml + '</section>';
     }).join('');
 
     var flagHtml = '';
@@ -670,6 +673,7 @@
       ' tr.under td.bar span { background:var(--accent); }\n' +
       ' tr.under td:first-child::after { content:\' (under-represented)\'; color:var(--accent); font-size:11px; }\n' +
       ' tr.small-group td:first-child::before { content:\'⚠ small group \'; color:var(--accent); }\n' +
+      ' .dim-more { font-size:12px; color:var(--muted); margin-top:8px; font-style:italic; }\n' +
       ' .reference { margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); }\n' +
       ' .reference h3 { font-size:.75em; margin:0 0 6px; }\n' +
       ' .reference th { text-align:right; font-size:11px; color:var(--muted); font-weight:normal; }\n' +
