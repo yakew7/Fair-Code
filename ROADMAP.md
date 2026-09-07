@@ -11,7 +11,7 @@
 
 This is the public roadmap for Fair Code. It tracks what has been built, what is actively in progress, and what comes next.
 
-*Last updated: August 2026*
+*Last updated: September 2026*
 
 [Where We Are](#where-we-are) · Phase 1 · Phase 2 · Phase 3 · Phase 4 · Phase 5 · Phase 6 · [Content Schedule](#content-schedule) · [How to Contribute](#how-to-contribute)
 
@@ -23,11 +23,11 @@ This is the public roadmap for Fair Code. It tracks what has been built, what is
 
 Fair Code is an open-source responsible AI platform explaining algorithmic bias, fairness, and AI accountability through code audits, explainers, healthcare-bias case studies, and contributor-led GitHub documentation.
 
-**Current traction (August 2026):**
+**Current traction (September 2026):**
 
 | Stars | Contributors | Forks | Watching | Social Reach | Countries | Audits | Explainers | CI |
 |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| 47 | 18 | 23 | 8 | 30K+ | 18 | 7 | 47 | ✅ every push/PR |
+| 46 | 28 | 32 | 8 | 30K+ | 20 | 7 | 53 | ✅ every push/PR |
 
 > The earlier paper freeze has lifted - the real paper, with fresh results, is now planned for next
 > year. `paper/results-frozen/` (tag `v1.0-paper`, commit `bbef2ba`) is kept as a reference snapshot.
@@ -35,7 +35,7 @@ Fair Code is an open-source responsible AI platform explaining algorithmic bias,
 
 **Version & release gate:**
 
-- Current release: **v2.0.0**
+- Current release: **v2.2.0**
 - The next major version can now bundle a re-run benchmark and new audits without waiting on a
   publication gate - Phase 6 below reflects the earlier plan and will be revisited alongside next
   year's real paper submission.
