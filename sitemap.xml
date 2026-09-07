@@ -2,11 +2,11 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://www.thefaircode.xyz/</loc>
-    <lastmod>2026-08-19</lastmod>
+    <lastmod>2026-09-05</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/profiler.html</loc>
-    <lastmod>2026-08-14</lastmod>
+    <lastmod>2026-09-02</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/proxy-variables.html</loc>
@@ -198,20 +198,26 @@
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/accuracy-equality.html</loc>
+    <lastmod>2026-08-29</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/bootstrap-confidence-intervals.html</loc>
+    <lastmod>2026-08-29</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/mitigation-strategies.html</loc>
+    <lastmod>2026-08-29</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/fairness-through-unawareness.html</loc>
+    <lastmod>2026-08-29</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/lime.html</loc>
+    <lastmod>2026-08-29</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/counterfactual-explanation.html</loc>
+    <lastmod>2026-08-29</lastmod>
   </url>
 </urlset>

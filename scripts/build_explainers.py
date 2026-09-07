@@ -624,8 +624,10 @@ def build_llms_full(entries):
         "Created and maintained by Yash Kewlani. This file is generated from "
         "explainers/*.md by scripts/build_explainers.py; it concatenates every "
         "explainer in full so an AI assistant can read the complete text in a "
-        "single request. The benchmark results are frozen for a paper in peer "
-        "review (tag v1.0-paper); new audits are paused, explainers continue.",
+        "single request. Development is fully open - new audits, explainers, "
+        "and tooling all merge to main normally; paper/results-frozen/ (tag "
+        "v1.0-paper) is kept only as a reference snapshot ahead of a real "
+        "paper submission planned for next year.",
         "",
     ]
     parts = ["\n".join(header)]

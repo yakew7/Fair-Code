@@ -6,7 +6,7 @@ Created and maintained by Yash Kewlani ([github.com/yakew7](https://github.com/y
 
 Full text of every explainer in one file (for AI answer engines): https://www.thefaircode.xyz/llms-full.txt
 
-> Status: the benchmark results are frozen for a research paper in peer review (tag `v1.0-paper`). New audits are paused until publication; explainers and tooling continue as normal.
+> Status: development is fully open - new audits, explainers, and tooling all merge normally. `paper/results-frozen/` (tag `v1.0-paper`) is kept only as a reference snapshot ahead of a real paper submission planned for next year.
 
 ## Audits
 
