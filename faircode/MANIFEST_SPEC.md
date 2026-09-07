@@ -154,9 +154,10 @@ wildly different-cardinality categoricals, not one-hot's per-audit blowup risk).
 | S3 | `in_processing` | `fairlearn.reductions.ExponentiatedGradient` with a fairness constraint (`faircode.strategies.FAIRNESS_CONSTRAINT`, default `demographic_parity`). Trains on `core_features`; the protected attribute is passed as `sensitive_features`, never as a model input. |
 | S4 | `post_processing` | `fairlearn.postprocessing.ThresholdOptimizer` wrapping a freshly-fit base model; adjusts the decision threshold per group to satisfy the same constraint. |
 
-S3 and S4 need the protected attribute at both fit and predict time as `sensitive_features`, even
-though it's never a model feature - so it's never dropped from the working dataset, only excluded
-from the column list `X` is built from. Showing that S3/S4 land close to S2's gap - rather than
+S4 needs the protected attribute at both fit and predict time as `sensitive_features`; S3 needs it
+only at fit time (`ExponentiatedGradient.predict` takes no `sensitive_features` argument at all).
+Neither ever uses it as a model feature - so it's never dropped from the working dataset, only
+excluded from the column list `X` is built from. Showing that S3/S4 land close to S2's gap - rather than
 closing it further - is the basis for a "residual floor" claim: stronger, constraint-based tools
 hit roughly the same wall a simple proxy-removal fix does.
 
