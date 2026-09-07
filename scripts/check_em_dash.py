@@ -26,8 +26,6 @@ SCAN_EXT = {".md", ".py", ".js", ".html", ".css", ".yml", ".yaml"}
 # Opt-out path list (the escape hatch): files that legitimately contain an em
 # dash, or that must not be edited. Keep this list short and justified.
 ALLOWLIST = {
-    # Frozen for the paper (CLAUDE.md §1) - must not be modified, even cosmetically.
-    "faircode/significance.py",
     # Documents the rule itself and shows em dashes as the anti-pattern to avoid.
     "CONTRIBUTING.md",
     # Same reason: demonstrates the banned character inside a checkbox label.

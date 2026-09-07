@@ -5,13 +5,13 @@ own it can't tell a real disparity apart from sampling noise, which matters most
 on the smaller subgroups the audits measure. This module attaches two
 non-parametric measures to every gap:
 
-  * Confidence interval — bootstrap. Resample each group independently with
+  * Confidence interval - bootstrap. Resample each group independently with
     replacement, recompute the gap n_resamples times, and take the percentile
     interval of that distribution. Non-parametric: it assumes nothing about the
     shape of the underlying distribution, which suits the binary prediction
     rates the audits work with.
 
-  * p-value — permutation test. Under the null hypothesis the group label
+  * p-value - permutation test. Under the null hypothesis the group label
     carries no information, so we pool both groups, reshuffle the labels
     n_permutations times, and measure how often a permuted gap is at least as
     extreme (two-sided) as the observed one. Also distribution-free, and it
