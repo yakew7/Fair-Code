@@ -60,13 +60,12 @@ _REDUCTIONS_CONSTRAINTS = {
 }
 
 # ExponentiatedGradient deep-copies and refits the base estimator once per
-# iteration (its default max_iter is 50). At the row counts several of these
-# audits have (Healthcare Readmission ~100k, AI Fair Recruitment ~121k) and
-# with GradientBoostingClassifier as the base estimator, even 15 iterations
-# measured at 256s for a single (audit, model) cell - 50 would make a full
-# seven-domain run impractical. 10 iterations still converges well enough to
-# demonstrate the constraint's effect. Raise this for a final,
-# paper-quality run where wall-clock time isn't the binding constraint.
+# iteration - this is fairlearn's own default max_iter, used as-is rather
+# than a reduced value traded off against wall-clock time (an earlier
+# revision ran a reduced iteration count for faster day-to-day benchmark
+# runs; bumped to the full default for the paper-quality run in 04c90e4 and
+# left there since, so every reported number reflects the same convergence
+# fairlearn's default is meant to reach).
 EXPONENTIATED_GRADIENT_MAX_ITER = 50
 
 
