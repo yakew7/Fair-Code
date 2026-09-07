@@ -390,7 +390,7 @@ parity obligation of its own - there is no equivalent MCP surface for the JS eng
 | `proxy_hints` | `proxy_hints()` | Returns `{"hints": [...]}`, never a bare list - a list return value gets split by the MCP SDK into one content block per element, and an empty list becomes zero blocks, indistinguishable from an error to a caller |
 | `list_explainers` | `assets/explainers-data.json` | Phase 2: read-only lookup, no analysis. Returns `{"explainers": [{slug, title, subtitle, summary, tags}, ...]}`; optional `tag` filters to explainers carrying it, erroring if none match |
 | `get_explainer` | `explainers/<slug>.md` | Phase 2: returns `{slug, title, subtitle, tags, content}` - `content` is the raw Markdown source. Errors clearly (`FileNotFoundError`) for an unknown slug |
-| `get_benchmark_results` | `paper/results-frozen/results_{fairness,performance}.csv` | Phase 2: filters the frozen CSV named by `kind` on exact-match `audit`/`model`/`strategy`/`metric`/`protected_attribute` (a filter naming a column `kind` doesn't have is ignored). Returns `{results, total_matches, truncated}`, capped at 200 rows |
+| `get_benchmark_results` | `faircode/_results_frozen/results_{fairness,performance}.csv` (mirrored from `paper/results-frozen/`) | Phase 2: filters the frozen CSV named by `kind` on exact-match `audit`/`model`/`strategy`/`metric`/`protected_attribute` (a filter naming a column `kind` doesn't have is ignored). Returns `{results, total_matches, truncated}`, capped at 200 rows |
 
 The first three tools accept `overrides` (the section 1 `{column: kind}` map, as a JSON object rather
 than repeated `--map COL=KIND` strings) and the relevant section 7 thresholds by name.
