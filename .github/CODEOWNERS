@@ -20,6 +20,10 @@
 # Project policy / frozen files
 /CLAUDE.md @yakew7
 /CONTRIBUTING.md @yakew7
+/CITATION.cff @yakew7
+/SECURITY.md @yakew7
+/CODE_OF_CONDUCT.md @yakew7
+/LICENSE @yakew7
 
 # CI / automation
 /.github/workflows/ @yakew7 @ahmdkaml
@@ -71,3 +75,6 @@
 /CONTRIBUTORS.md @yakew7 @Shreyash0712
 /METRICS.md @yakew7 @Shreyash0712
 /ROADMAP.md @yakew7 @Shreyash0712
+/llms.txt @yakew7 @Shreyash0712
+/llms-full.txt @yakew7 @Shreyash0712
+/explainer.html @yakew7 @Shreyash0712
