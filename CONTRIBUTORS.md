@@ -55,7 +55,7 @@ the [Git identity map](#git-identity-map) so `git shortlog -sne` can be reconcil
 
 | | Who | Role |
 |:--|-----|------|
-| <a href="https://github.com/yakew7"><img src="https://github.com/yakew7.png" width="48" height="48" alt="yakew7"></a> | **Yash Kewlani** - [@yakew7](https://github.com/yakew7) | Creator and maintainer. Author of the seven audits, the `faircode` library and benchmark harness, the Open Dataset Profiler, the website, and the bulk of the 60 explainers. Code owner for `faircode/`, `paper/`, every `audit.yaml`, and project policy (`CLAUDE.md`, `CONTRIBUTING.md`); co-owner of `explainers/`. |
+| <a href="https://github.com/yakew7"><img src="https://github.com/yakew7.png" width="48" height="48" alt="yakew7"></a> | **Yash Kewlani** - [@yakew7](https://github.com/yakew7) | Creator and maintainer. Author of the seven audits, the `faircode` library and benchmark harness, the Open Dataset Profiler, the website, and the bulk of the 62 explainers. Code owner for `faircode/`, `paper/`, every `audit.yaml`, and project policy (`CLAUDE.md`, `CONTRIBUTING.md`); co-owner of `explainers/`. |
 
 Contact: [yashkewlani2020@gmail.com](mailto:yashkewlani2020@gmail.com) · [@thefaircodeproject](https://instagram.com/thefaircodeproject)
 

@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What Is Distributionally Robust Optimization (DRO) for Fairness? · Fair Code</title>
+<meta name="description" content="Learn how DRO trains a model to minimize its worst-case loss over an uncertainty set of subgroup distributions - an in-processing alternative to constraint-based methods like ExponentiatedGradient that needs neither a chosen fairness metric nor group labels at prediction time. Worked on the Audit 03 German Credit data: online group DRO reliably shifts training weight onto the worst group, but on a capacity-limited linear model it buys no worst-group generalization - Sagawa et al.&#x27;s point about regularization.">
+<link rel="canonical" href="https://www.thefaircode.xyz/explainers/distributionally-robust-optimization.html">
+<meta name="author" content="Yash Kewlani">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:site_name" content="Fair Code">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="What Is Distributionally Robust Optimization (DRO) for Fairness? · Fair Code">
+<meta property="og:description" content="Learn how DRO trains a model to minimize its worst-case loss over an uncertainty set of subgroup distributions - an in-processing alternative to constraint-based methods like ExponentiatedGradient that needs neither a chosen fairness metric nor group labels at prediction time. Worked on the Audit 03 German Credit data: online group DRO reliably shifts training weight onto the worst group, but on a capacity-limited linear model it buys no worst-group generalization - Sagawa et al.&#x27;s point about regularization.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://www.thefaircode.xyz/explainers/distributionally-robust-optimization.html">
+<meta property="og:image" content="https://www.thefaircode.xyz/assets/og/distributionally-robust-optimization.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="What Is Distributionally Robust Optimization (DRO) for Fairness? · Fair Code">
+<meta property="og:image" content="https://www.thefaircode.xyz/assets/og-light/distributionally-robust-optimization.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="What Is Distributionally Robust Optimization (DRO) for Fairness? · Fair Code (light)">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="What Is Distributionally Robust Optimization (DRO) for Fairness? · Fair Code">
+<meta name="twitter:description" content="Learn how DRO trains a model to minimize its worst-case loss over an uncertainty set of subgroup distributions - an in-processing alternative to constraint-based methods like ExponentiatedGradient that needs neither a chosen fairness metric nor group labels at prediction time. Worked on the Audit 03 German Credit data: online group DRO reliably shifts training weight onto the worst group, but on a capacity-limited linear model it buys no worst-group generalization - Sagawa et al.&#x27;s point about regularization.">
+<meta name="twitter:image" content="https://www.thefaircode.xyz/assets/og/distributionally-robust-optimization.png">
+
+<link rel="icon" href="/assets/icons/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/icon-192.png">
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='32' y='18' width='13' height='64' fill='%2314171A'/><rect x='32' y='18' width='42' height='13' fill='%2314171A'/><rect x='32' y='44' width='36' height='13' fill='%234F7A5B'/></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<script>
+  (function () {
+    const systemPref = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    const saved = localStorage.getItem('fc-theme') || systemPref;
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+<link rel="stylesheet" href="../assets/explainers.css">
+<style>
+  :root {
+    --bg: #f4f1e8;
+    --surface: #ebe7d9;
+    --border: #d9d3c0;
+    --border2: #bdb59c;
+    --accent: #a63a22;
+    --accent3: #2f6b4f;
+    --text: #36321f;
+    --muted: #7d7459;
+    --white: #1d1910;
+    --bias-track-bg: #e2dcc9;
+
+    --serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+    --sans: 'Archivo', 'Helvetica Neue', sans-serif;
+    --mono: 'IBM Plex Mono', 'SF Mono', monospace;
+  }
+
+  html[data-theme="dark"] {
+    --bg: #15130d;
+    --surface: #1c1912;
+    --border: #2e2a1f;
+    --border2: #443e2d;
+    --accent: #cf6f49;
+    --accent3: #79b294;
+    --text: #cfc7b0;
+    --muted: #8d8367;
+    --white: #f1e9d4;
+    --bias-track-bg: #242013;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    transition: background 0.3s, color 0.3s;
+  }
+  a { color: inherit; }
+  ::selection { background: var(--accent); color: var(--bg); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "DefinedTerm",
+      "author": {
+        "@type": "Person",
+        "name": "Yash Kewlani",
+        "url": "https://github.com/yakew7"
+      },
+      "name": "What Is Distributionally Robust Optimization (DRO) for Fairness?",
+      "description": "Learn how DRO trains a model to minimize its worst-case loss over an uncertainty set of subgroup distributions - an in-processing alternative to constraint-based methods like ExponentiatedGradient that needs neither a chosen fairness metric nor group labels at prediction time. Worked on the Audit 03 German Credit data: online group DRO reliably shifts training weight onto the worst group, but on a capacity-limited linear model it buys no worst-group generalization - Sagawa et al.'s point about regularization.",
+      "url": "https://www.thefaircode.xyz/explainers/distributionally-robust-optimization.html",
+      "inDefinedTermSet": {
+        "@type": "DefinedTermSet",
+        "name": "Fair Code Explainers",
+        "url": "https://www.thefaircode.xyz/index.html#explainers"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "url": "https://www.thefaircode.xyz/explainers/distributionally-robust-optimization.html",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What Is Distributionally Robust Optimization (DRO) for Fairness?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Distributionally Robust Optimization (DRO) is an in-processing fairness technique that trains a model to minimize its worst-case loss over a set of plausible reweightings of the training distribution, rather than minimizing average loss or constraining a specific parity metric."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does this matter for fairness?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "This repo's S3 in-processing strategy (mitigation-strategies.md) is Fairlearn's ExponentiatedGradient: optimize accuracy subject to a fairness constraint, such as demographic parity, on a named protected attribute. That works well when you already know which metric matters and which group is at risk. It has two requirements baked in:"
+          }
+        }
+      ]
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Fair Code",
+          "item": "https://www.thefaircode.xyz/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Explainers",
+          "item": "https://www.thefaircode.xyz/index.html#explainers"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "What Is Distributionally Robust Optimization (DRO) for Fairness?",
+          "item": "https://www.thefaircode.xyz/explainers/distributionally-robust-optimization.html"
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+<script>
+  window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
+<script defer src="https://cloud.umami.is/script.js" data-website-id="84e0aebf-44e1-466e-b2c6-62f75e1c36c7"></script>
+</head>
+<body class="explainer-page">
+  <main class="explainer-shell is-ready" data-explainer-shell>
+    <div class="explainer-topbar">
+      <a class="explainer-back" href="../index.html#explainers">← Back to explainers</a>
+      <div class="explainer-topbar-actions">
+        <a class="explainer-source" href="https://github.com/yakew7/Fair-Code/blob/main/explainers/distributionally-robust-optimization.md" target="_blank" rel="noopener noreferrer">View source on GitHub</a>
+        <button class="explainer-theme-toggle" id="explainerThemeToggle" aria-label="Toggle theme" aria-pressed="false">☀</button>
+      </div>
+    </div>
+
+    <section class="explainer-hero">
+      <div class="explainer-kicker">Explainer</div>
+      <h1 class="explainer-headline">What Is Distributionally Robust Optimization (DRO) for Fairness?</h1>
+      <p class="explainer-lede">Train against the worst subgroup your data might be under-representing, without naming a parity metric.</p>
+      <p class="explainer-lede">Learn how DRO trains a model to minimize its worst-case loss over an uncertainty set of subgroup distributions - an in-processing alternative to constraint-based methods like ExponentiatedGradient that needs neither a chosen fairness metric nor group labels at prediction time. Worked on the Audit 03 German Credit data: online group DRO reliably shifts training weight onto the worst group, but on a capacity-limited linear model it buys no worst-group generalization - Sagawa et al.&#x27;s point about regularization.</p>
+    </section>
+
+    <article class="explainer-content"><h2 id="what-is-distributionally-robust-optimization-dro-for-fairness">What Is Distributionally Robust Optimization (DRO) for Fairness?</h2>
+<blockquote><p><em>A constraint-based fix needs you to name the fairness metric and the group up front. DRO instead trains against the worst subgroup your data might be under-representing - whichever one that turns out to be.</em></p></blockquote>
+<hr>
+<h3 id="the-one-sentence-definition">The One-Sentence Definition</h3>
+<p><strong>Distributionally Robust Optimization (DRO)</strong> is an in-processing fairness technique that trains a model to minimize its <em>worst-case</em> loss over a set of plausible reweightings of the training distribution, rather than minimizing average loss or constraining a specific parity metric.</p>
+<hr>
+<h3 id="why-it-matters">Why It Matters</h3>
+<p>This repo&#x27;s S3 in-processing strategy (<a href="mitigation-strategies.html">mitigation-strategies.md</a>) is Fairlearn&#x27;s <code>ExponentiatedGradient</code>: optimize accuracy subject to a fairness constraint, such as demographic parity, on a named protected attribute. That works well when you already know which metric matters and which group is at risk. It has two requirements baked in:</p>
+<ul><li><strong>You choose the fairness metric before training.</strong> The constraint is demographic parity, or equalized odds, or one specific thing. A gap on a metric you did not constrain is not touched.</li><li><strong>You choose the group before training.</strong> The constraint is defined on <code>race</code>, or <code>age</code>, or a fixed intersection. A subgroup you did not think to check is invisible to it.</li></ul>
+<p>DRO relaxes both. Instead of a constraint on one metric for one group, it hedges against the worst subgroup the training data might be under-representing - without committing to a parity metric at all, and (in the Hashimoto et al. 2018 form) without needing group labels. If the group actually being harmed is not the one you would have constrained, DRO can still help; <code>ExponentiatedGradient</code> cannot.</p>
+<p>The cost is a free parameter and no guarantee, both covered below.</p>
+<hr>
+<h3 id="core-concept-the-min-max-objective">Core Concept: The Min-Max Objective</h3>
+<p><code>ExponentiatedGradient</code> solves a <strong>constrained</strong> problem:</p>
+<pre><code>minimise  average loss L(theta)
+subject to  |demographic_parity_gap(theta)|  &lt;=  epsilon</code></pre>
+<p>Group DRO solves a <strong>min-max</strong> problem instead:</p>
+<pre><code>minimise over theta of   max over Q in U of   E_Q[ loss(theta) ]</code></pre>
+<p>where <code>U</code> is an <em>uncertainty set</em>: a ball of distributions around the empirical training distribution. <code>E_Q[loss]</code> is the expected loss if the data were reweighted to <code>Q</code>. The model is trained so that even the least favourable reweighting in <code>U</code> still has low loss.</p>
+<p>When <code>U</code> is &quot;all reweightings that shift mass between predefined groups&quot;, this is <strong>group DRO</strong> (Sagawa et al. 2020), and it has a simple online algorithm:</p>
+<p>1. Keep a probability vector <code>q</code> over groups. 2. Each step, raise <code>q</code> for whichever group currently has the highest loss. 3. Fit the model on <code>q</code>-reweighted examples. 4. Repeat until <code>q</code> stabilizes.</p>
+<p>The size of <code>U</code> - how far <code>q</code> is allowed to move from the group base rates - is the <strong>robustness knob</strong>. Bigger <code>U</code> means the model hedges against more extreme reweightings.</p>
+<p>This is the same reweighting loop as iterative <a href="maxmin-fairness.html">max-min (Rawlsian) fairness</a>; the difference is framing. Max-min asks &quot;make the worst group&#x27;s <em>outcome</em> as good as possible.&quot; DRO asks &quot;stay robust to a <em>distribution shift</em> that inflates the worst group&quot; - and the uncertainty set <code>U</code> is the explicit statement of which shifts you are hedging against.</p>
+<hr>
+<h3 id="concrete-example-german-credit-lending-audit-03">Concrete Example: German Credit Lending - Audit 03</h3>
+<p>Audit 03 (<a href="../index.html#project-credit"><code>German Credit Lending/</code></a>) predicts bad credit risk on 1,000 real loan records; the protected attribute is <code>age</code>, with &quot;young&quot; meaning under 30.</p>
+<p>For reference, this repo&#x27;s frozen benchmark (<a href="../paper/results-frozen/"><code>paper/results-frozen/results_fairness.csv</code></a>, the earlier snapshot - see <a href="CLAUDE.html">CLAUDE.md</a>) records the S3 <code>in_processing</code> strategy driving the baseline logistic-regression <code>demographic_parity_diff</code> on <code>age</code> from <strong>-0.129 (p = 0.05) at S0 to +0.023 (p = 0.71) at S3</strong> - the constraint closes the parity gap it was given. Group DRO does not target that metric at all; it targets worst-group loss.</p>
+<p>The script below runs an ERM (average-loss) baseline, then online group DRO, sweeping the robustness knob. Features drop <code>age</code> and <code>personal_status</code>; inputs are standardized; the split is 80/20 stratified at <code>random_state=42</code>.</p>
+<pre><code class="language-python">import numpy as np
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import log_loss
+from sklearn.model_selection import train_test_split
+
+
+def load_german_credit(path=&quot;German Credit Lending/credit_customers.csv&quot;):
+    df = pd.read_csv(path)
+    df[&quot;y_bad&quot;] = (df[&quot;class&quot;] == &quot;bad&quot;).astype(int)
+    df[&quot;age_group&quot;] = np.where(df[&quot;age&quot;] &lt; 30, &quot;young&quot;, &quot;older&quot;)
+    drop = {&quot;class&quot;, &quot;y_bad&quot;, &quot;age&quot;, &quot;age_group&quot;, &quot;personal_status&quot;}
+    feats = [c for c in df.columns if c not in drop]
+    return pd.get_dummies(df[feats], drop_first=True), df[&quot;y_bad&quot;].to_numpy(), df[&quot;age_group&quot;].to_numpy()
+
+
+def per_group(model, X, y, groups):
+    pred, proba = model.predict(X), model.predict_proba(X)[:, 1]
+    rows = {}
+    for g in [&quot;older&quot;, &quot;young&quot;]:
+        m = groups == g
+        rows[g] = {&quot;n&quot;: int(m.sum()),
+                   &quot;accuracy&quot;: round(float((pred[m] == y[m]).mean()), 4),
+                   &quot;log_loss&quot;: round(float(log_loss(y[m], proba[m], labels=[0, 1])), 4)}
+    worst = max(rows[&quot;older&quot;][&quot;log_loss&quot;], rows[&quot;young&quot;][&quot;log_loss&quot;])
+    return pd.DataFrame(rows).T, round(float(worst), 4), round(float((pred == y).mean()), 4)
+
+
+def fit_group_dro(Xtr, ytr, gtr, robustness=1.0, n_rounds=100):
+    &quot;&quot;&quot;Online group DRO (Sagawa et al. 2020): keep a distribution q over groups,
+    each round upweight whichever group has the highest loss, and fit the model
+    on q-reweighted examples. `robustness` is the uncertainty-set knob - larger
+    means q chases the worst group harder.&quot;&quot;&quot;
+    q = {&quot;older&quot;: 0.5, &quot;young&quot;: 0.5}
+    frac = {g: (gtr == g).mean() for g in q}
+    for _ in range(n_rounds):
+        w = np.array([q[g] / frac[g] for g in gtr], dtype=float)
+        w *= len(w) / w.sum()
+        model = LogisticRegression(max_iter=5000).fit(Xtr, ytr, sample_weight=w)
+        proba = model.predict_proba(Xtr)[:, 1]
+        gl = {g: log_loss(ytr[gtr == g], proba[gtr == g], labels=[0, 1]) for g in q}
+        for g in q:
+            q[g] *= np.exp(robustness * gl[g])
+        total = sum(q.values())
+        q = {g: v / total for g, v in q.items()}
+    return model, q
+
+
+if __name__ == &quot;__main__&quot;:
+    X, y, g = load_german_credit()
+    Xtr, Xte, ytr, yte, gtr, gte = train_test_split(
+        X, y, g, test_size=0.2, random_state=42, stratify=y)
+    mean, std = Xtr.mean(), Xtr.std().replace(0, 1)
+    Xtr_s, Xte_s = ((Xtr - mean) / std).to_numpy(), ((Xte - mean) / std).to_numpy()
+
+    erm = LogisticRegression(max_iter=5000).fit(Xtr_s, ytr)
+    tbl, worst, acc = per_group(erm, Xte_s, yte, gte)
+    print(&quot;=== ERM baseline (minimise average loss) ===&quot;)
+    print(tbl.to_string())
+    print(f&quot;overall accuracy   : {acc:.4f}&quot;)
+    print(f&quot;worst-group log_loss: {worst:.4f}\n&quot;)
+
+    print(&quot;=== Group DRO: sweep the robustness knob ===&quot;)
+    print(f&quot;{&#x27;robustness&#x27;:&gt;10} | {&#x27;q(young)&#x27;:&gt;8} | {&#x27;worst-group log_loss&#x27;:&gt;20} | {&#x27;overall acc&#x27;:&gt;11}&quot;)
+    for r in [0.0, 0.5, 1.0, 2.0, 5.0]:
+        model, q = fit_group_dro(Xtr_s, ytr, gtr, robustness=r)
+        _, w, a = per_group(model, Xte_s, yte, gte)
+        print(f&quot;{r:&gt;10.1f} | {q[&#x27;young&#x27;]:&gt;8.2f} | {w:&gt;20.4f} | {a:&gt;11.4f}&quot;)</code></pre>
+<h4 id="script-execution-output">Script Execution Output</h4>
+<pre><code>=== ERM baseline (minimise average loss) ===
+           n  accuracy  log_loss
+older  121.0    0.8099    0.4285
+young   79.0    0.7089    0.5880
+overall accuracy   : 0.7700
+worst-group log_loss: 0.5880
+
+=== Group DRO: sweep the robustness knob ===
+robustness | q(young) | worst-group log_loss | overall acc
+       0.0 |     0.50 |               0.5910 |      0.7700
+       0.5 |     0.62 |               0.5988 |      0.7750
+       1.0 |     0.63 |               0.5991 |      0.7700
+       2.0 |     0.63 |               0.5991 |      0.7700
+       5.0 |     0.63 |               0.5991 |      0.7700</code></pre>
+<p>(Deterministic with these library versions; a solver&#x27;s last digits can shift across BLAS backends.)</p>
+<p>Three things this shows:</p>
+<p><strong>DRO reliably redirects training weight to the worst group.</strong> ERM weights groups by their size. As the robustness knob goes up, <code>q(young)</code> climbs from 0.50 to about 0.63 and then saturates - the min-max objective has found the worst group and is pushing on it. That part works exactly as designed.</p>
+<p><strong>On this problem, redirecting the weight buys no worst-group generalization.</strong> The young group&#x27;s held-out <code>log_loss</code> is 0.588 under ERM and does not improve under any robustness setting - it drifts slightly <em>up</em>, to ~0.599. Overall accuracy stays flat at 0.77. A linear model on 800 training rows is capacity-limited, not distribution-limited: the young group is genuinely harder to predict here, and reweighting the objective toward it cannot manufacture signal that is not in the features.</p>
+<p><strong>This is the paper&#x27;s own headline finding, not a bug in the loop.</strong> Sagawa et al. (2020) title their paper <em>&quot;On the Importance of Regularization for Worst-Case Generalization&quot;</em> precisely because plain group DRO increases worst-group training influence without improving worst-group test loss unless the model is strongly regularized (and, in their setting, overparameterized). The robustness knob is a real dial with a real cost - turn it up and <code>q</code> over-hedges toward an implausible worst case, shaving average-case accuracy - but it is not a guarantee of a fairer model.</p>
+<hr>
+<h3 id="detection-and-implementation-code">Detection and Implementation Code</h3>
+<p><code>fit_group_dro</code> above is the implementation. The helper below reports whether a DRO run actually moved worst-group loss and what it cost average accuracy - the trade you are actually making.</p>
+<pre><code class="language-python">def dro_report(erm_model, dro_model, X, y, groups):
+    &quot;&quot;&quot;Compare an ERM model against a group-DRO model on held-out data.&quot;&quot;&quot;
+    def summarise(model):
+        pred, proba = model.predict(X), model.predict_proba(X)[:, 1]
+        per = {}
+        for g in sorted(set(groups)):
+            m = groups == g
+            from sklearn.metrics import log_loss
+            per[g] = {&quot;acc&quot;: round(float((pred[m] == y[m]).mean()), 4),
+                      &quot;log_loss&quot;: round(float(log_loss(y[m], proba[m], labels=[0, 1])), 4)}
+        return per, round(float((pred == y).mean()), 4)
+
+    erm_per, erm_acc = summarise(erm_model)
+    dro_per, dro_acc = summarise(dro_model)
+    erm_worst = max(v[&quot;log_loss&quot;] for v in erm_per.values())
+    dro_worst = max(v[&quot;log_loss&quot;] for v in dro_per.values())
+    return {
+        &quot;erm_per_group&quot;: erm_per,
+        &quot;dro_per_group&quot;: dro_per,
+        &quot;worst_group_log_loss_before&quot;: erm_worst,
+        &quot;worst_group_log_loss_after&quot;: dro_worst,
+        &quot;worst_group_improved&quot;: dro_worst &lt; erm_worst,
+        &quot;overall_accuracy_delta&quot;: round(dro_acc - erm_acc, 4),
+    }</code></pre>
+<hr>
+<h3 id="limitations">Limitations</h3>
+<h4 id="1-the-uncertainty-set-size-is-a-free-parameter-with-no-data-driven-default">1. The uncertainty-set size is a free parameter with no data-driven default</h4>
+<p><code>robustness</code> (equivalently, the radius of <code>U</code>) has to be picked. Too small and DRO collapses to ERM. Too large and the model hedges against reweightings that will never occur, trading real average-case accuracy for robustness to a fantasy worst case. There is no held-out quantity that tells you the &quot;right&quot; size - it encodes how much distribution shift you believe is plausible, which is a judgment call.</p>
+<h4 id="2-it-still-needs-group-labels-at-training-time">2. It still needs group labels at training time</h4>
+<p>The group-DRO form used here requires knowing each training example&#x27;s group to maintain <code>q</code>. It removes the need to pick a <em>parity metric</em> up front, and it does not need group labels at prediction time, but it is not label-free. (Hashimoto et al. 2018&#x27;s version drops the training-time group labels too, at the cost of hedging against <em>all</em> low-probability subpopulations, not just the ones you care about.)</p>
+<h4 id="3-worst-case-training-loss-is-not-worst-case-test-loss">3. Worst-case training loss is not worst-case test loss</h4>
+<p>As the example shows, pushing <code>q</code> toward the worst training group does not by itself improve that group&#x27;s generalization. Without strong regularization or capacity control, group DRO can overfit the worst group&#x27;s training set - the central caveat in Sagawa et al. (2020).</p>
+<h4 id="4-worst-group-is-only-defined-once-you-fix-the-loss-and-the-grouping">4. &quot;Worst group&quot; is only defined once you fix the loss and the grouping</h4>
+<p>DRO over groups defined by <code>age</code> says nothing about groups defined by <code>job</code> or by an <code>age x foreign_worker</code> intersection. And the worst group under log-loss, under 0-1 error, and under false-negative rate can differ. The uncertainty set is only as good as the grouping and loss you put into it.</p>
+<hr>
+<h3 id="related-concepts">Related Concepts</h3>
+<ul><li><a href="mitigation-strategies.html">Mitigation Strategies</a> - this repo&#x27;s S3 <code>ExponentiatedGradient</code> in-processing strategy, the constraint-based method DRO is contrasted against.</li><li><a href="maxmin-fairness.html">What Is Max-Min (Rawlsian) Fairness?</a> - the same reweighting loop, framed as an objective on group outcomes rather than robustness to distribution shift.</li><li><a href="distribution-shift.html">What Is Distribution Shift?</a> - the deployment-time phenomenon whose worst case DRO&#x27;s uncertainty set is meant to bound.</li><li><a href="fairness-accuracy-tradeoff.html">What Is the Fairness-Accuracy Trade-off?</a> - the average-case accuracy DRO spends when the robustness knob is turned up.</li><li><a href="class-imbalance.html">What Is Class Imbalance?</a> - why average-loss training underserves the smaller, harder group DRO reweights toward.</li></ul>
+<hr>
+<h3 id="related-projects-in-this-repo">Related Projects in This Repo</h3>
+<ul><li><a href="../index.html#project-credit"><code>German Credit Lending/</code></a> - Audit 03, the dataset and <code>age</code> attribute used above.</li><li><a href="../faircode/strategies.py"><code>faircode/strategies.py</code></a> - the S0-S4 implementation, including the S3 <code>ExponentiatedGradient</code> strategy DRO is compared with.</li><li><a href="../paper/results-frozen/"><code>paper/results-frozen/results_fairness.csv</code></a> - the frozen S0/S3 <code>demographic_parity_diff</code> figures cited above.</li></ul>
+<hr>
+<h3 id="further-reading">Further Reading</h3>
+<ul><li><a href="https://arxiv.org/abs/1911.08731" target="_blank" rel="noreferrer noopener">Sagawa, Koh, Hashimoto &amp; Liang (2020): Distributionally Robust Neural Networks for Group Shifts: On the Importance of Regularization for Worst-Case Generalization, ICLR 2020</a> - the group-DRO algorithm used here, and the finding that worst-case generalization needs strong regularization.</li><li><a href="https://proceedings.mlr.press/v80/hashimoto18a.html" target="_blank" rel="noreferrer noopener">Hashimoto, Srivastava, Namkoong &amp; Liang (2018): Fairness Without Demographics in Repeated Loss Minimization, ICML 2018, PMLR 80:1929-1938</a> - a DRO objective that bounds the minority group&#x27;s risk without any group labels.</li><li><a href="https://doi.org/10.1214/20-AOS2004" target="_blank" rel="noreferrer noopener">Duchi &amp; Namkoong (2021): Learning Models with Uniform Performance via Distributionally Robust Optimization, Annals of Statistics 49(3), 1378-1406</a> - the statistical foundations of the uncertainty-set formulation.</li><li><a href="https://proceedings.mlr.press/v80/agarwal18a.html" target="_blank" rel="noreferrer noopener">Agarwal, Beygelzimer, Dudik, Langford &amp; Wallach (2018): A Reductions Approach to Fair Classification, ICML 2018</a> - the <code>ExponentiatedGradient</code> constraint-based method this repo uses at S3, for contrast.</li></ul>
+<hr>
+<p><em>Part of <a href="https://instagram.com/thefaircodeproject" target="_blank" rel="noreferrer noopener">The Fair Code Project</a> - exposing and fixing algorithmic bias with real data and open code.</em></p></article>
+  </main>
+
+  <script>
+    (function () {
+      const toggle = document.getElementById('explainerThemeToggle');
+      const html = document.documentElement;
+      const systemPref = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+
+      function syncTheme() {
+        const current = html.getAttribute('data-theme') || systemPref;
+        toggle.textContent = current === 'light' ? '☾' : '☀';
+        toggle.setAttribute('aria-label', current === 'light' ? 'Switch to dark mode' : 'Switch to light mode');
+        toggle.setAttribute('aria-pressed', current === 'dark' ? 'true' : 'false');
+      }
+
+      syncTheme();
+
+      toggle.addEventListener('click', () => {
+        const current = html.getAttribute('data-theme') || systemPref;
+        const next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('fc-theme', next);
+        syncTheme();
+      });
+    })();
+  </script>
+</body>
+</html>

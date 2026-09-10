@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What Is Max-Min (Rawlsian) Fairness? · Fair Code</title>
+<meta name="description" content="Learn how max-min (Rawlsian) fairness minimizes the maximum group-level loss instead of equalizing a rate across groups, and why a model can move toward it while still failing demographic parity. Worked on the Audit 03 German Credit data: an iterative group-reweighting loop cuts worst-group error from 29.1% to 27.9% and leaves the 12-point selection-rate gap almost untouched.">
+<link rel="canonical" href="https://www.thefaircode.xyz/explainers/maxmin-fairness.html">
+<meta name="author" content="Yash Kewlani">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:site_name" content="Fair Code">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="What Is Max-Min (Rawlsian) Fairness? · Fair Code">
+<meta property="og:description" content="Learn how max-min (Rawlsian) fairness minimizes the maximum group-level loss instead of equalizing a rate across groups, and why a model can move toward it while still failing demographic parity. Worked on the Audit 03 German Credit data: an iterative group-reweighting loop cuts worst-group error from 29.1% to 27.9% and leaves the 12-point selection-rate gap almost untouched.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://www.thefaircode.xyz/explainers/maxmin-fairness.html">
+<meta property="og:image" content="https://www.thefaircode.xyz/assets/og/maxmin-fairness.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="What Is Max-Min (Rawlsian) Fairness? · Fair Code">
+<meta property="og:image" content="https://www.thefaircode.xyz/assets/og-light/maxmin-fairness.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="What Is Max-Min (Rawlsian) Fairness? · Fair Code (light)">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="What Is Max-Min (Rawlsian) Fairness? · Fair Code">
+<meta name="twitter:description" content="Learn how max-min (Rawlsian) fairness minimizes the maximum group-level loss instead of equalizing a rate across groups, and why a model can move toward it while still failing demographic parity. Worked on the Audit 03 German Credit data: an iterative group-reweighting loop cuts worst-group error from 29.1% to 27.9% and leaves the 12-point selection-rate gap almost untouched.">
+<meta name="twitter:image" content="https://www.thefaircode.xyz/assets/og/maxmin-fairness.png">
+
+<link rel="icon" href="/assets/icons/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/icon-192.png">
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='32' y='18' width='13' height='64' fill='%2314171A'/><rect x='32' y='18' width='42' height='13' fill='%2314171A'/><rect x='32' y='44' width='36' height='13' fill='%234F7A5B'/></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<script>
+  (function () {
+    const systemPref = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    const saved = localStorage.getItem('fc-theme') || systemPref;
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+<link rel="stylesheet" href="../assets/explainers.css">
+<style>
+  :root {
+    --bg: #f4f1e8;
+    --surface: #ebe7d9;
+    --border: #d9d3c0;
+    --border2: #bdb59c;
+    --accent: #a63a22;
+    --accent3: #2f6b4f;
+    --text: #36321f;
+    --muted: #7d7459;
+    --white: #1d1910;
+    --bias-track-bg: #e2dcc9;
+
+    --serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+    --sans: 'Archivo', 'Helvetica Neue', sans-serif;
+    --mono: 'IBM Plex Mono', 'SF Mono', monospace;
+  }
+
+  html[data-theme="dark"] {
+    --bg: #15130d;
+    --surface: #1c1912;
+    --border: #2e2a1f;
+    --border2: #443e2d;
+    --accent: #cf6f49;
+    --accent3: #79b294;
+    --text: #cfc7b0;
+    --muted: #8d8367;
+    --white: #f1e9d4;
+    --bias-track-bg: #242013;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    transition: background 0.3s, color 0.3s;
+  }
+  a { color: inherit; }
+  ::selection { background: var(--accent); color: var(--bg); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "DefinedTerm",
+      "author": {
+        "@type": "Person",
+        "name": "Yash Kewlani",
+        "url": "https://github.com/yakew7"
+      },
+      "name": "What Is Max-Min (Rawlsian) Fairness?",
+      "description": "Learn how max-min (Rawlsian) fairness minimizes the maximum group-level loss instead of equalizing a rate across groups, and why a model can move toward it while still failing demographic parity. Worked on the Audit 03 German Credit data: an iterative group-reweighting loop cuts worst-group error from 29.1% to 27.9% and leaves the 12-point selection-rate gap almost untouched.",
+      "url": "https://www.thefaircode.xyz/explainers/maxmin-fairness.html",
+      "inDefinedTermSet": {
+        "@type": "DefinedTermSet",
+        "name": "Fair Code Explainers",
+        "url": "https://www.thefaircode.xyz/index.html#explainers"
+      },
+      "datePublished": "2026-09-10",
+      "dateModified": "2026-09-10"
+    },
+    {
+      "@type": "FAQPage",
+      "url": "https://www.thefaircode.xyz/explainers/maxmin-fairness.html",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What Is Max-Min (Rawlsian) Fairness?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Max-min fairness (also called Rawlsian fairness, after the \"difference principle\" in John Rawls' A Theory of Justice) is a fairness objective that minimizes the maximum group-level loss - it makes the worst-off group's outcome as good as possible - instead of equalizing a rate across groups the way parity metrics do."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does this matter for fairness?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Every parity-based metric this repo already covers - demographic parity, equalized odds, predictive parity - measures a difference between groups and drives it toward zero. That framing has a well-known escape hatch: you can satisfy a parity constraint by making the better-off group worse rather than making the worse-off group better. \"Parity in mediocrity\" passes the test."
+          }
+        }
+      ]
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Fair Code",
+          "item": "https://www.thefaircode.xyz/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Explainers",
+          "item": "https://www.thefaircode.xyz/index.html#explainers"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "What Is Max-Min (Rawlsian) Fairness?",
+          "item": "https://www.thefaircode.xyz/explainers/maxmin-fairness.html"
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+<script>
+  window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
+<script defer src="https://cloud.umami.is/script.js" data-website-id="84e0aebf-44e1-466e-b2c6-62f75e1c36c7"></script>
+</head>
+<body class="explainer-page">
+  <main class="explainer-shell is-ready" data-explainer-shell>
+    <div class="explainer-topbar">
+      <a class="explainer-back" href="../index.html#explainers">← Back to explainers</a>
+      <div class="explainer-topbar-actions">
+        <a class="explainer-source" href="https://github.com/yakew7/Fair-Code/blob/main/explainers/maxmin-fairness.md" target="_blank" rel="noopener noreferrer">View source on GitHub</a>
+        <button class="explainer-theme-toggle" id="explainerThemeToggle" aria-label="Toggle theme" aria-pressed="false">☀</button>
+      </div>
+    </div>
+
+    <section class="explainer-hero">
+      <div class="explainer-kicker">Explainer</div>
+      <h1 class="explainer-headline">What Is Max-Min (Rawlsian) Fairness?</h1>
+      <p class="explainer-lede">Make the worst-off group&#x27;s outcome as good as possible, even if the groups end up unequal.</p>
+      <p class="explainer-lede">Learn how max-min (Rawlsian) fairness minimizes the maximum group-level loss instead of equalizing a rate across groups, and why a model can move toward it while still failing demographic parity. Worked on the Audit 03 German Credit data: an iterative group-reweighting loop cuts worst-group error from 29.1% to 27.9% and leaves the 12-point selection-rate gap almost untouched.</p>
+    </section>
+
+    <article class="explainer-content"><h2 id="what-is-max-min-rawlsian-fairness">What Is Max-Min (Rawlsian) Fairness?</h2>
+<blockquote><p><em>Parity asks whether the groups are equal to each other. Max-min asks how good we can make the worst-off group&#x27;s outcome - even if the groups end up unequal.</em></p></blockquote>
+<hr>
+<h3 id="the-one-sentence-definition">The One-Sentence Definition</h3>
+<p><strong>Max-min fairness</strong> (also called Rawlsian fairness, after the &quot;difference principle&quot; in John Rawls&#x27; <em>A Theory of Justice</em>) is a fairness objective that minimizes the maximum group-level loss - it makes the worst-off group&#x27;s outcome as good as possible - instead of equalizing a rate across groups the way parity metrics do.</p>
+<hr>
+<h3 id="why-it-matters">Why It Matters</h3>
+<p>Every parity-based metric this repo already covers - <a href="demographic-parity.html">demographic parity</a>, <a href="equalized-odds.html">equalized odds</a>, <a href="predictive-parity.html">predictive parity</a> - measures a <em>difference between groups</em> and drives it toward zero. That framing has a well-known escape hatch: you can satisfy a parity constraint by making the better-off group worse rather than making the worse-off group better. &quot;Parity in mediocrity&quot; passes the test.</p>
+<p>Max-min fairness rejects that move by construction. It does not look at the gap between groups at all. It looks at the single worst group-level outcome and tries to lift it. Concretely:</p>
+<ul><li>A model can satisfy demographic parity while both groups have poor accuracy. Max-min would prefer a model where the worst group&#x27;s accuracy is higher, even if that widens the between-group gap.</li><li>Conversely, optimizing only for the worst-off group can <em>widen</em> a parity gap: if you pour modeling capacity into the group with the higher error rate, its predictions improve, but its selection rate can move away from the other group&#x27;s.</li></ul>
+<p>So max-min and parity are genuinely different objectives, not two names for the same goal - and a model tuned for one can fail the other. This repo&#x27;s <a href="fairness-metric-conflicts.html">Fairness Metric Conflicts</a> explainer covers conflicts <em>among</em> parity metrics; the conflict between parity and max-min is a separate axis it does not touch.</p>
+<hr>
+<h3 id="core-concept-a-different-objective-function">Core Concept: A Different Objective Function</h3>
+<p>Write <code>L_g(theta)</code> for the expected loss (say, error rate) of model <code>theta</code> on group <code>g</code>.</p>
+<p><strong>Demographic parity</strong> constrains a rate to be equal across groups:</p>
+<pre><code>minimise  L(theta)          [average loss]
+subject to  P(Y_hat = 1 | A = a)  equal for all a</code></pre>
+<p><strong>Max-min (Rawlsian) fairness</strong> changes the thing being minimized:</p>
+<pre><code>minimise over theta of   max over groups g of   L_g(theta)</code></pre>
+<p>There is no equality constraint. The objective is a <code>min</code> of a <code>max</code>: push down the largest per-group loss, then whatever the next-largest one is, and so on. If lifting the worst group also happens to help the others, fine; if it leaves a between-group gap, that gap is not penalized.</p>
+<p>Two standard ways to approximate it without a bespoke solver:</p>
+<p>1. <strong>Iterative group reweighting.</strong> Train, measure each group&#x27;s loss, upweight whichever group is currently worst, retrain. Repeat. The training objective drifts from &quot;average loss&quot; toward &quot;worst-group loss.&quot; This is the approach in the code below, and the online form of it is what <a href="distributionally-robust-optimization.html">group distributionally robust optimization</a> does. 2. <strong>Distributionally robust optimization (DRO).</strong> Minimize the worst-case loss over a set of reweightings of the data. Hashimoto et al. (2018) show a DRO objective controls the minority group&#x27;s risk <em>without needing group labels</em>, which is why max-min and DRO are usually discussed together.</p>
+<hr>
+<h3 id="concrete-example-german-credit-lending-audit-03">Concrete Example: German Credit Lending - Audit 03</h3>
+<p>Audit 03 in this repo (<a href="../index.html#project-credit"><code>German Credit Lending/</code></a>) predicts bad credit risk on 1,000 real loan records. The protected attribute is <code>age</code>; here &quot;young&quot; means under 30 (the same cut <code>unfair.py</code> uses).</p>
+<p>This repo&#x27;s own frozen benchmark already records the gap max-min targets. In <code>paper/results-frozen/results_fairness.csv</code> (the earlier reference snapshot; see <a href="CLAUDE.html">CLAUDE.md</a>), the S0 baseline logistic-regression model on <code>age</code> has an <strong><code>accuracy_equality_diff</code> of -0.153</strong> (p = 0.031) - a statistically significant 15-point per-group accuracy gap. None of this repo&#x27;s S1-S4 mitigation strategies (<a href="mitigation-strategies.html">mitigation-strategies.md</a>) target that number; they all target demographic parity. Max-min fairness is the objective that goes after <code>accuracy_equality_diff</code> directly.</p>
+<p>The script below is an independent minimal implementation on the same dataset (not the S0-S4 harness): a plain logistic-regression baseline, then a max-min reweighting loop. Features drop <code>age</code> and <code>personal_status</code> (its proxy); inputs are standardized; the split is 80/20 stratified at <code>random_state=42</code>.</p>
+<pre><code class="language-python">import numpy as np
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+
+
+def load_german_credit(path=&quot;German Credit Lending/credit_customers.csv&quot;):
+    df = pd.read_csv(path)
+    df[&quot;y_bad&quot;] = (df[&quot;class&quot;] == &quot;bad&quot;).astype(int)            # 1 = bad credit risk
+    df[&quot;age_group&quot;] = np.where(df[&quot;age&quot;] &lt; 30, &quot;young&quot;, &quot;older&quot;)
+    drop = {&quot;class&quot;, &quot;y_bad&quot;, &quot;age&quot;, &quot;age_group&quot;, &quot;personal_status&quot;}  # drop age + its proxy
+    feats = [c for c in df.columns if c not in drop]
+    X = pd.get_dummies(df[feats], drop_first=True)
+    return X, df[&quot;y_bad&quot;].to_numpy(), df[&quot;age_group&quot;].to_numpy()
+
+
+def per_group(y_true, y_pred, groups):
+    out = {}
+    for g in [&quot;older&quot;, &quot;young&quot;]:
+        m = groups == g
+        acc = (y_pred[m] == y_true[m]).mean()
+        out[g] = {&quot;n&quot;: int(m.sum()), &quot;accuracy&quot;: round(float(acc), 4),
+                  &quot;error&quot;: round(float(1 - acc), 4),
+                  &quot;selection_rate&quot;: round(float(y_pred[m].mean()), 4)}
+    worst = max(out[&quot;older&quot;][&quot;error&quot;], out[&quot;young&quot;][&quot;error&quot;])
+    dp_gap = out[&quot;young&quot;][&quot;selection_rate&quot;] - out[&quot;older&quot;][&quot;selection_rate&quot;]
+    return pd.DataFrame(out).T, round(float(worst), 4), round(float(dp_gap), 4)
+
+
+def fit_maxmin(Xtr, ytr, gtr, n_rounds=50, step=0.5):
+    &quot;&quot;&quot;Rawlsian max-min: iteratively reweight groups toward the worst per-group
+    training error, so the optimizer minimizes the maximum group loss rather
+    than the average loss.&quot;&quot;&quot;
+    gw = {&quot;older&quot;: 1.0, &quot;young&quot;: 1.0}
+    for _ in range(n_rounds):
+        w = np.array([gw[g] for g in gtr], dtype=float)
+        w *= len(w) / w.sum()
+        model = LogisticRegression(max_iter=5000).fit(Xtr, ytr, sample_weight=w)
+        err = {g: 1 - (model.predict(Xtr)[gtr == g] == ytr[gtr == g]).mean()
+               for g in gw}
+        for g in gw:                       # multiplicative-weights update
+            gw[g] *= np.exp(step * err[g])
+        total = sum(gw.values())
+        gw = {g: v / total * len(gw) for g, v in gw.items()}
+    return model, gw
+
+
+if __name__ == &quot;__main__&quot;:
+    X, y, g = load_german_credit()
+    Xtr, Xte, ytr, yte, gtr, gte = train_test_split(
+        X, y, g, test_size=0.2, random_state=42, stratify=y)
+    mean, std = Xtr.mean(), Xtr.std().replace(0, 1)
+    Xtr_s, Xte_s = ((Xtr - mean) / std).to_numpy(), ((Xte - mean) / std).to_numpy()
+
+    base = LogisticRegression(max_iter=5000).fit(Xtr_s, ytr)
+    b_tbl, b_worst, b_dp = per_group(yte, base.predict(Xte_s), gte)
+    print(&quot;=== BASELINE (minimise average loss) ===&quot;)
+    print(b_tbl.to_string())
+    print(f&quot;overall accuracy      : {(base.predict(Xte_s) == yte).mean():.4f}&quot;)
+    print(f&quot;worst-group error     : {b_worst:.4f}&quot;)
+    print(f&quot;demographic-parity gap: {b_dp:.4f}  (young selection rate - older)&quot;)
+
+    mm, gw = fit_maxmin(Xtr_s, ytr, gtr)
+    m_tbl, m_worst, m_dp = per_group(yte, mm.predict(Xte_s), gte)
+    print(&quot;\n=== MAX-MIN (minimise the worst group&#x27;s loss) ===&quot;)
+    print(m_tbl.to_string())
+    print(f&quot;final group weights   : older {gw[&#x27;older&#x27;]:.2f}x, young {gw[&#x27;young&#x27;]:.2f}x&quot;)
+    print(f&quot;overall accuracy      : {(mm.predict(Xte_s) == yte).mean():.4f}&quot;)
+    print(f&quot;worst-group error     : {m_worst:.4f}&quot;)
+    print(f&quot;demographic-parity gap: {m_dp:.4f}  (young selection rate - older)&quot;)</code></pre>
+<h4 id="script-execution-output">Script Execution Output</h4>
+<pre><code>=== BASELINE (minimise average loss) ===
+           n  accuracy   error  selection_rate
+older  121.0    0.8099  0.1901          0.2066
+young   79.0    0.7089  0.2911          0.3418
+overall accuracy      : 0.7700
+worst-group error     : 0.2911
+demographic-parity gap: 0.1352  (young selection rate - older)
+
+=== MAX-MIN (minimise the worst group&#x27;s loss) ===
+           n  accuracy   error  selection_rate
+older  121.0    0.8099  0.1901          0.2066
+young   79.0    0.7215  0.2785          0.3291
+final group weights   : older 0.57x, young 1.43x
+overall accuracy      : 0.7750
+worst-group error     : 0.2785
+demographic-parity gap: 0.1225  (young selection rate - older)</code></pre>
+<p>(Deterministic with these library versions; a solver&#x27;s last digits can shift across BLAS backends, so the reading below only uses the leading digits.)</p>
+<p>What the two runs show:</p>
+<p><strong>The baseline hides a large per-group gap inside a decent average.</strong> Overall accuracy is 77%, but that splits into <strong>81% for older applicants and 71% for younger ones</strong> - a 10-point accuracy gap, the same disparity the frozen <code>accuracy_equality_diff</code> flags. Average-loss training has no reason to close it: younger applicants are the smaller group (79 of 200 test rows) and carry a higher base rate of bad outcomes, so the optimizer spends its capacity where the rows are.</p>
+<p><strong>Max-min lifts the worst group, and barely moves the other.</strong> Reweighting drives the young group&#x27;s weight up to 1.43x and the older group&#x27;s down to 0.57x. Worst-group error falls from <strong>29.1% to 27.9%</strong>, the young group&#x27;s accuracy rises about a point, the older group&#x27;s predictions are unchanged, and overall accuracy is flat (77.0% to 77.5%). A small effect from a deliberately simple loop - stronger max-min methods (Martinez et al. 2020) push further - but it moves the right number in the right direction.</p>
+<p><strong>It does not fix demographic parity, and was never trying to.</strong> The selection-rate gap goes from 13.5 points to 12.3 points and stays large and in the same direction. A model can move toward max-min fairness while still plainly failing demographic parity: the two objectives are optimizing different things. If you need the selection rates equalized, that is a parity constraint (S3/S4 in <a href="mitigation-strategies.html">mitigation-strategies.md</a>), not a max-min objective.</p>
+<hr>
+<h3 id="detection-and-implementation-code">Detection and Implementation Code</h3>
+<p>The <code>fit_maxmin</code> function above is the implementation. The check below reports whether a max-min run actually reduced the worst-group loss and what it cost the other groups - the two numbers that decide whether the trade was worth it.</p>
+<pre><code class="language-python">def maxmin_report(y_true, base_pred, maxmin_pred, groups):
+    &quot;&quot;&quot;Compare a baseline model against a max-min run, per group.
+
+    Flags the change in worst-group error and whether any other group got
+    worse (the price of the max-min trade).
+    &quot;&quot;&quot;
+    rows = {}
+    for g in sorted(set(groups)):
+        m = groups == g
+        base_err = float(1 - (base_pred[m] == y_true[m]).mean())
+        mm_err = float(1 - (maxmin_pred[m] == y_true[m]).mean())
+        rows[g] = {&quot;n&quot;: int(m.sum()),
+                   &quot;baseline_error&quot;: round(base_err, 4),
+                   &quot;maxmin_error&quot;: round(mm_err, 4),
+                   &quot;delta&quot;: round(mm_err - base_err, 4)}
+    base_worst = max(r[&quot;baseline_error&quot;] for r in rows.values())
+    mm_worst = max(r[&quot;maxmin_error&quot;] for r in rows.values())
+    regressed = [g for g, r in rows.items() if r[&quot;delta&quot;] &gt; 1e-4]
+    return {
+        &quot;per_group&quot;: rows,
+        &quot;worst_group_error_before&quot;: round(base_worst, 4),
+        &quot;worst_group_error_after&quot;: round(mm_worst, 4),
+        &quot;worst_group_improved&quot;: mm_worst &lt; base_worst,
+        &quot;groups_that_got_worse&quot;: regressed,
+    }</code></pre>
+<hr>
+<h3 id="limitations">Limitations</h3>
+<h4 id="1-a-tiny-or-noisy-subgroup-can-dominate">1. A tiny or noisy subgroup can dominate</h4>
+<p>Max-min chases whichever group is currently worst. If one group is small, its measured loss is high-variance, and the loop can pour weight into fitting noise for a handful of rows - hurting everyone else for no real gain. In the example above the &quot;young&quot; test group is only 79 rows; a real deployment should pair max-min with a minimum-group-size floor, the same guard this repo&#x27;s <a href="../faircode/significance.py">significance module</a> applies with its small-sample warning. Without that floor, &quot;worst-off group&quot; is not a stable target.</p>
+<h4 id="2-worst-off-depends-on-a-chosen-loss-function">2. &quot;Worst-off&quot; depends on a chosen loss function</h4>
+<p>The worst group under 0-1 error, under log-loss, under false-negative rate, and under calibration error can be three different groups. Max-min is only defined once you fix the loss, and that choice is a value judgment, not a technical default - the same point <a href="fairness-metric-conflicts.html">Fairness Metric Conflicts</a> makes about parity metrics.</p>
+<h4 id="3-it-is-silent-on-between-group-gaps">3. It is silent on between-group gaps</h4>
+<p>If your obligation is a legal disparate-impact standard (an 80%-rule selection-rate ratio), max-min does not help you meet it and can move you away from it, as the example shows. Max-min and parity are complementary tools for different requirements, not substitutes.</p>
+<h4 id="4-levelling-down-is-technically-permitted-at-the-margin">4. Levelling down is technically permitted at the margin</h4>
+<p>Minimizing the maximum loss is usually improved by <em>raising</em> the worst group, but a solver can also lower a better-off group if that reduces the maximum (for instance by shifting a shared threshold). Pareto-efficient formulations (Martinez et al. 2020) rule this out explicitly; a plain reweighting loop does not.</p>
+<hr>
+<h3 id="related-concepts">Related Concepts</h3>
+<ul><li><a href="fairness-metric-conflicts.html">Why Fairness Metrics Conflict</a> - conflicts among parity metrics; the parity-vs-max-min conflict is a separate axis.</li><li><a href="distributionally-robust-optimization.html">What Is Distributionally Robust Optimization (DRO) for Fairness?</a> - the worst-case-loss training method that is the online form of the reweighting loop here.</li><li><a href="mitigation-strategies.html">Mitigation Strategies</a> - this repo&#x27;s S0-S4 ladder, all of which target demographic parity rather than worst-group loss.</li><li><a href="class-imbalance.html">What Is Class Imbalance?</a> - why the smaller, higher-base-rate group is the one average-loss training underserves.</li><li><a href="demographic-parity.html">What Is Demographic Parity?</a> - the parity objective max-min is being contrasted against.</li></ul>
+<hr>
+<h3 id="related-projects-in-this-repo">Related Projects in This Repo</h3>
+<ul><li><a href="../index.html#project-credit"><code>German Credit Lending/</code></a> - Audit 03, the dataset and <code>age</code> attribute used above.</li><li><a href="../paper/results-frozen/"><code>paper/results-frozen/results_fairness.csv</code></a> - the frozen <code>accuracy_equality_diff</code> figure this explainer cites as the repo&#x27;s own record of the per-group accuracy gap.</li><li><a href="../faircode/significance.py"><code>faircode/significance.py</code></a> - the small-sample warning referenced in Limitation 1.</li></ul>
+<hr>
+<h3 id="further-reading">Further Reading</h3>
+<ul><li><a href="https://www.hup.harvard.edu/books/9780674000780" target="_blank" rel="noreferrer noopener">Rawls, J. (1971, rev. 1999): <em>A Theory of Justice</em>, Harvard University Press</a> - the &quot;difference principle&quot;: social and economic inequalities are just only if they benefit the least-advantaged members of society.</li><li><a href="https://proceedings.mlr.press/v80/hashimoto18a.html" target="_blank" rel="noreferrer noopener">Hashimoto, Srivastava, Namkoong &amp; Liang (2018): Fairness Without Demographics in Repeated Loss Minimization, ICML 2018, PMLR 80:1929-1938</a> - a DRO objective that bounds the minority group&#x27;s risk without using group labels.</li><li><a href="https://proceedings.mlr.press/v119/martinez20a.html" target="_blank" rel="noreferrer noopener">Martinez, Bertran &amp; Sapiro (2020): Minimax Pareto Fairness: A Multi Objective Perspective, ICML 2020, PMLR 119:6755-6764</a> - treats each group&#x27;s risk as a separate objective and finds a classifier that is minimax and Pareto-efficient, with no test-time access to the protected attribute.</li><li><a href="https://doi.org/10.1145/3461702.3462523" target="_blank" rel="noreferrer noopener">Diana, Gill, Kearns, Kenthapadi &amp; Roth (2021): Minimax Group Fairness: Algorithms and Experiments, AIES 2021</a> - practical algorithms for the min-max group-error objective and how it compares to statistical-parity mitigation.</li></ul>
+<hr>
+<p><em>Part of <a href="https://instagram.com/thefaircodeproject" target="_blank" rel="noreferrer noopener">The Fair Code Project</a> - exposing and fixing algorithmic bias with real data and open code.</em></p></article>
+  </main>
+
+  <script>
+    (function () {
+      const toggle = document.getElementById('explainerThemeToggle');
+      const html = document.documentElement;
+      const systemPref = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+
+      function syncTheme() {
+        const current = html.getAttribute('data-theme') || systemPref;
+        toggle.textContent = current === 'light' ? '☾' : '☀';
+        toggle.setAttribute('aria-label', current === 'light' ? 'Switch to dark mode' : 'Switch to light mode');
+        toggle.setAttribute('aria-pressed', current === 'dark' ? 'true' : 'false');
+      }
+
+      syncTheme();
+
+      toggle.addEventListener('click', () => {
+        const current = html.getAttribute('data-theme') || systemPref;
+        const next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('fc-theme', next);
+        syncTheme();
+      });
+    })();
+  </script>
+</body>
+</html>

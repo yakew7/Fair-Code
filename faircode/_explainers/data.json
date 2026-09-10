@@ -418,6 +418,20 @@
     "subtitle": "The accuracy cost of a privacy guarantee falls hardest on underrepresented groups.",
     "summary": "Learn how DP-SGD's gradient clipping and noise addition disproportionately degrade accuracy for minority subgroups, so adding a privacy guarantee to a bias-mitigation pipeline is not free. Illustrative example from Bagdasaryan, Poursaeed and Shmatikov (NeurIPS 2019), plus a runnable DP-SGD noise-injection toy; this repo trains no DP model, so no frozen numbers are quoted.",
     "tags": ["data", "metrics"]
+  },
+  {
+    "slug": "maxmin-fairness",
+    "title": "What Is Max-Min (Rawlsian) Fairness?",
+    "subtitle": "Make the worst-off group's outcome as good as possible, even if the groups end up unequal.",
+    "summary": "Learn how max-min (Rawlsian) fairness minimizes the maximum group-level loss instead of equalizing a rate across groups, and why a model can move toward it while still failing demographic parity. Worked on the Audit 03 German Credit data: an iterative group-reweighting loop cuts worst-group error from 29.1% to 27.9% and leaves the 12-point selection-rate gap almost untouched.",
+    "tags": ["metrics"]
+  },
+  {
+    "slug": "distributionally-robust-optimization",
+    "title": "What Is Distributionally Robust Optimization (DRO) for Fairness?",
+    "subtitle": "Train against the worst subgroup your data might be under-representing, without naming a parity metric.",
+    "summary": "Learn how DRO trains a model to minimize its worst-case loss over an uncertainty set of subgroup distributions - an in-processing alternative to constraint-based methods like ExponentiatedGradient that needs neither a chosen fairness metric nor group labels at prediction time. Worked on the Audit 03 German Credit data: online group DRO reliably shifts training weight onto the worst group, but on a capacity-limited linear model it buys no worst-group generalization - Sagawa et al.'s point about regularization.",
+    "tags": ["metrics", "data"]
   }
 ]
 
