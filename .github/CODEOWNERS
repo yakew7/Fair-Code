@@ -31,12 +31,12 @@
 
 # Python packaging
 /pyproject.toml @yakew7
-/Makefile @yakew7
+/Makefile @yakew7 @propcgamer20-png
 /requirements.txt @yakew7
 /requirements-lock.txt @yakew7
 
 # Scripts & tests
-/scripts/ @yakew7 @ahmdkaml
+/scripts/ @yakew7 @ahmdkaml @propcgamer20-png
 /tests/ @yakew7 @ahmdkaml
 
 # =========================
