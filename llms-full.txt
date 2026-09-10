@@ -8877,8 +8877,8 @@ print(diagnosis_rates)
 
 ### Output Interpretation
 
-1. **The Evaluation Trap**: On observed EHR labels (`obs_recall`), the model appears to perform decently across both groups (~0.85 vs ~0.76). But on true disease status (`true_recall`), the model catches **80.5%** of sick Group A patients versus only **41.2%** of sick Group B patients - a **39.3-point true false-negative gap** hidden from standard evaluation.
-2. **The Biomarker Audit**: In the highest biomarker band (Q4), Group A patients have a **0.887** diagnosis rate while Group B has a **0.536** rate. Disparities in diagnostic coding among patients with matching objective clinical values flag underdiagnosis bias directly from EHR records.
+1. **The Evaluation Trap**: Against observed EHR labels (`obs_recall`), the model already recalls Group B worse than Group A (**~0.64** vs **~0.33**), but standard evaluation reads that as the model faithfully matching a lower "disease rate" in Group B. Against true disease status (`true_recall`), the real picture is worse: the model catches **62.5%** of sick Group A patients versus only **29.2%** of sick Group B patients - a **33.3-point true false-negative gap**, most of which standard evaluation scores as correct True Negatives.
+2. **The Biomarker Audit**: In the highest biomarker band (Q4), Group A patients have a **0.785** recorded-diagnosis rate while Group B has a **0.497** rate, despite sharing the same objective clinical values. Disparities in diagnostic coding within matched biomarker bands flag underdiagnosis bias directly from EHR records, without needing the unobserved true label.
 
 ## Limitations
 
