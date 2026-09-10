@@ -367,7 +367,7 @@ X = pd.get_dummies(df[[
 
 | Group | High-Risk Flag Rate |
 |-------|:-------------------:|
-| Black Defendants | 84.82% |
+| Black Defendants | 84.71% |
 | White Defendants | 69.02% |
 | **New Fairness Gap** | **15.69%** |
 
@@ -550,8 +550,8 @@ Trained with sex, race, age, and national origin directly, plus five proxy varia
 
 | Group | Ineligibility Flag Rate |
 |-------|:-----------------------:|
-| Male applicants | 25.82% |
-| Female applicants | 7.82% |
+| Male applicants | 25.71% |
+| Female applicants | 7.71% |
 | **Fairness Gap (Sex)** | **18.00%** |
 
 | Group | Ineligibility Flag Rate |
