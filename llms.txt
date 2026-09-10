@@ -84,3 +84,4 @@ Full text of every explainer in one file (for AI answer engines): https://www.th
 - [Conditional Demographic Parity](https://www.thefaircode.xyz/explainers/conditional-demographic-parity.html)
 - [Subgroup Fairness](https://www.thefaircode.xyz/explainers/subgroup-fairness.html)
 - [Differential Privacy](https://www.thefaircode.xyz/explainers/differential-privacy.html)
+- [Reject Option Classification](https://www.thefaircode.xyz/explainers/reject-option-classification.html)
