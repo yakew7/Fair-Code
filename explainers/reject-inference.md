@@ -237,12 +237,18 @@ if __name__ == "__main__":
 ```
 === Reject Inference Correction Benchmark (Evaluated on Full Population U) ===
                        Population AUC  Population Accuracy  Older Approval Rate  Younger Approval Rate  Age Fairness Gap
-Naive (Approved Only)          0.7812               0.7410               0.8120                 0.6540            0.1580
-IPW Reweighted                 0.8345               0.7985               0.7650                 0.7420            0.0230
-Soft Parceled                  0.8115               0.7730               0.7840                 0.7110            0.0730
+Naive (Approved Only)          0.9460               0.8851               0.5413                 0.5366            0.0047
+IPW Reweighted                 0.9456               0.8813               0.5514                 0.5453            0.0062
+Soft Parceled                  0.9238               0.8852               0.5413                 0.5369            0.0045
 ```
 
-The baseline **Naive Model** trained strictly on approved data exhibits a **15.80 percentage point age fairness gap** on the full population, even though the true ground-truth outcome `Y` was generated independent of age. The **IPW Reweighted Model** corrects for selection propensity, restoring population AUC from 0.7812 to 0.8345 and shrinking the age fairness gap to **2.30 percentage points**.
+(Figures are the deterministic output of the seeded script in this repository's reference environment; a `RandomForestClassifier` with a fixed seed is not guaranteed bit-identical across CPU architectures and BLAS backends, so the last one or two digits can move on other machines. The story below only depends on the leading digits.)
+
+The historical gate in this simulation rejects young applicants far more often than older ones - the `-0.8 * age_young` term cuts a typical young applicant's approval odds from roughly 50% to 35%, so young applicants are 34.6% of the population but only 27.1% of the approved pool. Despite that, all three models land within **half a percentage point** of demographic parity on the full population, and IPW and Soft Parceling barely move the near-zero gap the Naive model already shows.
+
+That is the expected result here, not a bug: `y_true` is generated with no age term (older and younger applicants both repay about 55% of the time), and every model is trained on `credit_score` and `income_k` only - both drawn independently of `age_young`. Selection that acts on age alone is therefore ignorable for estimating `P(Y | X)`, so a well-specified learner recovers a near-parity score distribution with or without a correction, and there is no naive-model gap for IPW to close.
+
+The disparity this simulation *does* contain lives entirely in the selection gate (older approval rate ~50%, younger ~35%). A fairness audit run on model scores - or on the approved-only rows, the only rows a real lender keeps - sees the near-parity table above and never detects it. That is the point of *Why It Matters* item 2: reconstructing the full population `U` is the only way the selection-gate disparity becomes visible at all. IPW and parceling earn their keep in the harder case where selection also depends on features the outcome model omits, or on the latent outcome itself (MNAR) - conditions this deliberately minimal simulation does not create.
 
 ---
 

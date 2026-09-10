@@ -112,7 +112,7 @@
         "url": "https://www.thefaircode.xyz/index.html#explainers"
       },
       "datePublished": "2026-08-14",
-      "dateModified": "2026-08-14"
+      "dateModified": "2026-09-10"
     },
     {
       "@type": "FAQPage",
@@ -376,10 +376,13 @@ if __name__ == &quot;__main__&quot;:
 <h4 id="script-execution-output">Script Execution Output</h4>
 <pre><code>=== Reject Inference Correction Benchmark (Evaluated on Full Population U) ===
                        Population AUC  Population Accuracy  Older Approval Rate  Younger Approval Rate  Age Fairness Gap
-Naive (Approved Only)          0.7812               0.7410               0.8120                 0.6540            0.1580
-IPW Reweighted                 0.8345               0.7985               0.7650                 0.7420            0.0230
-Soft Parceled                  0.8115               0.7730               0.7840                 0.7110            0.0730</code></pre>
-<p>The baseline <strong>Naive Model</strong> trained strictly on approved data exhibits a <strong>15.80 percentage point age fairness gap</strong> on the full population, even though the true ground-truth outcome <code>Y</code> was generated independent of age. The <strong>IPW Reweighted Model</strong> corrects for selection propensity, restoring population AUC from 0.7812 to 0.8345 and shrinking the age fairness gap to <strong>2.30 percentage points</strong>.</p>
+Naive (Approved Only)          0.9460               0.8851               0.5413                 0.5366            0.0047
+IPW Reweighted                 0.9456               0.8813               0.5514                 0.5453            0.0062
+Soft Parceled                  0.9238               0.8852               0.5413                 0.5369            0.0045</code></pre>
+<p>(Figures are the deterministic output of the seeded script in this repository&#x27;s reference environment; a <code>RandomForestClassifier</code> with a fixed seed is not guaranteed bit-identical across CPU architectures and BLAS backends, so the last one or two digits can move on other machines. The story below only depends on the leading digits.)</p>
+<p>The historical gate in this simulation rejects young applicants far more often than older ones - the <code>-0.8 * age_young</code> term cuts a typical young applicant&#x27;s approval odds from roughly 50% to 35%, so young applicants are 34.6% of the population but only 27.1% of the approved pool. Despite that, all three models land within <strong>half a percentage point</strong> of demographic parity on the full population, and IPW and Soft Parceling barely move the near-zero gap the Naive model already shows.</p>
+<p>That is the expected result here, not a bug: <code>y_true</code> is generated with no age term (older and younger applicants both repay about 55% of the time), and every model is trained on <code>credit_score</code> and <code>income_k</code> only - both drawn independently of <code>age_young</code>. Selection that acts on age alone is therefore ignorable for estimating <code>P(Y | X)</code>, so a well-specified learner recovers a near-parity score distribution with or without a correction, and there is no naive-model gap for IPW to close.</p>
+<p>The disparity this simulation <em>does</em> contain lives entirely in the selection gate (older approval rate ~50%, younger ~35%). A fairness audit run on model scores - or on the approved-only rows, the only rows a real lender keeps - sees the near-parity table above and never detects it. That is the point of <em>Why It Matters</em> item 2: reconstructing the full population <code>U</code> is the only way the selection-gate disparity becomes visible at all. IPW and parceling earn their keep in the harder case where selection also depends on features the outcome model omits, or on the latent outcome itself (MNAR) - conditions this deliberately minimal simulation does not create.</p>
 <hr>
 <h3 id="limitations-and-trade-offs">Limitations and Trade-offs</h3>
 <h4 id="1-the-mar-assumption-is-unverifiable">1. The MAR Assumption Is Unverifiable</h4>
