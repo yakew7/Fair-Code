@@ -608,5 +608,15 @@ window.FAIR_CODE_EXPLAINERS = [
       "data",
       "metrics"
     ]
+  },
+  {
+    "slug": "reject-option-classification",
+    "title": "What Is Reject Option Classification?",
+    "subtitle": "Flip the model's least-confident predictions toward the group history treated worst.",
+    "summary": "Learn how Reject Option Classification (Kamiran, Karim & Zhang, 2012) post-processes a model by reassigning labels only inside a low-confidence band near the decision boundary, and why the band's width - a free parameter with no principled default - decides whether the fairness gap shrinks, holds, or reverses. Worked on the COMPAS baseline logistic regression: a +-0.10 band flips 651 of 3,254 predictions and halves the gap, while a +-0.15 band overcorrects it to -70 pp and collapses accuracy.",
+    "tags": [
+      "metrics",
+      "detection"
+    ]
   }
 ];

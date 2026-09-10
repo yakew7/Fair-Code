@@ -6,7 +6,7 @@
 ![Contributors](https://img.shields.io/badge/Contributors-29-blue?style=flat-square)
 ![Forks](https://img.shields.io/badge/Forks-33-orange?style=flat-square)
 ![Watching](https://img.shields.io/badge/Watching-8-yellow?style=flat-square)
-![Explainers](https://img.shields.io/badge/Explainers-60-blueviolet?style=flat-square)
+![Explainers](https://img.shields.io/badge/Explainers-61-blueviolet?style=flat-square)
 ![Countries](https://img.shields.io/badge/Countries-20-informational?style=flat-square)
 ![Updated](https://img.shields.io/badge/Updated-Weekly-lightgrey?style=flat-square)
 

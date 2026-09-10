@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What Is Reject Option Classification? · Fair Code</title>
+<meta name="description" content="Learn how Reject Option Classification (Kamiran, Karim &amp; Zhang, 2012) post-processes a model by reassigning labels only inside a low-confidence band near the decision boundary, and why the band&#x27;s width - a free parameter with no principled default - decides whether the fairness gap shrinks, holds, or reverses. Worked on the COMPAS baseline logistic regression: a +-0.10 band flips 651 of 3,254 predictions and halves the gap, while a +-0.15 band overcorrects it to -70 pp and collapses accuracy.">
+<link rel="canonical" href="https://www.thefaircode.xyz/explainers/reject-option-classification.html">
+<meta name="author" content="Yash Kewlani">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta property="og:site_name" content="Fair Code">
+<meta property="og:locale" content="en_US">
+<meta property="og:title" content="What Is Reject Option Classification? · Fair Code">
+<meta property="og:description" content="Learn how Reject Option Classification (Kamiran, Karim &amp; Zhang, 2012) post-processes a model by reassigning labels only inside a low-confidence band near the decision boundary, and why the band&#x27;s width - a free parameter with no principled default - decides whether the fairness gap shrinks, holds, or reverses. Worked on the COMPAS baseline logistic regression: a +-0.10 band flips 651 of 3,254 predictions and halves the gap, while a +-0.15 band overcorrects it to -70 pp and collapses accuracy.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://www.thefaircode.xyz/explainers/reject-option-classification.html">
+<meta property="og:image" content="https://www.thefaircode.xyz/assets/og/reject-option-classification.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="What Is Reject Option Classification? · Fair Code">
+<meta property="og:image" content="https://www.thefaircode.xyz/assets/og-light/reject-option-classification.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:alt" content="What Is Reject Option Classification? · Fair Code (light)">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="What Is Reject Option Classification? · Fair Code">
+<meta name="twitter:description" content="Learn how Reject Option Classification (Kamiran, Karim &amp; Zhang, 2012) post-processes a model by reassigning labels only inside a low-confidence band near the decision boundary, and why the band&#x27;s width - a free parameter with no principled default - decides whether the fairness gap shrinks, holds, or reverses. Worked on the COMPAS baseline logistic regression: a +-0.10 band flips 651 of 3,254 predictions and halves the gap, while a +-0.15 band overcorrects it to -70 pp and collapses accuracy.">
+<meta name="twitter:image" content="https://www.thefaircode.xyz/assets/og/reject-option-classification.png">
+
+<link rel="icon" href="/assets/icons/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/icon-192.png">
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='32' y='18' width='13' height='64' fill='%2314171A'/><rect x='32' y='18' width='42' height='13' fill='%2314171A'/><rect x='32' y='44' width='36' height='13' fill='%234F7A5B'/></svg>">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<script>
+  (function () {
+    const systemPref = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    const saved = localStorage.getItem('fc-theme') || systemPref;
+    document.documentElement.setAttribute('data-theme', saved);
+  })();
+</script>
+<link rel="stylesheet" href="../assets/explainers.css">
+<style>
+  :root {
+    --bg: #f4f1e8;
+    --surface: #ebe7d9;
+    --border: #d9d3c0;
+    --border2: #bdb59c;
+    --accent: #a63a22;
+    --accent3: #2f6b4f;
+    --text: #36321f;
+    --muted: #7d7459;
+    --white: #1d1910;
+    --bias-track-bg: #e2dcc9;
+
+    --serif: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+    --sans: 'Archivo', 'Helvetica Neue', sans-serif;
+    --mono: 'IBM Plex Mono', 'SF Mono', monospace;
+  }
+
+  html[data-theme="dark"] {
+    --bg: #15130d;
+    --surface: #1c1912;
+    --border: #2e2a1f;
+    --border2: #443e2d;
+    --accent: #cf6f49;
+    --accent3: #79b294;
+    --text: #cfc7b0;
+    --muted: #8d8367;
+    --white: #f1e9d4;
+    --bias-track-bg: #242013;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    transition: background 0.3s, color 0.3s;
+  }
+  a { color: inherit; }
+  ::selection { background: var(--accent); color: var(--bg); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "DefinedTerm",
+      "author": {
+        "@type": "Person",
+        "name": "Yash Kewlani",
+        "url": "https://github.com/yakew7"
+      },
+      "name": "What Is Reject Option Classification?",
+      "description": "Learn how Reject Option Classification (Kamiran, Karim & Zhang, 2012) post-processes a model by reassigning labels only inside a low-confidence band near the decision boundary, and why the band's width - a free parameter with no principled default - decides whether the fairness gap shrinks, holds, or reverses. Worked on the COMPAS baseline logistic regression: a +-0.10 band flips 651 of 3,254 predictions and halves the gap, while a +-0.15 band overcorrects it to -70 pp and collapses accuracy.",
+      "url": "https://www.thefaircode.xyz/explainers/reject-option-classification.html",
+      "inDefinedTermSet": {
+        "@type": "DefinedTermSet",
+        "name": "Fair Code Explainers",
+        "url": "https://www.thefaircode.xyz/index.html#explainers"
+      }
+    },
+    {
+      "@type": "FAQPage",
+      "url": "https://www.thefaircode.xyz/explainers/reject-option-classification.html",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "What Is Reject Option Classification?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Reject Option Classification (ROC; Kamiran, Karim and Zhang, 2012) is a post-processing bias mitigation that defines a \"critical region\" of low-confidence predictions near the decision boundary and, only inside that region, assigns the favorable label to instances from the disadvantaged group and the unfavorable label to instances from the advantaged group."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Why does this matter for fairness?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "This repo's benchmark harness already includes a post-processing mitigation as strategy S4 - Fairlearn's ThresholdOptimizer, which searches for a per-group decision threshold that makes the whole model satisfy a fairness constraint. ROC is a different post-processing mechanism with the same access level (model outputs only, no retraining):"
+          }
+        }
+      ]
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Fair Code",
+          "item": "https://www.thefaircode.xyz/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Explainers",
+          "item": "https://www.thefaircode.xyz/index.html#explainers"
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "name": "What Is Reject Option Classification?",
+          "item": "https://www.thefaircode.xyz/explainers/reject-option-classification.html"
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
+<script>
+  window.si = window.si || function () { (window.siq = window.siq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/speed-insights/script.js"></script>
+<script defer src="https://cloud.umami.is/script.js" data-website-id="84e0aebf-44e1-466e-b2c6-62f75e1c36c7"></script>
+</head>
+<body class="explainer-page">
+  <main class="explainer-shell is-ready" data-explainer-shell>
+    <div class="explainer-topbar">
+      <a class="explainer-back" href="../index.html#explainers">← Back to explainers</a>
+      <div class="explainer-topbar-actions">
+        <a class="explainer-source" href="https://github.com/yakew7/Fair-Code/blob/main/explainers/reject-option-classification.md" target="_blank" rel="noopener noreferrer">View source on GitHub</a>
+        <button class="explainer-theme-toggle" id="explainerThemeToggle" aria-label="Toggle theme" aria-pressed="false">☀</button>
+      </div>
+    </div>
+
+    <section class="explainer-hero">
+      <div class="explainer-kicker">Explainer</div>
+      <h1 class="explainer-headline">What Is Reject Option Classification?</h1>
+      <p class="explainer-lede">Flip the model&#x27;s least-confident predictions toward the group history treated worst.</p>
+      <p class="explainer-lede">Learn how Reject Option Classification (Kamiran, Karim &amp; Zhang, 2012) post-processes a model by reassigning labels only inside a low-confidence band near the decision boundary, and why the band&#x27;s width - a free parameter with no principled default - decides whether the fairness gap shrinks, holds, or reverses. Worked on the COMPAS baseline logistic regression: a +-0.10 band flips 651 of 3,254 predictions and halves the gap, while a +-0.15 band overcorrects it to -70 pp and collapses accuracy.</p>
+    </section>
+
+    <article class="explainer-content"><h2 id="what-is-reject-option-classification">What Is Reject Option Classification?</h2>
+<blockquote><p><em>When a model is least sure of itself, it has the least evidence to defend its choice. Reject Option Classification takes exactly those borderline cases and hands the favorable outcome to the group history treated worst, on the bet that correcting for bias costs the least where the model was already guessing.</em></p></blockquote>
+<h3 id="the-one-sentence-definition">The One-Sentence Definition</h3>
+<p><strong>Reject Option Classification</strong> (ROC; Kamiran, Karim and Zhang, 2012) is a post-processing bias mitigation that defines a &quot;critical region&quot; of low-confidence predictions near the decision boundary and, only inside that region, assigns the favorable label to instances from the disadvantaged group and the unfavorable label to instances from the advantaged group.</p>
+<blockquote><p><strong>Not the same as <a href="reject-inference.html">Reject Inference</a>.</strong> That explainer&#x27;s &quot;reject&quot; is about <em>rejected loan applicants</em> who never entered the training data - a selection-bias problem in credit scoring. This explainer&#x27;s &quot;reject&quot; is the classifier&#x27;s <em>reject option</em>: the band of inputs a probabilistic model is too uncertain about to commit to. Same word, unrelated ideas. (The same name-collision warning <a href="counterfactual-explanation.html">Counterfactual Explanation</a> carries for its overlap with counterfactual fairness.)</p></blockquote>
+<h3 id="why-it-matters">Why It Matters</h3>
+<p>This repo&#x27;s benchmark harness already includes a post-processing mitigation as strategy <strong>S4</strong> - Fairlearn&#x27;s <code>ThresholdOptimizer</code>, which searches for a <em>per-group decision threshold</em> that makes the whole model satisfy a fairness constraint. ROC is a different post-processing mechanism with the same access level (model outputs only, no retraining):</p>
+<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th></th><th><code>ThresholdOptimizer</code> (this repo&#x27;s S4)</th><th>Reject Option Classification</th></tr></thead><tbody><tr><td>What it changes</td><td>one decision threshold per group, applied to every prediction</td><td>the label of individual predictions, only inside a confidence band</td></tr><tr><td>Where it acts</td><td>globally, across the whole score range</td><td>locally, near <code>p = 0.5</code></td></tr><tr><td>Free parameter</td><td>the fairness constraint to satisfy</td><td>the width of the critical region</td></tr><tr><td>Rationale</td><td>pick thresholds that equalize a chosen rate</td><td>flip where the model had the least evidence, so accuracy loss is smallest</td></tr></tbody></table></div>
+<p>ROC&#x27;s appeal is the &quot;least evidence&quot; argument: a prediction with <code>p = 0.52</code> is barely a prediction at all, so overriding it toward the disadvantaged group is a small, defensible correction. Its weakness is that &quot;how wide is the band&quot; has no principled answer - and, as the worked example shows, the answer completely determines whether you fix the gap, do nothing, or overcorrect into a mirror-image disparity.</p>
+<h3 id="how-it-works">How It Works</h3>
+<p>Let <code>p_i = P(Y = 1 | X_i)</code> be the model&#x27;s predicted probability of the <em>unfavorable</em> outcome (here: &quot;high risk&quot;), and let <code>Y = 1</code> be unfavorable, <code>Y = 0</code> favorable.</p>
+<p>1. <strong>Baseline prediction:</strong> <code>y_hat_i = 1 if p_i &gt;= 0.5 else 0</code>. 2. <strong>Critical region:</strong> pick a half-width <code>theta</code> in <code>(0, 0.5]</code> and define the region as <code>0.5 - theta &lt;= p_i &lt;= 0.5 + theta</code>. Outside it, keep the baseline prediction. 3. <strong>Flip rule inside the region:</strong></p>
+<ul><li>disadvantaged group -&gt; favorable outcome (<code>y_hat_i = 0</code>)</li><li>advantaged group -&gt; unfavorable outcome (<code>y_hat_i = 1</code>)</li></ul>
+<p>The flip toward the advantaged group is what keeps ROC from simply lowering everyone&#x27;s positive rate: it trades favorable outcomes from the advantaged group for favorable outcomes to the disadvantaged group, inside the band, rather than just relabelling one side.</p>
+<p><code>theta</code> is the entire design. <code>theta -&gt; 0</code> recovers the untouched model. <code>theta = 0.5</code> puts every prediction in the region, so the output becomes &quot;disadvantaged group all-favorable, advantaged group all-unfavorable&quot; regardless of the features.</p>
+<h3 id="concrete-example-compas-audit-01">Concrete Example: COMPAS - Audit 01</h3>
+<p><code>COMPAS/</code> audits the ProPublica COMPAS raw file, filtered (per <code>audit.yaml</code>) to African-American and Caucasian defendants scored for &quot;Risk of Recidivism&quot; (~16.3k rows). Following the audit&#x27;s setup, a logistic-regression baseline was trained on <code>Sex_Code_Text</code>, <code>race</code>, <code>CustodyStatus</code>, <code>MaritalStatus</code> (an 80/20 split, <code>random_state=42</code>), and ROC was applied to its test-set probabilities. Favorable outcome = &quot;not high risk&quot;; disadvantaged group = African-American defendants.</p>
+<p><strong>Baseline model (no ROC):</strong></p>
+<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th></th><th>Value</th></tr></thead><tbody><tr><td>Black defendants flagged high-risk</td><td>86.1%</td></tr><tr><td>White defendants flagged high-risk</td><td>0.1%</td></tr><tr><td>Demographic parity gap</td><td><strong>+86.0 pp</strong></td></tr><tr><td>Test accuracy</td><td>65.9%</td></tr></tbody></table></div>
+<p>The baseline is close to a step function - <code>race</code> dominates the model, so almost every predicted probability sits near 0 or near 1 and very few land near the boundary. That is the setting ROC handles worst, and it shows:</p>
+<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Critical region <code>theta</code></th><th>Predictions in region (of 3,254)</th><th>Predictions flipped</th><th>New parity gap</th><th>Test accuracy</th></tr></thead><tbody><tr><td>baseline</td><td>-</td><td>-</td><td>+86.0 pp</td><td>65.9%</td></tr><tr><td>±0.05</td><td>17</td><td>17</td><td><strong>+85.0 pp</strong></td><td>65.9%</td></tr><tr><td>±0.10</td><td>671</td><td>651</td><td><strong>+43.9 pp</strong></td><td>61.0%</td></tr><tr><td>±0.15</td><td>2,609</td><td>2,566</td><td><strong>-70.2 pp</strong></td><td>45.5%</td></tr></tbody></table></div>
+<ul><li><strong>±0.05</strong> touches 17 of 3,254 test rows. The gap barely moves and accuracy is unchanged, because the model is almost never uncertain - it committed hard, using race.</li><li><strong>±0.10</strong> flips 651 predictions and roughly halves the gap (+86 -&gt; +44 pp), at a ~5-point accuracy cost. This is the band where ROC does what it is supposed to.</li><li><strong>±0.15</strong> pulls in 80% of the test set. The &quot;flip rule&quot; now overrides the model on the large majority of cases, the gap <strong>reverses</strong> to -70 pp (Black defendants now flagged <em>less</em>), and accuracy collapses to 45.5% - worse than predicting the majority class.</li></ul>
+<p>No value of <code>theta</code> was &quot;correct&quot;; the three rows above are three different fairness outcomes produced by three arbitrary choices of one number. That is the central caveat, made concrete.</p>
+<pre><code class="language-python">import numpy as np
+import pandas as pd
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+df = pd.read_csv(&quot;COMPAS/compas-scores-raw.csv&quot;)
+df = df[df[&quot;Ethnic_Code_Text&quot;].isin([&quot;African-American&quot;, &quot;Caucasian&quot;])]
+df = df[df[&quot;DisplayText&quot;] == &quot;Risk of Recidivism&quot;].copy()
+df[&quot;high_risk&quot;] = df[&quot;ScoreText&quot;].isin([&quot;High&quot;, &quot;Medium&quot;]).astype(int)
+df[&quot;is_black&quot;] = (df[&quot;Ethnic_Code_Text&quot;] == &quot;African-American&quot;).astype(int)
+
+X = pd.get_dummies(df[[&quot;Sex_Code_Text&quot;, &quot;is_black&quot;, &quot;CustodyStatus&quot;,
+                       &quot;MaritalStatus&quot;]]).astype(float)
+y, g = df[&quot;high_risk&quot;].to_numpy(), df[&quot;is_black&quot;].to_numpy()
+X_tr, X_te, y_tr, y_te, g_tr, g_te = train_test_split(
+    X, y, g, test_size=0.2, random_state=42, stratify=y)
+
+scaler = StandardScaler().fit(X_tr)
+model = LogisticRegression(max_iter=1000).fit(scaler.transform(X_tr), y_tr)
+p = model.predict_proba(scaler.transform(X_te))[:, 1]
+baseline = (p &gt;= 0.5).astype(int)
+
+for theta in (0.05, 0.10, 0.15):
+    region = np.abs(p - 0.5) &lt;= theta
+    roc = baseline.copy()
+    roc[region &amp; (g_te == 1)] = 0   # disadvantaged -&gt; favorable (not high risk)
+    roc[region &amp; (g_te == 0)] = 1   # advantaged   -&gt; unfavorable
+    gap = roc[g_te == 1].mean() - roc[g_te == 0].mean()
+    print(f&quot;theta=+/-{theta}: {region.sum():4d} in region, &quot;
+          f&quot;{(roc != baseline).sum():4d} flipped, gap {gap:+.3f}, &quot;
+          f&quot;acc {(roc == y_te).mean():.3f}&quot;)</code></pre>
+<h3 id="detection-implementation-code">Detection / Implementation Code</h3>
+<p>A reusable ROC post-processor plus a helper that sweeps <code>theta</code> so the parameter&#x27;s effect is visible rather than hidden.</p>
+<pre><code class="language-python">import numpy as np
+import pandas as pd
+
+
+def reject_option_classify(
+    proba_unfavorable: np.ndarray,
+    group: np.ndarray,
+    disadvantaged_value,
+    theta: float,
+    boundary: float = 0.5,
+) -&gt; np.ndarray:
+    &quot;&quot;&quot;
+    Apply Reject Option Classification to a probabilistic model&#x27;s output.
+
+    proba_unfavorable : P(Y = 1) where Y = 1 is the UNfavorable outcome.
+    group             : group membership, aligned to proba_unfavorable.
+    disadvantaged_value : the value in `group` that marks the disadvantaged
+                          group (gets the favorable outcome inside the band).
+    theta             : half-width of the critical region, in (0, boundary].
+    boundary          : decision threshold (default 0.5).
+
+    Returns the post-processed 0/1 predictions (1 = unfavorable).
+    &quot;&quot;&quot;
+    if not 0 &lt; theta &lt;= boundary:
+        raise ValueError(f&quot;theta must be in (0, {boundary}], got {theta}&quot;)
+
+    proba = np.asarray(proba_unfavorable, dtype=float)
+    grp = np.asarray(group)
+    pred = (proba &gt;= boundary).astype(int)
+
+    in_region = np.abs(proba - boundary) &lt;= theta
+    is_disadvantaged = grp == disadvantaged_value
+
+    pred[in_region &amp; is_disadvantaged] = 0    # favorable
+    pred[in_region &amp; ~is_disadvantaged] = 1   # unfavorable
+    return pred
+
+
+def sweep_theta(
+    proba_unfavorable: np.ndarray,
+    group: np.ndarray,
+    y_true: np.ndarray,
+    disadvantaged_value,
+    advantaged_value,
+    thetas=(0.02, 0.05, 0.10, 0.15, 0.20, 0.30),
+    boundary: float = 0.5,
+) -&gt; pd.DataFrame:
+    &quot;&quot;&quot;Run ROC across a range of theta and report, for each: how many
+    predictions fell in the critical region, how many actually flipped, the
+    resulting demographic-parity gap (disadvantaged - advantaged positive
+    rate on the UNfavorable label), and overall accuracy. There is no
+    &#x27;best&#x27; row - the point is that the choice is unconstrained.&quot;&quot;&quot;
+    proba = np.asarray(proba_unfavorable, dtype=float)
+    grp = np.asarray(group)
+    y = np.asarray(y_true, dtype=int)
+    baseline = (proba &gt;= boundary).astype(int)
+
+    def gap(pred):
+        return (pred[grp == disadvantaged_value].mean()
+                - pred[grp == advantaged_value].mean())
+
+    rows = [{
+        &quot;theta&quot;: 0.0, &quot;in_region&quot;: 0, &quot;flipped&quot;: 0,
+        &quot;parity_gap&quot;: gap(baseline), &quot;accuracy&quot;: (baseline == y).mean(),
+    }]
+    for theta in thetas:
+        pred = reject_option_classify(proba, grp, disadvantaged_value,
+                                      theta, boundary)
+        in_region = int((np.abs(proba - boundary) &lt;= theta).sum())
+        rows.append({
+            &quot;theta&quot;: theta,
+            &quot;in_region&quot;: in_region,
+            &quot;flipped&quot;: int((pred != baseline).sum()),
+            &quot;parity_gap&quot;: gap(pred),
+            &quot;accuracy&quot;: (pred == y).mean(),
+        })
+    return pd.DataFrame(rows)
+
+
+# Usage (see the COMPAS example above for how p, g_te, y_te are produced):
+# print(sweep_theta(p, g_te, y_te, disadvantaged_value=1, advantaged_value=0))</code></pre>
+<h3 id="limitations-and-trade-offs">Limitations and Trade-offs</h3>
+<h4 id="1-the-critical-region-width-has-no-principled-default">1. The critical-region width has no principled default</h4>
+<p>Every number in the worked example - &quot;gap halved&quot;, &quot;gap reversed&quot;, &quot;accuracy destroyed&quot; - is a consequence of picking <code>theta</code>. The original paper frames the choice through decision theory (a loss ratio between the two error types), which relocates the arbitrariness into choosing that ratio rather than removing it. In practice <code>theta</code> is tuned on a validation set against whatever fairness/accuracy trade-off the deployer already had in mind, which means ROC does not decide the trade-off, it just implements a chosen one.</p>
+<h4 id="2-it-needs-group-membership-at-prediction-time">2. It needs group membership at prediction time</h4>
+<p>Like every post-processing method (including this repo&#x27;s <code>ThresholdOptimizer</code>), the flip rule reads the protected attribute for each individual at inference. In hiring, lending, and housing that is often the exact input a deployer is legally barred from using in the decision, or does not reliably have. A model that must not see race cannot run ROC on race.</p>
+<h4 id="3-it-can-invert-the-disparity-instead-of-removing-it">3. It can invert the disparity instead of removing it</h4>
+<p>Because the flip rule is unconditional inside the band, a wide <code>theta</code> on a confident model (the COMPAS case) does not shrink the gap toward zero - it drags it past zero. ROC has no &quot;stop at parity&quot; mechanism; monitoring the post-processed gap and backing <code>theta</code> off is a manual outer loop.</p>
+<h4 id="4-it-optimizes-a-rate-not-the-individuals">4. It optimizes a rate, not the individuals</h4>
+<p>Two defendants with <code>p = 0.49</code> and <code>p = 0.51</code> get opposite treatment based on group, not on any difference between them - the same <a href="individual-fairness.html">individual-fairness</a> objection that applies to per-group thresholds. ROC trades group-rate fairness for individual-level consistency in the band.</p>
+<h3 id="related-concepts">Related Concepts</h3>
+<ul><li><a href="mitigation-strategies.html">What Are Pre-, In-, and Post-Processing Fairness Mitigations?</a> - where ROC sits among mitigation families, and this repo&#x27;s own S4 <code>ThresholdOptimizer</code> post-processing strategy.</li><li><a href="equalized-odds.html">What Is Equalized Odds?</a> and <a href="equal-opportunity.html">What Is Equal Opportunity?</a> - the error-rate metrics a per-group threshold or a flip band is usually tuned against.</li><li><a href="treatment-equality.html">What Is Treatment Equality?</a> - another lens on how a post-processing flip changes the <em>mix</em> of errors within each group.</li><li><a href="reject-inference.html">What Is Reject Inference?</a> - the unrelated &quot;reject&quot; (missing rejected applicants in training data), kept adjacent here only to mark the name collision.</li><li><a href="individual-fairness.html">What Is Individual Fairness?</a> - why treating near-boundary individuals differently by group is contested.</li></ul>
+<h3 id="related-projects-in-this-repo">Related Projects in This Repo</h3>
+<ul><li><a href="../index.html#project-compas"><code>COMPAS/</code></a> - the audit used above; its baseline is confident enough that ROC either does almost nothing (<code>theta = 0.05</code>) or overcorrects (<code>theta &gt;= 0.15</code>).</li><li><a href="../index.html#project-credit"><code>German Credit Lending/</code></a> - a smaller-gap audit where a model with more mass near the boundary would give ROC a wider useful <code>theta</code> range.</li></ul>
+<h3 id="further-reading">Further Reading</h3>
+<ul><li><a href="https://doi.org/10.1109/ICDM.2012.45" target="_blank" rel="noreferrer noopener">Kamiran, F., Karim, A., Zhang, X. (2012): Decision Theory for Discrimination-Aware Classification, <em>IEEE ICDM 2012</em>, pp. 924-929</a> - the paper that introduces Reject Option based Classification and the disagreement-region variant, and ties both to decision theory. <a href="https://web.lums.edu.pk/~akarim/pub/decision_theory_icdm2012.pdf" target="_blank" rel="noreferrer noopener">Author PDF.</a></li><li><a href="https://doi.org/10.1016/j.ins.2017.09.064" target="_blank" rel="noreferrer noopener">Kamiran, F., Mansha, S., Karim, A., Zhang, X. (2018): Exploiting Reject Option in Classification for Social Discrimination Control, <em>Information Sciences</em> 425</a> - a fuller treatment with more datasets and the multi-attribute case.</li><li><a href="https://arxiv.org/abs/1610.02413" target="_blank" rel="noreferrer noopener">Hardt, M., Price, E., Srebro, N. (2016): Equality of Opportunity in Supervised Learning, <em>NeurIPS 2016</em></a> - the per-group-threshold post-processing method this repo&#x27;s <code>ThresholdOptimizer</code> implements, for contrast.</li></ul>
+<hr>
+<p><em>Part of <a href="https://instagram.com/thefaircodeproject" target="_blank" rel="noreferrer noopener">The Fair Code Project</a> - exposing and fixing algorithmic bias with real data and open code.</em></p></article>
+  </main>
+
+  <script>
+    (function () {
+      const toggle = document.getElementById('explainerThemeToggle');
+      const html = document.documentElement;
+      const systemPref = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+
+      function syncTheme() {
+        const current = html.getAttribute('data-theme') || systemPref;
+        toggle.textContent = current === 'light' ? '☾' : '☀';
+        toggle.setAttribute('aria-label', current === 'light' ? 'Switch to dark mode' : 'Switch to light mode');
+        toggle.setAttribute('aria-pressed', current === 'dark' ? 'true' : 'false');
+      }
+
+      syncTheme();
+
+      toggle.addEventListener('click', () => {
+        const current = html.getAttribute('data-theme') || systemPref;
+        const next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('fc-theme', next);
+        syncTheme();
+      });
+    })();
+  </script>
+</body>
+</html>
