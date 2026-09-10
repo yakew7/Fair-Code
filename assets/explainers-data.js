@@ -608,5 +608,14 @@ window.FAIR_CODE_EXPLAINERS = [
       "data",
       "metrics"
     ]
+  },
+  {
+    "slug": "maxmin-fairness",
+    "title": "What Is Max-Min (Rawlsian) Fairness?",
+    "subtitle": "Make the worst-off group's outcome as good as possible, even if the groups end up unequal.",
+    "summary": "Learn how max-min (Rawlsian) fairness minimizes the maximum group-level loss instead of equalizing a rate across groups, and why a model can move toward it while still failing demographic parity. Worked on the Audit 03 German Credit data: an iterative group-reweighting loop cuts worst-group error from 29.1% to 27.9% and leaves the 12-point selection-rate gap almost untouched.",
+    "tags": [
+      "metrics"
+    ]
   }
 ];
