@@ -7,7 +7,7 @@
 /paper/ @yakew7
 **/audit.yaml @yakew7
 
-# Audit datasets & scripts (fair.py/unfair.py/notebooks/data - everything in
+# Audit datasets & scripts (fair.py/unfair.py/data - everything in
 # each audit folder besides audit.yaml, already covered above)
 /AI\ Fair\ Recruitment/ @yakew7
 /Benefits\ Denial/ @yakew7
