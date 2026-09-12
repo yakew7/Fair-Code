@@ -7,7 +7,7 @@
 /paper/ @yakew7
 **/audit.yaml @yakew7
 
-# Audit datasets & scripts (fair.py/unfair.py/notebooks/data - everything in
+# Audit datasets & scripts (fair.py/unfair.py/data - everything in
 # each audit folder besides audit.yaml, already covered above)
 /AI\ Fair\ Recruitment/ @yakew7
 /Benefits\ Denial/ @yakew7
@@ -16,6 +16,10 @@
 /Healthcare\ Readmission/ @yakew7
 /Insurance\ Denial/ @yakew7
 /Tenant\ Screening/ @yakew7
+
+# Audit notebooks - the repo's notebooks live in one top-level directory, not
+# inside each audit folder, so the per-audit entries above never matched them
+/notebooks/ @yakew7
 
 # Project policy / frozen files
 /CLAUDE.md @yakew7
