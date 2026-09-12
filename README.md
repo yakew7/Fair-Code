@@ -918,7 +918,7 @@ Or open any `.ipynb` directly in VS Code, JupyterLab, or Google Colab.
 
 ## Open Dataset Profiler
 
-The six audits above measure bias in a **model**. The **Open Dataset Profiler** works one step
+The seven audits above measure bias in a **model**. The **Open Dataset Profiler** works one step
 upstream - it audits the **dataset itself** for demographic representation *before* any model is
 trained: under-represented or missing subgroups, skewed age/sex distributions, geographic
 under-sampling, and intersectional gaps. It is **diagnostic**, not predictive - there is no model,
