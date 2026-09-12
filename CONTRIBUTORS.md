@@ -408,7 +408,7 @@ makes `git shortlog -sne` reconcilable with the list above.
 | [@anujkamdar](https://github.com/anujkamdar) | `Anuj Kamdar` |
 | [@evanjain-dot](https://github.com/evanjain-dot) | `evanjain-dot` |
 | [@YashKewlani1](https://github.com/YashKewlani1) | `Aarav Sharma` |
-| [@TanishGoyal-Dev](https://github.com/TanishGoyal-Dev) | `TanishGoyal-Dev` |
+| [@TanishGoyal-Dev](https://github.com/TanishGoyal-Dev) | `TanishGoyal-Dev` - commit email (`tanishgoyal003@gmail.com`) is not linked to the GitHub account, so [#13](https://github.com/yakew7/Fair-Code/pull/13) doesn't register in the repo's contributors graph despite being a real merged PR |
 | [@shwetagupta1234](https://github.com/shwetagupta1234) | `shwetagupta1234` |
 | [@Circout-sudo](https://github.com/Circout-sudo) | `Yojeet` |
 | [@Ayaan-20-11](https://github.com/Ayaan-20-11) | `Ayaan Kapoor` - commit email is a local hostname (`ayaankapoor@Mac.lan`), not linked to the GitHub account, so [#331](https://github.com/yakew7/Fair-Code/pull/331) doesn't register in the repo's contributors graph despite being a real merged PR |
