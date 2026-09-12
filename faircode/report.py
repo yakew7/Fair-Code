@@ -91,7 +91,8 @@ def to_terminal(result: dict) -> str:
             add(f"  reference (deviation {d['reference']['deviation'] * 100:.1f}%):")
             for g in ref_groups[:DISPLAY_GROUPS]:
                 add(f"    {g['label'][:16]:<16} exp {g['expected'] * 100:5.1f}%  "
-                    f"act {g['actual'] * 100:5.1f}%  ({_strip_neg_zero(g['delta'] * 100):+5.1f} pp)")
+                    f"act {g['actual'] * 100:5.1f}%  "
+                    f"({_strip_neg_zero(g['delta'] * 100):+5.1f} pp)")
             if len(ref_groups) > DISPLAY_GROUPS:
                 add(f"    … and {len(ref_groups) - DISPLAY_GROUPS} more groups")
         add("")

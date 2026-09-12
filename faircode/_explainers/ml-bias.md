@@ -68,7 +68,7 @@ Most production bias is disparate impact, not disparate treatment. The protected
 
 The COMPAS audit is the sharpest illustration of how all four entry points converge in a single system.
 
-**Training data:** 70,000+ records from Broward County, Florida. Predominantly from a jurisdiction with documented history of racially unequal policing - meaning the training distribution reflects over-policing of Black communities, not actual recidivism rates.
+**Training data:** 60,000+ records from Broward County, Florida. Predominantly from a jurisdiction with documented history of racially unequal policing - meaning the training distribution reflects over-policing of Black communities, not actual recidivism rates.
 
 **Labels:** The label is `is_recid` - whether a defendant reoffended within two years. Reoffending is measured by re-arrest, not by actual criminal behaviour. In a jurisdiction where Black defendants are more likely to be stopped, searched, and arrested for equivalent behaviour, re-arrest is a biased label. The model trains to predict re-arrest and produces a proxy for policing intensity, not criminal propensity.
 

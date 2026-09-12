@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://www.thefaircode.xyz/</loc>
-    <lastmod>2026-09-09</lastmod>
+    <lastmod>2026-09-12</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/profiler.html</loc>
@@ -10,11 +10,11 @@
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/proxy-variables.html</loc>
-    <lastmod>2026-08-14</lastmod>
+    <lastmod>2026-09-10</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/equalized-odds.html</loc>
-    <lastmod>2026-06-30</lastmod>
+    <lastmod>2026-09-10</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/sampling-bias.html</loc>
@@ -30,7 +30,7 @@
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/disparate-treatment.html</loc>
-    <lastmod>2026-06-30</lastmod>
+    <lastmod>2026-09-10</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/fairness-metric-conflicts.html</loc>
@@ -42,7 +42,7 @@
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/demographic-parity.html</loc>
-    <lastmod>2026-06-30</lastmod>
+    <lastmod>2026-09-10</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/feedback-loop-bias.html</loc>
@@ -58,11 +58,11 @@
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/counterfactual-fairness.html</loc>
-    <lastmod>2026-06-30</lastmod>
+    <lastmod>2026-09-10</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/neural-networks.html</loc>
-    <lastmod>2026-08-14</lastmod>
+    <lastmod>2026-09-10</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/ai-hallucinations.html</loc>
@@ -70,7 +70,7 @@
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/reinforcement-learning.html</loc>
-    <lastmod>2026-06-30</lastmod>
+    <lastmod>2026-09-10</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/proxy-entanglement.html</loc>
@@ -78,15 +78,15 @@
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/ml-bias.html</loc>
-    <lastmod>2026-06-30</lastmod>
+    <lastmod>2026-09-10</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/data-leakage.html</loc>
-    <lastmod>2026-06-30</lastmod>
+    <lastmod>2026-09-10</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/how-ai-detects-patterns.html</loc>
-    <lastmod>2026-06-30</lastmod>
+    <lastmod>2026-09-10</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/distribution-shift.html</loc>
@@ -94,11 +94,11 @@
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/ai-objectivity-myth.html</loc>
-    <lastmod>2026-08-17</lastmod>
+    <lastmod>2026-09-10</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/confounding-variable.html</loc>
-    <lastmod>2026-06-30</lastmod>
+    <lastmod>2026-09-10</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/predictive-parity.html</loc>
@@ -170,7 +170,7 @@
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/underdiagnosis-bias.html</loc>
-    <lastmod>2026-08-14</lastmod>
+    <lastmod>2026-09-10</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/race-correction-clinical-algorithms.html</loc>
@@ -178,7 +178,7 @@
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/reject-inference.html</loc>
-    <lastmod>2026-08-14</lastmod>
+    <lastmod>2026-09-10</lastmod>
   </url>
   <url>
     <loc>https://www.thefaircode.xyz/explainers/base-rate-fallacy.html</loc>

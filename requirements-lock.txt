@@ -4,7 +4,7 @@
 # This is the environment that produced the results/ committed at this point in the repo's
 # history - the numbers a paper cites should be regenerated (or at least sanity-checked)
 # against this exact set of versions, not whatever `pip install -r requirements.txt` resolves
-# to months later. See "Reproducibility & Paper Freeze" in README.md.
+# to months later. See "Reproducibility & Results History" in README.md.
 #
 # Install with: pip install -r requirements-lock.txt
 # (faircode itself is installed separately, in editable mode, from this checkout: pip install -e ".[benchmark]")
