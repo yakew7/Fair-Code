@@ -8,7 +8,7 @@ five-strategy x three-model grid, including fairlearn's ExponentiatedGradient
 (which refits its base estimator multiple times), finishes in seconds here.
 The full seven-domain sweep is deliberately NOT run in this suite - it's slow
 (fairlearn's in-processing strategy alone takes minutes per audit on the
-larger datasets) - see "Reproducibility & Paper Freeze" in README.md: run it
+larger datasets) - see "Reproducibility & Results History" in README.md: run it
 locally and commit results/ output instead of running it in CI.
 
 Run from the repo root:  pytest tests/ -q
