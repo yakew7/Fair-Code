@@ -427,3 +427,99 @@ def test_compare_does_not_render_negative_zero_share_delta():
 
     assert "-0.0 pp" not in compare_to_terminal(result)
     assert "-0.0 pp" not in compare_to_html(result)
+
+
+def test_to_terminal_does_not_render_negative_zero_skew():
+    """A tiny negative skewness that rounds to 0.00 must not print as
+    '-0.00' in the terminal profile report."""
+    result = {
+        "n_rows": 60, "n_cols": 1, "overall_score": 88, "grade": "B+",
+        "dimensions": [
+            {
+                "name": "Age", "kind": "Numeric", "dimension_score": 85,
+                "under_represented": [], "n_groups": 1,
+                "imbalance_ratio": None, "missing_pct": 0.0,
+                "skewness": -0.0039,
+                "groups": [{"label": "all", "share": 1.0, "count": 60}],
+            }
+        ],
+        "flags": [],
+    }
+
+    assert "-0.00" not in to_terminal(result)
+    assert "skew +0.00" in to_terminal(result)
+
+
+def test_to_html_does_not_render_negative_zero_skew():
+    """A tiny negative skewness that rounds to 0.00 must not print as
+    '-0.00' in the HTML profile report."""
+    result = {
+        "n_rows": 60, "n_cols": 1, "overall_score": 88, "grade": "B+",
+        "dimensions": [
+            {
+                "name": "Age", "kind": "Numeric", "dimension_score": 85,
+                "under_represented": [], "n_groups": 1,
+                "imbalance_ratio": None, "missing_pct": 0.0,
+                "skewness": -0.0039,
+                "groups": [{"label": "all", "share": 1.0, "count": 60}],
+            }
+        ],
+        "flags": [],
+    }
+
+    assert "-0.00" not in to_html(result)
+    assert "skew +0.00" in to_html(result)
+
+
+def test_to_terminal_does_not_render_negative_zero_reference_delta():
+    """A tiny negative reference delta that rounds to 0.0 pp must not print
+    as '-0.0 pp' in the terminal profile report."""
+    result = {
+        "n_rows": 1000, "n_cols": 2, "overall_score": 88, "grade": "B+",
+        "dimensions": [
+            {
+                "name": "Gender", "kind": "Demographic", "dimension_score": 85,
+                "under_represented": [], "n_groups": 2,
+                "imbalance_ratio": 1.6, "missing_pct": 0.0,
+                "skewness": None,
+                "groups": [{"label": "Female", "share": 0.5, "count": 500}],
+                "reference": {
+                    "deviation": 0.0,
+                    "groups": [
+                        {"label": "Female", "expected": 0.5, "actual": 0.4997, "delta": -0.0003},
+                    ],
+                },
+            }
+        ],
+        "flags": [],
+    }
+
+    assert "-0.0 pp" not in to_terminal(result)
+    assert "+0.0 pp" in to_terminal(result)
+
+
+def test_to_html_does_not_render_negative_zero_reference_delta():
+    """A tiny negative reference delta that rounds to 0.0 pp must not print
+    as '-0.0 pp' in the HTML profile report."""
+    result = {
+        "n_rows": 1000, "n_cols": 2, "overall_score": 88, "grade": "B+",
+        "dimensions": [
+            {
+                "name": "Gender", "kind": "Demographic", "dimension_score": 85,
+                "under_represented": [], "n_groups": 2,
+                "imbalance_ratio": 1.6, "missing_pct": 0.0,
+                "skewness": None,
+                "groups": [{"label": "Female", "share": 0.5, "count": 500}],
+                "reference": {
+                    "deviation": 0.0,
+                    "groups": [
+                        {"label": "Female", "expected": 0.5, "actual": 0.4997, "delta": -0.0003},
+                    ],
+                },
+            }
+        ],
+        "flags": [],
+    }
+
+    assert "-0.0 pp" not in to_html(result)
+    assert "+0.0 pp" in to_html(result)
