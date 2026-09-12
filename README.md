@@ -337,7 +337,7 @@ Fair-Code/
 <details>
 <summary><strong>Show the dataset, before/after code, and results →</strong></summary>
 
-**Dataset:** `compas-scores-raw.csv` - ProPublica's public COMPAS dataset (70,000+ records)
+**Dataset:** `compas-scores-raw.csv` - ProPublica's public COMPAS dataset (60,000+ records)
 
 COMPAS (Correctional Offender Management Profiling for Alternative Sanctions) is deployed across 46 US states to predict whether a defendant will reoffend. Judges use its scores to make bail, sentencing, and parole decisions. More than 1 million people are assessed by COMPAS-style tools annually. Zero states require it to be audited for bias.
 
@@ -540,7 +540,7 @@ Dropped `age`, `gender`, `bmi`, `smoker`, and `diabetic`. Retained only objectiv
 <details>
 <summary><strong>Show the dataset, before/after code, and results →</strong></summary>
 
-**Dataset:** `adult.csv` - UCI Adult Census Income dataset (48,842 records) · [Kaggle source](https://www.kaggle.com/datasets/wenruliu/adult-income-dataset)
+**Dataset:** `adult.csv` - UCI Adult Census Income dataset (32,561 records) · [Kaggle source](https://www.kaggle.com/datasets/wenruliu/adult-income-dataset)
 
 Automated welfare and benefits systems use income-prediction models to screen applicants for housing assistance, food support, and healthcare subsidies. This audit replicates that logic: the model predicts whether an applicant earns above a means-test threshold ($50K) and flags them as ineligible.
 
@@ -918,7 +918,7 @@ Or open any `.ipynb` directly in VS Code, JupyterLab, or Google Colab.
 
 ## Open Dataset Profiler
 
-The six audits above measure bias in a **model**. The **Open Dataset Profiler** works one step
+The seven audits above measure bias in a **model**. The **Open Dataset Profiler** works one step
 upstream - it audits the **dataset itself** for demographic representation *before* any model is
 trained: under-represented or missing subgroups, skewed age/sex distributions, geographic
 under-sampling, and intersectional gaps. It is **diagnostic**, not predictive - there is no model,

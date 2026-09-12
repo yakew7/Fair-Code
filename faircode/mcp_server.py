@@ -515,7 +515,9 @@ def build_server():
         `audit="compas", model="logistic_regression", strategy="baseline"`;
         omit any of them to leave that dimension unfiltered. A filter naming
         a column `kind` doesn't have (e.g. `protected_attribute` with
-        kind="performance") is simply ignored, not an error.
+        kind="performance") raises an error rather than being silently
+        ignored, so a mistaken filter can't come back looking like an
+        unfiltered result.
 
         Returns {"results": [...], "total_matches": N, "truncated": bool} -
         results are capped at 200 rows even when more match, so narrow the

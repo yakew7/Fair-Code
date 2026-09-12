@@ -61,7 +61,16 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
     });
   }
+  function stripNegZero(x, dp) {
+    // Mirrors faircode.report._strip_neg_zero: a tiny negative value that
+    // rounds to zero at the display precision should render as "0.0", not
+    // a misleading "-0.0" (issue #589 - this file had its own unpatched
+    // copy of the bug already fixed server-side for #515/#529).
+    var factor = Math.pow(10, dp === undefined ? 1 : dp);
+    return Math.round(x * factor) / factor === 0 ? 0 : x;
+  }
   function signed(x, dp) {
+    x = stripNegZero(x, dp);
     var s = x.toFixed(dp === undefined ? 1 : dp);
     return (x > 0 ? '+' : '') + s;
   }

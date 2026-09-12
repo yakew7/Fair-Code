@@ -83,7 +83,7 @@ def to_terminal(result: dict) -> str:
         if d["missing_pct"] > 0:
             meta.append(f"missing {d['missing_pct'] * 100:.1f}%")
         if d["skewness"] is not None:
-            meta.append(f"skew {d['skewness']:+.2f}")
+            meta.append(f"skew {_strip_neg_zero(d['skewness'], 2):+.2f}")
         if meta:
             add(f"  ({'  '.join(meta)})")
         if d.get("reference"):
@@ -91,7 +91,8 @@ def to_terminal(result: dict) -> str:
             add(f"  reference (deviation {d['reference']['deviation'] * 100:.1f}%):")
             for g in ref_groups[:DISPLAY_GROUPS]:
                 add(f"    {g['label'][:16]:<16} exp {g['expected'] * 100:5.1f}%  "
-                    f"act {g['actual'] * 100:5.1f}%  ({g['delta'] * 100:+5.1f} pp)")
+                    f"act {g['actual'] * 100:5.1f}%  "
+                    f"({_strip_neg_zero(g['delta'] * 100):+5.1f} pp)")
             if len(ref_groups) > DISPLAY_GROUPS:
                 add(f"    … and {len(ref_groups) - DISPLAY_GROUPS} more groups")
         add("")
@@ -231,7 +232,7 @@ def to_html(result: dict) -> str:
                 f'<tr><td>{esc(g["label"])}</td>'
                 f'<td class="num">{g["expected"] * 100:.1f}%</td>'
                 f'<td class="num">{g["actual"] * 100:.1f}%</td>'
-                f'<td class="num">{g["delta"] * 100:+.1f} pp</td></tr>'
+                f'<td class="num">{_strip_neg_zero(g["delta"] * 100):+.1f} pp</td></tr>'
                 for g in ref["groups"][:DISPLAY_GROUPS]
             )
             ref_more = ""
@@ -257,7 +258,7 @@ def to_html(result: dict) -> str:
         if d["missing_pct"] > 0:
             meta_parts.append(f"missing {d['missing_pct'] * 100:.1f}%")
         if d["skewness"] is not None:
-            meta_parts.append(f"skew {d['skewness']:+.2f}")
+            meta_parts.append(f"skew {_strip_neg_zero(d['skewness'], 2):+.2f}")
         meta_html = (
             f' <span class="meta">({esc("  ".join(meta_parts))})</span>'
             if meta_parts else ""

@@ -141,7 +141,7 @@ jobs:
     # breaks the pipeline is caught in the PR. The full seven-domain sweep is
     # deliberately NOT run here - fairlearn's in-processing strategy refits
     # its base estimator multiple times per (audit, model) cell and takes
-    # minutes on the larger datasets. See "Reproducibility & Paper Freeze" in
+    # minutes on the larger datasets. See "Reproducibility & Results History" in
     # README.md: run the full benchmark locally and commit results/ output.
     #
     # Not a required status check - safe to skip when nothing test-relevant
