@@ -42,7 +42,7 @@ Weekly snapshot of project health. Updated every Friday.
 | 2026-W34 | 43 | 22 | 8 | 17 | 30K+ total | 18 | 35 | 7 total |
 | 2026-W35 | 47 | 25 | 8 | 21 | 30K+ total | 18 | 33 | 7 total |
 | 2026-W36 | 46 | 31 | 8 | 27 | 30K+ total | 20 | 68 | 7 total |
-| 2026-W37 | 46 | 33 | 8 | 29 | 30K+ total | 20 | 29 | 7 total |
+| 2026-W37 | 46 | 39 | 8 | 29 | 30K+ total | 20 | 86 | 7 total |
 
 > **2026-W27 - v1.2.0 shipped:** Open Dataset Profiler (CLI + client-side web tool) released; 23 explainers total.
 >
