@@ -112,7 +112,7 @@
         "url": "https://www.thefaircode.xyz/index.html#explainers"
       },
       "datePublished": "2026-06-10",
-      "dateModified": "2026-06-30"
+      "dateModified": "2026-09-10"
     },
     {
       "@type": "FAQPage",
@@ -224,7 +224,7 @@
 <hr>
 <h3 id="concrete-example-compas-audit-01">Concrete Example: COMPAS - Audit 01</h3>
 <p>The COMPAS audit is the sharpest illustration of how all four entry points converge in a single system.</p>
-<p><strong>Training data:</strong> 70,000+ records from Broward County, Florida. Predominantly from a jurisdiction with documented history of racially unequal policing - meaning the training distribution reflects over-policing of Black communities, not actual recidivism rates.</p>
+<p><strong>Training data:</strong> 60,000+ records from Broward County, Florida. Predominantly from a jurisdiction with documented history of racially unequal policing - meaning the training distribution reflects over-policing of Black communities, not actual recidivism rates.</p>
 <p><strong>Labels:</strong> The label is <code>is_recid</code> - whether a defendant reoffended within two years. Reoffending is measured by re-arrest, not by actual criminal behaviour. In a jurisdiction where Black defendants are more likely to be stopped, searched, and arrested for equivalent behaviour, re-arrest is a biased label. The model trains to predict re-arrest and produces a proxy for policing intensity, not criminal propensity.</p>
 <p><strong>Proxy variable:</strong> Custody status correlates with race because pretrial detention patterns reflect unequal bail access, which reflects income inequality, which is racially structured. Removing race while leaving custody status in the model leaves most of the racial signal intact.</p>
 <p><strong>Feedback loop:</strong> COMPAS scores influence bail and sentencing decisions. A defendant flagged as high-risk is more likely to be detained pretrial. Pretrial detention increases the probability of conviction and reoffending (due to job loss, housing instability, and network effects). The model produces the outcome it predicted, and the outcome enters the next training set as evidence the prediction was correct.</p>

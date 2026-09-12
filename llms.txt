@@ -10,7 +10,7 @@ Full text of every explainer in one file (for AI answer engines): https://www.th
 
 ## Audits
 
-- [COMPAS](https://www.thefaircode.xyz/#projects): Criminal justice recidivism scoring. ProPublica's public dataset, 70,000+ records.
+- [COMPAS](https://www.thefaircode.xyz/#projects): Criminal justice recidivism scoring. ProPublica's public dataset, 60,000+ records.
 - [AI Hiring](https://www.thefaircode.xyz/#projects): Women hired 20.9% less than equally qualified men in a hiring model.
 - [German Credit Lending](https://www.thefaircode.xyz/#projects): A lending model rates young applicants as bad credit risks, learning age from job tenure.
 - [Insurance Denial](https://www.thefaircode.xyz/#projects): A healthcare AI flags older patients for high-cost claims; BMI, smoking, and diabetes status encode race.

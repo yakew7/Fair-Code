@@ -337,7 +337,7 @@ Fair-Code/
 <details>
 <summary><strong>Show the dataset, before/after code, and results →</strong></summary>
 
-**Dataset:** `compas-scores-raw.csv` - ProPublica's public COMPAS dataset (70,000+ records)
+**Dataset:** `compas-scores-raw.csv` - ProPublica's public COMPAS dataset (60,000+ records)
 
 COMPAS (Correctional Offender Management Profiling for Alternative Sanctions) is deployed across 46 US states to predict whether a defendant will reoffend. Judges use its scores to make bail, sentencing, and parole decisions. More than 1 million people are assessed by COMPAS-style tools annually. Zero states require it to be audited for bias.
 
