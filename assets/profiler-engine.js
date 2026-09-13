@@ -448,7 +448,7 @@
   }
 
   function nunique(rows, col) {
-    var seen = {};
+    var seen = Object.create(null);
     for (var i = 0; i < rows.length; i++) {
       var v = rows[i][col];
       if (v !== null) seen[v] = 1;
@@ -510,7 +510,7 @@
     return !/[+-]?\d+(?:\.\d+)?/.test(String(value));
   }
 
-  var AGE_BAND_LABELS = {};
+  var AGE_BAND_LABELS = Object.create(null);
   (function () {
     for (var i = 0; i < AGE_BANDS.length - 1; i++) {
       AGE_BAND_LABELS[AGE_BANDS[i] + '-' + AGE_BANDS[i + 1]] = true;
@@ -648,7 +648,7 @@
       }
       if (numericVals.length) {
         var skew = skewness(numericVals);
-        var counts = {}, nullCount = 0;
+        var counts = Object.create(null), nullCount = 0;
         for (i = 0; i < nums.length; i++) {
           var b = ageBand(nums[i]);
           if (b !== null) {
@@ -673,7 +673,9 @@
     }
 
     // Categorical path.
-    var c = {}, nulls = 0;
+    // Raw category labels may name Object.prototype properties. Keep them
+    // as literal keys, matching Python's value_counts().
+    var c = Object.create(null), nulls = 0;
     for (i = 0; i < nTotal; i++) {
       v = rows[i][name];
       if (v === null) nulls++;
@@ -728,7 +730,7 @@
     var la = labelize(table, a.name, a.kind);
     var lb = labelize(table, b.name, b.kind);
 
-    var ct = {}, aVals = {}, bVals = {}, i, key;
+    var ct = Object.create(null), aVals = Object.create(null), bVals = Object.create(null), i, key;
     for (i = 0; i < nTotal; i++) {
       if (la[i] === null || lb[i] === null) continue;
       aVals[la[i]] = 1; bVals[lb[i]] = 1;
@@ -766,14 +768,15 @@
     dimensions.forEach(function (d) {
       var ref = reference[d.name];
       if (!ref) return;
-      var actual = {};
+      var actual = Object.create(null);
       d.groups.forEach(function (g) { actual[g.label] = g.share; });
-      var labels = {};
+      var labels = Object.create(null);
       Object.keys(actual).forEach(function (l) { labels[l] = 1; });
       Object.keys(ref).forEach(function (l) { labels[l] = 1; });
       var groups = [], deviation = 0;
       Object.keys(labels).forEach(function (label) {
-        var exp = ref[label] || 0, act = actual[label] || 0, delta = act - exp;
+        var exp = Object.prototype.hasOwnProperty.call(ref, label) ? ref[label] : 0;
+        var act = actual[label] || 0, delta = act - exp;
         deviation += Math.abs(delta);
         groups.push({ label: String(label), expected: round(exp, 4),
                       actual: round(act, 4), delta: round(delta, 4) });
@@ -924,7 +927,7 @@
     Object.keys(byCol).forEach(function (col) {
       var pairs = byCol[col];
       var scale = pairs.some(function (p) { return p[1] > 1.5; }) ? 100 : 1;
-      reference[col] = {};
+      reference[col] = Object.create(null);
       pairs.forEach(function (p) { reference[col][p[0]] = p[1] / scale; });
     });
     return reference;
@@ -932,7 +935,7 @@
 
   // ── Dataset comparison / drift (SPEC section 8) ────────────────────────
   function shareMap(dim) {
-    var m = {};
+    var m = Object.create(null);
     dim.groups.forEach(function (g) { m[g.label] = g.share; });
     return m;
   }
@@ -982,7 +985,7 @@
       };
     }
     var sa = shareMap(dimA), sb = shareMap(dimB);
-    var labels = {};
+    var labels = Object.create(null);
     Object.keys(sa).forEach(function (l) { labels[l] = 1; });
     Object.keys(sb).forEach(function (l) { labels[l] = 1; });
 
