@@ -3,8 +3,8 @@
 # Changelog
 
 ![Keep a Changelog](https://img.shields.io/badge/Keep%20a%20Changelog-1.1.0-e05735?style=flat-square)
-![SemVer](https://img.shields.io/badge/SemVer-2.2.0-blue?style=flat-square)
-![Latest](https://img.shields.io/badge/Latest-v2.2.0-brightgreen?style=flat-square)
+![SemVer](https://img.shields.io/badge/SemVer-2.3.0-blue?style=flat-square)
+![Latest](https://img.shields.io/badge/Latest-v2.3.0-brightgreen?style=flat-square)
 
 All notable changes to Fair Code are documented here, newest first.
 
@@ -16,6 +16,29 @@ All notable changes to Fair Code are documented here, newest first.
 > actually submitted this cycle - the real paper, with fresh results, is now planned for next year.
 > `paper/results-frozen/` (tag [`v1.0-paper`](https://github.com/yakew7/Fair-Code/releases/tag/v1.0-paper))
 > is kept as a historical reference snapshot. See [CLAUDE.md](CLAUDE.md).
+
+## [2.3.0] - 13 Sep 2026
+
+Another self-filed, self-fixed sweep: 19 issues found through direct verification, each fixed and
+committed individually. Not tagged as a formal release.
+
+### Fixed
+- **Benefits Denial declared Age as a protected attribute, but neither result table gave it a row** (closes #609) - `unfair.py`/`fair.py` already compute and print a real Age gap (-2.72% -> -2.79%, verified by running both scripts); added it to both README.md's row 05 and `Benefits Denial/README.md`'s own table, noting the mitigation makes this particular gap's magnitude very slightly worse, not better.
+- **`disparate_impact_ratio`'s `significant` flag hardcoded `p_value < 0.05`, ignoring the requested `confidence`** (closes #608) - the other 5 fairness metrics correctly derive significance from `confidence` via `significance_report`; this one didn't. Verified: `confidence=0.99` on a p=0.03 result now correctly returns `False` instead of always `True`.
+- **`faircode/loaders_extra.py`'s docstring still described a "frozen file list" CLAUDE.md no longer has** (closes #607) - rewrote it around the real, ongoing reason these formats live in a separate module (keeping `faircode/loaders.py`'s optional dependencies out of core usage).
+- **`faircode/benchmark.py`'s docstring still cross-referenced README.md's old "Reproducibility & Paper Freeze" section name** (closes #606) - renamed to "Reproducibility & Results History" once the freeze lifted; this occurrence was split across two lines and missed by the earlier #597 sweep.
+- **`dimCard()`'s reference-delta sign disagreed with `buildHtmlReport()`'s** (closes #603) - the live on-page card used `delta > 0` for the `+` prefix while the downloaded HTML report (meant to mirror `faircode/report.py`'s `to_html`) correctly used `delta >= 0`, matching Python's `:+.1f` format spec that always signs zero. A group with a zero reference delta showed `"0.0 pp"` on the live page but `"+0.0 pp"` in the same profiler's own export.
+- **6 explainers' Detection Code assumed a COMPAS schema/file this repo doesn't have** (closes #600, #601) - `calibration.md`, `fairness-metric-conflicts.md`, `lime.md`, `shap-values.md`, `data-leakage.md`, `feedback-loop-bias.md`, and `reinforcement-learning.md` all referenced columns from the public ProPublica `compas-scores-two-years.csv` schema (`race`, `age`, `priors_count`, `c_charge_degree`, `two_year_recid`, ...) instead of this repo's actual `compas-scores-raw.csv`, which doesn't even have an independent recidivism-outcome column to check calibration against. Rewrote every code block against the real schema (`Ethnic_Code_Text`, `ScoreText`, `CustodyStatus`, `MaritalStatus`) matching `COMPAS/unfair.py`'s and `fair.py`'s exact recipe where a trained model was needed, and regenerated every "sample output" from an actual run - including catching two further, previously-undetected bugs along the way: `shap-values.md`'s "fair model" code referenced `X_train_fair`/`y_train_fair` that were never defined, and its `shap_bias_audit()` computed `abs(mean(x))` instead of its own documented `mean(abs(x))`.
+- **All 7 audit READMEs still reference the lifted paper-freeze policy** (closes #587) - "the figures below are the published, paper-aligned numbers... never edit the frozen numbers... see CLAUDE.md for the paper-freeze policy" was stale in every one; `CONTRIBUTING.md` was already updated to reflect the lift, these 7 files were missed.
+- **Tenant Screening's published race-gap figures (7.17% -> 5.07%) don't reproduce in the current pinned environment** (closes #586) - two independent runs both give 6.68% -> 5.16% instead; added the same `RandomForestClassifier` cross-platform-drift caveat #567 used for `reject-inference.md` rather than asserting the new figures as unconditional ground truth.
+- **`tests/test_codeowners.py` had no test that every tracked file has at least one owner** (closes #585) - the two existing coverage tests only checked stale patterns and audit directories; added a general test, and the two remaining gaps it surfaced (`.gitignore`, `.pre-commit-config.yaml`).
+- **`.github/CODEOWNERS`: `/results/` (closes #582), `/assets/icons/` (closes #583), and 8 misc `.github/` files - issue templates, PR template, `dependabot.yml`, CodeQL config, `ACTIONS-AUDIT.md`, `DEAD-FILE-AUDIT.md` (closes #584) - all had zero owner.**
+- **`.github/workflows/pr-review-ping.yml`'s CODEOWNERS parser broke on backslash-escaped-space directory names** (closes #580) - silently disabled the review-ping for 6 of the repo's 7 audit directories (only `COMPAS/`, with no space in its name, worked). Ported the same escaped-space reassembly `tests/test_codeowners.py`'s `_split_codeowners_line()` already uses.
+- **`parse_reference`'s percent-vs-fraction scale decision let one `%`-suffixed row corrupt a sibling plain-fraction value in the same column** (closes #578) - `"51%"` next to `"0.49"` forced percent-scale onto the whole column; a `%`-suffixed value is now converted to a fraction immediately and excluded from the heuristic entirely, in both engines.
+- **`significance_report`'s and `_ratio_report`'s floating-point confidence math could flag an exact `p=0.05` result as significant** (closes #579) - `1.0 - 0.95` is not exactly representable in binary floating point; rounds the threshold to 10 decimal places before comparing.
+- **A demographic dimension with zero observed groups scored `overall_score=0`, grade `"F"`, instead of being excluded as unmeasured** (closes #577) - the same "missing measurement != score zero" principle #449 already established for a profile with zero *detected* dimensions, one level down; documented in `faircode/SPEC.md` section 5 for both engines.
+- **Web profiler's `parseReference()` accepted malformed share values (`"60abc"`, `"1e1junk"`) that `faircode.profiler.parse_reference`'s strict `float()` rejects** (closes #576) - `parseFloat` parses only a leading numeric prefix; now requires the whole string to be a valid number.
+- **Web profiler's `isMissing()` trimmed whitespace before checking `NA_TOKENS`, unlike pandas** (closes #575) - `" NA "` (with surrounding spaces) is a literal, non-missing value to pandas; the JS engine silently folded it into `missing_pct` instead.
 
 ## [2.2.0] - 13 Sep 2026
 

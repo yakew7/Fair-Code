@@ -35,7 +35,7 @@ Fair Code is an open-source responsible AI platform explaining algorithmic bias,
 
 **Version & release gate:**
 
-- Current release: **v2.2.0**
+- Current release: **v2.3.0**
 - The next major version can now bundle a re-run benchmark and new audits without waiting on a
   publication gate - Phase 6 below reflects the earlier plan and will be revisited alongside next
   year's real paper submission.
