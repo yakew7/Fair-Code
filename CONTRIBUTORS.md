@@ -34,7 +34,7 @@ ordered by merged PR count, most first - ties broken by commit count, then by ea
 date. Within each entry, the PR numbers link the claim to the actual diff, so nothing here is an
 unverifiable "thanks to".
 
-**Snapshot:** 2026-09-10, covering everything merged through **PR #567**.
+**Snapshot:** 2026-09-13, covering everything merged through **PR #613**.
 Anything merged after that date is real and welcome, but is not yet reflected here - the
 [contributors graph](https://github.com/yakew7/Fair-Code/graphs/contributors) is always the live
 source of truth, and the `contrib.rocks` grid above regenerates from it automatically.
@@ -188,6 +188,12 @@ Fixed the dataset path in the AI Fair Recruitment scripts ([#27](https://github.
 **2 merged PRs · 2 commits · first merged 2026-08-07**
 
 A build-time check for missing Open Graph images in `scripts/build_explainers.py` ([#191](https://github.com/yakew7/Fair-Code/pull/191)), and a wording standardisation sweep across the docs and audit-script comments ([#232](https://github.com/yakew7/Fair-Code/pull/232)) - prose only, leaving every reported number untouched, as the freeze requires.
+
+### Zhengzhuo Wang - [@wangzhengzhuo05](https://github.com/wangzhengzhuo05)
+
+**2 merged PRs · 2 commits · first merged 2026-09-12**
+
+Added the regression test coverage `report.py`'s skew/reference-baseline negative-zero fix was missing - four tests in `tests/test_report.py`, submitted independently before the production fix itself landed directly ([#599](https://github.com/yakew7/Fair-Code/pull/599), closing issue #591). Then fixed the web profiler's advanced-threshold inputs (`min_share`, `intersection_floor`, `imbalance_flag`, `missing_flag`, `min_group_size`) permanently hiding the whole results panel on an out-of-range value - the handler now reverts the offending opt to its last-known-good value and retries once, the same recovery #466 already gave the mapping-select handler ([#613](https://github.com/yakew7/Fair-Code/pull/613), closing issue #602).
 
 ### [@YashKewlani1](https://github.com/YashKewlani1)
 
@@ -356,6 +362,24 @@ issue #460). The `except FileNotFoundError` only covered a missing/moved path; b
 (not part of the PR) to `except OSError` after finding a directory path still leaked a traceback via
 the sibling `IsADirectoryError`, and added the test coverage the PR itself didn't include.
 
+### Aditi Mishra - [@carryok](https://github.com/carryok)
+
+**1 merged PR · 1 commit · first merged 2026-09-12**
+
+Added the same unlinked-commit-email explanation `@Ayaan-20-11`'s row already had to `@TanishGoyal-Dev`'s row in the Git identity map, so the "why doesn't this real merged PR show up in the contributors graph" answer is documented instead of silent ([#610](https://github.com/yakew7/Fair-Code/pull/610), closing issue #588).
+
+### [@raonishanth2000-hub](https://github.com/raonishanth2000-hub)
+
+**1 merged PR · 1 commit · first merged 2026-09-12**
+
+Added `/notebooks/` to `.github/CODEOWNERS` - the per-audit entries' comment claimed to cover "notebooks", but that only matches a notebooks folder inside an audit directory, and this repo keeps all 8 notebook files in one root-level folder instead ([#611](https://github.com/yakew7/Fair-Code/pull/611), closing issue #581). Their branch correctly added and verified the line, but merging `main` into it landed a conflicting edit to the adjacent comment and silently dropped the addition on merge - restored directly afterward, not part of the PR.
+
+### Kevin Lozada Santos - [@kevin-lozada-santos](https://github.com/kevin-lozada-santos)
+
+**1 merged PR · 1 commit · first merged 2026-09-13**
+
+Fixed the web profiler's group counting silently dropping a category literally named `__proto__` (or `constructor`/`toString`/`hasOwnProperty`) - `assets/profiler-engine.js` used plain `{}` objects as hashmaps for category counts, distinct values, intersections, references, and drift shares, so assigning to one of those keys invoked the JS prototype chain instead of creating an own property ([#612](https://github.com/yakew7/Fair-Code/pull/612), closing issue #574). Switched to prototype-free dictionaries and own-property lookups throughout, and documented the literal-label contract in `faircode/SPEC.md` (Python already followed it).
+
 ---
 
 ## Contributions by area
@@ -366,13 +390,13 @@ A cross-cut of the same work, for anyone looking for who to ask about what.
 |------|--------------|
 | **Audits** (`*/unfair.py`, `*/fair.py`, `audit.yaml`) | [@yakew7](https://github.com/yakew7), [@YashKewlani1](https://github.com/YashKewlani1), [@Rajveerx11](https://github.com/Rajveerx11), [@cannotdoit13](https://github.com/cannotdoit13) |
 | **Explainers** (`explainers/`) | [@yakew7](https://github.com/yakew7), [@Shreyash0712](https://github.com/Shreyash0712), [@evanjain-dot](https://github.com/evanjain-dot), [@AnayDhawan](https://github.com/AnayDhawan), [@propcgamer20-png](https://github.com/propcgamer20-png), [@Rajveerx11](https://github.com/Rajveerx11), [@TanishGoyal-Dev](https://github.com/TanishGoyal-Dev), [@shwetagupta1234](https://github.com/shwetagupta1234), [@Aarav1611](https://github.com/Aarav1611), [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan) |
-| **Profiler - CLI & loaders** (`faircode/`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@tomatotomata](https://github.com/tomatotomata), [@ImMortaL0P](https://github.com/ImMortaL0P), [@propcgamer20-png](https://github.com/propcgamer20-png), [@evanjain-dot](https://github.com/evanjain-dot), [@AnayDhawan](https://github.com/AnayDhawan), [@VedantMadane](https://github.com/VedantMadane), [@mahirhir](https://github.com/mahirhir), [@StudentSuite3](https://github.com/StudentSuite3), [@oxura](https://github.com/oxura), [@nitishchauhan002](https://github.com/nitishchauhan002), [@be-student](https://github.com/be-student), [@slsgzs-cloud](https://github.com/slsgzs-cloud) |
-| **Profiler - web** (`profiler.html`, `assets/profiler-*.js`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@ImMortaL0P](https://github.com/ImMortaL0P), [@AnayDhawan](https://github.com/AnayDhawan), [@Shreyash0712](https://github.com/Shreyash0712), [@lovishmenaria14-gif](https://github.com/lovishmenaria14-gif), [@be-student](https://github.com/be-student), [@propcgamer20-png](https://github.com/propcgamer20-png) |
+| **Profiler - CLI & loaders** (`faircode/`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@tomatotomata](https://github.com/tomatotomata), [@ImMortaL0P](https://github.com/ImMortaL0P), [@propcgamer20-png](https://github.com/propcgamer20-png), [@evanjain-dot](https://github.com/evanjain-dot), [@AnayDhawan](https://github.com/AnayDhawan), [@VedantMadane](https://github.com/VedantMadane), [@mahirhir](https://github.com/mahirhir), [@StudentSuite3](https://github.com/StudentSuite3), [@oxura](https://github.com/oxura), [@nitishchauhan002](https://github.com/nitishchauhan002), [@be-student](https://github.com/be-student), [@slsgzs-cloud](https://github.com/slsgzs-cloud), [@wangzhengzhuo05](https://github.com/wangzhengzhuo05) |
+| **Profiler - web** (`profiler.html`, `assets/profiler-*.js`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@ImMortaL0P](https://github.com/ImMortaL0P), [@AnayDhawan](https://github.com/AnayDhawan), [@Shreyash0712](https://github.com/Shreyash0712), [@lovishmenaria14-gif](https://github.com/lovishmenaria14-gif), [@be-student](https://github.com/be-student), [@propcgamer20-png](https://github.com/propcgamer20-png), [@wangzhengzhuo05](https://github.com/wangzhengzhuo05), [@kevin-lozada-santos](https://github.com/kevin-lozada-santos) |
 | **Benchmark harness & paper freeze** | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@shauryagangrade](https://github.com/shauryagangrade), [@be-student](https://github.com/be-student), [@propcgamer20-png](https://github.com/propcgamer20-png) |
-| **CI & workflows** (`.github/`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@cannotdoit13](https://github.com/cannotdoit13), [@Shreyash0712](https://github.com/Shreyash0712), [@evanjain-dot](https://github.com/evanjain-dot), [@propcgamer20-png](https://github.com/propcgamer20-png), [@Swastik-Yadav](https://github.com/Swastik-Yadav), [@AnayDhawan](https://github.com/AnayDhawan) |
+| **CI & workflows** (`.github/`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@cannotdoit13](https://github.com/cannotdoit13), [@Shreyash0712](https://github.com/Shreyash0712), [@evanjain-dot](https://github.com/evanjain-dot), [@propcgamer20-png](https://github.com/propcgamer20-png), [@Swastik-Yadav](https://github.com/Swastik-Yadav), [@AnayDhawan](https://github.com/AnayDhawan), [@raonishanth2000-hub](https://github.com/raonishanth2000-hub) |
 | **Website & explainer build** | [@yakew7](https://github.com/yakew7), [@anujkamdar](https://github.com/anujkamdar), [@Swastik-Yadav](https://github.com/Swastik-Yadav), [@Ayaan-20-11](https://github.com/Ayaan-20-11), [@sushicat75](https://github.com/sushicat75), [@propcgamer20-png](https://github.com/propcgamer20-png), [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan), [@slsgzs-cloud](https://github.com/slsgzs-cloud) |
-| **Tests** (`tests/`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@tomatotomata](https://github.com/tomatotomata), [@ImMortaL0P](https://github.com/ImMortaL0P), [@evanjain-dot](https://github.com/evanjain-dot), [@propcgamer20-png](https://github.com/propcgamer20-png), [@mahirhir](https://github.com/mahirhir), [@StudentSuite3](https://github.com/StudentSuite3), [@oxura](https://github.com/oxura), [@shauryagangrade](https://github.com/shauryagangrade), [@nitishchauhan002](https://github.com/nitishchauhan002), [@be-student](https://github.com/be-student) |
-| **Contributor tooling & docs** | [@yakew7](https://github.com/yakew7), [@propcgamer20-png](https://github.com/propcgamer20-png), [@ahmdkaml](https://github.com/ahmdkaml), [@Swastik-Yadav](https://github.com/Swastik-Yadav), [@Circout-sudo](https://github.com/Circout-sudo), [@nivedmahendran](https://github.com/nivedmahendran), [@lovishmenaria14-gif](https://github.com/lovishmenaria14-gif), [@Zinniacodes01](https://github.com/Zinniacodes01) |
+| **Tests** (`tests/`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@tomatotomata](https://github.com/tomatotomata), [@ImMortaL0P](https://github.com/ImMortaL0P), [@evanjain-dot](https://github.com/evanjain-dot), [@propcgamer20-png](https://github.com/propcgamer20-png), [@mahirhir](https://github.com/mahirhir), [@StudentSuite3](https://github.com/StudentSuite3), [@oxura](https://github.com/oxura), [@shauryagangrade](https://github.com/shauryagangrade), [@nitishchauhan002](https://github.com/nitishchauhan002), [@be-student](https://github.com/be-student), [@wangzhengzhuo05](https://github.com/wangzhengzhuo05) |
+| **Contributor tooling & docs** | [@yakew7](https://github.com/yakew7), [@propcgamer20-png](https://github.com/propcgamer20-png), [@ahmdkaml](https://github.com/ahmdkaml), [@Swastik-Yadav](https://github.com/Swastik-Yadav), [@Circout-sudo](https://github.com/Circout-sudo), [@nivedmahendran](https://github.com/nivedmahendran), [@lovishmenaria14-gif](https://github.com/lovishmenaria14-gif), [@Zinniacodes01](https://github.com/Zinniacodes01), [@carryok](https://github.com/carryok) |
 
 ---
 
@@ -414,6 +438,7 @@ makes `git shortlog -sne` reconcilable with the list above.
 | [@Ayaan-20-11](https://github.com/Ayaan-20-11) | `Ayaan Kapoor` - commit email is a local hostname (`ayaankapoor@Mac.lan`), not linked to the GitHub account, so [#331](https://github.com/yakew7/Fair-Code/pull/331) doesn't register in the repo's contributors graph despite being a real merged PR |
 | [@lovishmenaria14-gif](https://github.com/lovishmenaria14-gif) | `Lovish Menaria` |
 | [@be-student](https://github.com/be-student) | `eunwoo song` |
+| [@raonishanth2000-hub](https://github.com/raonishanth2000-hub) | `Nishu` - commit email is a placeholder (`your@email.com`), not linked to the GitHub account, so [#611](https://github.com/yakew7/Fair-Code/pull/611) doesn't register in the repo's contributors graph despite being a real merged PR |
 
 If your name is wrong, missing, or you would rather be listed under a different handle, or not
 listed at all, open an issue or a one-line PR against this file. It gets merged, no questions asked.
