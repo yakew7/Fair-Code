@@ -912,7 +912,14 @@
     }
     var raw = [];
     table.rows.forEach(function (row) {
-      var share = parseFloat(row[shrC]);
+      var text = String(row[shrC]).trim();
+      if (text.endsWith('%')) text = text.slice(0, -1).trim();
+      // Number() rejects anything with trailing garbage or that isn't a full
+      // numeric literal (unlike parseFloat, which parses only a leading
+      // prefix - "60abc" -> 60, "1e1junk" -> 10), and rejects '' the same
+      // way Python's float('') raises. Mirrors faircode.profiler.parse_reference.
+      if (text === '') return;
+      var share = Number(text);
       if (isNaN(share)) return;
       raw.push([String(row[colC]).trim(), String(row[grpC]).trim(), share]);
     });
