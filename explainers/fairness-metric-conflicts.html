@@ -228,15 +228,19 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix
 
-df = pd.read_csv(&#x27;compas-scores-raw.csv&#x27;)
-df = df[df[&#x27;race&#x27;].isin([&#x27;African-American&#x27;, &#x27;Caucasian&#x27;])].copy()
-df[&#x27;high_risk&#x27;] = (df[&#x27;DecileScore&#x27;] &gt;= 5).astype(int)
+df = pd.read_csv(&#x27;COMPAS/compas-scores-raw.csv&#x27;)
+df = df[df[&#x27;Ethnic_Code_Text&#x27;].isin([&#x27;African-American&#x27;, &#x27;Caucasian&#x27;])].copy()
+df = df[df[&#x27;DisplayText&#x27;] == &#x27;Risk of Recidivism&#x27;].copy()
+df[&#x27;high_risk&#x27;] = df[&#x27;ScoreText&#x27;].isin([&#x27;High&#x27;, &#x27;Medium&#x27;]).astype(int)
+df[&#x27;race_binary&#x27;] = df[&#x27;Ethnic_Code_Text&#x27;].map({&#x27;African-American&#x27;: 1, &#x27;Caucasian&#x27;: 0})
 
-X = pd.get_dummies(df[[&#x27;race&#x27;, &#x27;Sex_Code_Text&#x27;, &#x27;CustodyStatus&#x27;, &#x27;MaritalStatus&#x27;]])
+# Same recipe as COMPAS/unfair.py: race included directly as a feature
+X = pd.get_dummies(df[[&#x27;Sex_Code_Text&#x27;, &#x27;race_binary&#x27;, &#x27;CustodyStatus&#x27;, &#x27;MaritalStatus&#x27;]])
 y = df[&#x27;high_risk&#x27;]
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-model = RandomForestClassifier(n_estimators=100, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)
+model = RandomForestClassifier(random_state=42)
 model.fit(X_train, y_train)
 y_pred = model.predict(X_test)
 
@@ -244,25 +248,27 @@ y_pred = model.predict(X_test)
 test_df = X_test.copy()
 test_df[&#x27;y_true&#x27;] = y_test.values
 test_df[&#x27;y_pred&#x27;] = y_pred
-test_df[&#x27;race&#x27;] = df.loc[X_test.index, &#x27;race&#x27;].values
+test_df[&#x27;race&#x27;] = df.loc[X_test.index, &#x27;Ethnic_Code_Text&#x27;].values
 
 def compute_metrics(group_df):
-    tn, fp, fn, tp = confusion_matrix(group_df[&#x27;y_true&#x27;], group_df[&#x27;y_pred&#x27;]).ravel()
-    tpr = tp / (tp + fn)
-    fpr = fp / (fp + tn)
-    ppv = tp / (tp + fp)  # precision = predictive parity numerator
-    return {&#x27;TPR&#x27;: round(tpr, 3), &#x27;FPR&#x27;: round(fpr, 3), &#x27;PPV (Precision)&#x27;: round(ppv, 3)}
+    tn, fp, fn, tp = confusion_matrix(group_df[&#x27;y_true&#x27;], group_df[&#x27;y_pred&#x27;], labels=[0, 1]).ravel()
+    tpr = tp / (tp + fn) if (tp + fn) else float(&#x27;nan&#x27;)
+    fpr = fp / (fp + tn) if (fp + tn) else float(&#x27;nan&#x27;)
+    ppv = tp / (tp + fp) if (tp + fp) else float(&#x27;nan&#x27;)  # precision = predictive parity numerator
+    return {&#x27;TPR&#x27;: round(tpr, 3), &#x27;FPR&#x27;: round(fpr, 3), &#x27;PPV (Precision)&#x27;: round(ppv, 3),
+            &#x27;n_predicted_positive&#x27;: tp + fp}
 
 black = test_df[test_df[&#x27;race&#x27;] == &#x27;African-American&#x27;]
 white = test_df[test_df[&#x27;race&#x27;] == &#x27;Caucasian&#x27;]
 
 print(&quot;Black defendants: &quot;, compute_metrics(black))
 print(&quot;White defendants: &quot;, compute_metrics(white))</code></pre>
-<p><strong>Typical output on COMPAS:</strong></p>
-<pre><code>Black defendants:  {&#x27;TPR&#x27;: 0.72, &#x27;FPR&#x27;: 0.37, &#x27;PPV&#x27;: 0.64}
-White defendants:  {&#x27;TPR&#x27;: 0.52, &#x27;FPR&#x27;: 0.18, &#x27;PPV&#x27;: 0.59}</code></pre>
+<p><strong>Actual output</strong> (this repo&#x27;s <code>COMPAS/compas-scores-raw.csv</code>, same model/features <code>COMPAS/unfair.py</code> uses):</p>
+<pre><code>Black defendants:  {&#x27;TPR&#x27;: 0.929, &#x27;FPR&#x27;: 0.781, &#x27;PPV (Precision)&#x27;: 0.628, &#x27;n_predicted_positive&#x27;: 1552}
+White defendants:  {&#x27;TPR&#x27;: 0.006, &#x27;FPR&#x27;: 0.003, &#x27;PPV (Precision)&#x27;: 0.5, &#x27;n_predicted_positive&#x27;: 6}</code></pre>
+<p>A seeded <code>RandomForestClassifier</code>&#x27;s output can shift slightly across CPU/BLAS backends (see issue #521); the White group&#x27;s PPV in particular rests on only 6 predicted-positive rows and should be read as illustrative, not a precise estimate.</p>
 <p>Now look at what each party claimed, and why both were technically correct:</p>
-<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Metric</th><th>ProPublica&#x27;s Claim</th><th>Northpointe&#x27;s Claim</th></tr></thead><tbody><tr><td><strong>False Positive Rate</strong></td><td>Black FPR 37% vs White 18% - <em>unfair</em></td><td>(didn&#x27;t dispute this)</td></tr><tr><td><strong>Predictive Parity</strong></td><td>(didn&#x27;t dispute this)</td><td>PPV ~64% vs ~59% - <em>roughly equal, so fair</em></td></tr><tr><td><strong>Who bears the cost</strong></td><td>Black defendants wrongly flagged high-risk</td><td>-</td></tr></tbody></table></div>
+<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Metric</th><th>ProPublica&#x27;s Claim</th><th>Northpointe&#x27;s Claim</th></tr></thead><tbody><tr><td><strong>False Positive Rate</strong></td><td>Black FPR 78.1% vs White 0.3% - <em>unfair</em></td><td>(didn&#x27;t dispute this)</td></tr><tr><td><strong>Predictive Parity</strong></td><td>(didn&#x27;t dispute this)</td><td>PPV 62.8% vs 50.0% - <em>closer than the error-rate gap, if noisy on 6 White predictions</em></td></tr><tr><td><strong>Who bears the cost</strong></td><td>Black defendants wrongly flagged high-risk</td><td>-</td></tr></tbody></table></div>
 <p><strong>Both claims were mathematically accurate. They were measuring different things.</strong></p>
 <p>ProPublica asked: <em>do false accusations fall equally?</em> Northpointe asked: <em>when we flag someone, are we equally right?</em> Because Black defendants reoffend at a higher base rate in this dataset - itself a product of over-policing - satisfying one criterion mathematically forces the other to fail.</p>
 <hr>
@@ -360,7 +366,7 @@ print(&quot;Saved: fairness-tradeoffs.png&quot;)</code></pre>
     return rates
 
 # Example
-base_rate_audit(df, outcome_col=&#x27;reoffended&#x27;, group_col=&#x27;race&#x27;)</code></pre>
+base_rate_audit(df, outcome_col=&#x27;high_risk&#x27;, group_col=&#x27;Ethnic_Code_Text&#x27;)</code></pre>
 <h4 id="step-2-compute-all-three-metrics-simultaneously">Step 2 - Compute all three metrics simultaneously</h4>
 <pre><code class="language-python">from sklearn.metrics import confusion_matrix
 
