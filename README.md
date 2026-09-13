@@ -76,6 +76,7 @@ Each audit ships as both a pair of Python scripts (`unfair.py` / `fair.py`) for 
 | 05 | [Welfare](#05--benefits-denial--welfare-eligibility-bias) | Sex, Race, Origin, Age | Relationship, Marital Status, Hours, Occupation, fnlwgt | Sex: 18.00% → 8.52% | **53%** |
 | ↳  | | | | Race: 12.75% → 6.90% | **46%** |
 | ↳  | | | | Origin: 4.40% → 0.52% | **88%** |
+| ↳  | | | | Age: -2.72% → -2.79% | **+3% ↑** |
 | 06 | [Healthcare Readmission](#06--healthcare-readmission--clinical-bias) | Race, Gender, Age | Payer Code, Discharge Disposition, Medical Specialty, Prior Inpatient | Gender: 0.02% → 0.04% | **+100% ↑** |
 | ↳  | | | | Race: 0.08% → 0.06% | **25%** |
 | ↳  | | | | Age: 0.28% → 0.09% | **68%** |

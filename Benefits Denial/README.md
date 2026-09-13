@@ -29,5 +29,6 @@ python3 "Benefits Denial/fair.py"     # mitigated (protected attribute + proxies
 | Sex | 18.00% | 8.52% | 53% |
 | Race | 12.75% | 6.90% | 46% |
 | Origin | 4.40% | 0.52% | 88% |
+| Age | -2.72% | -2.79% | +3% (slightly worse, not significant either side at biased; significant only after mitigation, p=0.0158) |
 
 These match the "Results at a Glance" table in the [main README](../README.md#results-at-a-glance) and the frozen snapshot in `paper/results-frozen/`. The scripts are deterministic at `random_state=42`, so a correct local run reproduces them exactly. If your numbers differ, check the seed, the split, and your package versions first - but if they genuinely differ, open a PR updating them with your environment noted; the paper freeze that used to make these numbers off-limits to edit has lifted (see [CLAUDE.md](../CLAUDE.md)).
