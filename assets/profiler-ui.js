@@ -484,6 +484,8 @@
     input.addEventListener('input', function () {
       var opt = input.dataset.opt;
       var raw = input.value.trim();
+      var hadPrevious = Object.prototype.hasOwnProperty.call(currentOpts, opt);
+      var previous = currentOpts[opt];
       if (raw === '') {
         delete currentOpts[opt];
         input.classList.remove('overridden');
@@ -493,7 +495,22 @@
         currentOpts[opt] = num;
         input.classList.add('overridden');
       }
-      reprofile(false);
+      if (!reprofile(false)) {
+        // The value just typed is outside the range validateOpts() accepts
+        // (e.g. min_share 1.5, see #511), so reprofile() failed and
+        // showError() hid the whole #results panel, including this very
+        // input, leaving no way to correct the number. Revert this opt to
+        // its last-known-good value (or back to the engine default when it
+        // was never set) and retry once, mirroring the #466 recovery the
+        // mapping-select handler already uses.
+        if (hadPrevious) {
+          currentOpts[opt] = previous;
+        } else {
+          delete currentOpts[opt];
+        }
+        input.classList.toggle('overridden', hadPrevious);
+        reprofile(false);
+      }
     });
   });
 
