@@ -904,7 +904,7 @@ python COMPAS/fair.py     # see the fix
 
 Each script resolves its dataset relative to its own location, so it runs from anywhere - `cd COMPAS && python unfair.py` works too.
 
-The same pattern applies to all six projects - swap `COMPAS` for `"AI Fair Recruitment"`, `"German Credit Lending"`, `"Insurance Denial"`, `"Benefits Denial"`, or `"Healthcare Readmission"`.
+The same pattern applies to all seven projects - swap `COMPAS` for `\"AI Fair Recruitment\"`, `\"German Credit Lending\"`, `\"Insurance Denial\"`, `\"Benefits Denial\"`, `\"Healthcare Readmission\"`, or `\"Tenant Screening\"`.
 
 Run the notebooks:
 
