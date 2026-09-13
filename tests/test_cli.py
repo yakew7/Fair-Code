@@ -693,6 +693,64 @@ def test_compare_xlsx_single_sheet_stays_silent(tmp_path, capsys):
 
 # ── Benchmark subcommand tests ────────────────────────────────────────────────
 
+@pytest.mark.parametrize("flag", ["--n-resamples", "--n-permutations"])
+@pytest.mark.parametrize("value", ["0", "-1", "1.5", "abc"])
+def test_cli_benchmark_rejects_invalid_counts(flag, value, monkeypatch, tmp_path, capsys):
+    real_import = builtins.__import__
+
+    def guard_benchmark_import(name, *args, **kwargs):
+        if name in ("benchmark", "faircode.benchmark"):
+            pytest.fail("invalid counts must be rejected before importing the benchmark")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", guard_benchmark_import)
+    out_dir = tmp_path / "results"
+
+    with pytest.raises(SystemExit) as exc:
+        main(["benchmark", flag, value, "--out", str(out_dir)])
+
+    assert exc.value.code == 2
+    captured = capsys.readouterr()
+    assert "usage: faircode benchmark" in captured.err
+    assert f"argument {flag}:" in captured.err
+    assert "positive integer" in captured.err
+    assert value in captured.err
+    assert "warning:" not in captured.err
+    assert captured.out == ""
+    assert not out_dir.exists()
+
+
+@pytest.mark.parametrize("argv, expected_resamples, expected_permutations", [
+    ([], 2000, 2000),
+    (["--n-resamples", "1"], 1, 2000),
+    (["--n-permutations", "1"], 2000, 1),
+    (["--n-resamples", "50"], 50, 2000),
+    (["--n-permutations", "50"], 2000, 50),
+    (["--n-resamples", "3", "--n-permutations", "7"], 3, 7),
+])
+def test_cli_benchmark_passes_positive_and_default_counts(
+    argv, expected_resamples, expected_permutations, monkeypatch, tmp_path,
+):
+    pytest.importorskip("sklearn", reason="benchmark extra required")
+    pytest.importorskip("fairlearn", reason="benchmark extra required")
+    pytest.importorskip("yaml", reason="benchmark extra required")
+
+    received = {}
+
+    def capture_benchmark(**kwargs):
+        received.update(kwargs)
+        return pd.DataFrame([{"audit": "test"}]), pd.DataFrame([{"audit": "test"}])
+
+    monkeypatch.setattr("faircode.benchmark.run_benchmark", capture_benchmark)
+    monkeypatch.setattr("faircode.benchmark.write_report", lambda *args, **kwargs: None)
+
+    assert main(["benchmark", "--out", str(tmp_path / "results"), *argv]) == 0
+    assert received["n_resamples"] == expected_resamples
+    assert received["n_permutations"] == expected_permutations
+    assert isinstance(received["n_resamples"], int)
+    assert isinstance(received["n_permutations"], int)
+
+
 def test_cli_benchmark_import_error_message(monkeypatch, capsys):
     """Lines 245-249: Catch ImportError and emit the optional install guidance."""
     real_import = builtins.__import__
