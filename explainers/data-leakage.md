@@ -50,36 +50,43 @@ This is the structural form of leakage: a feature that looks like a legitimate i
 Removing `CustodyStatus` alongside the protected race attribute reduces the gap to 15.69% - an 82% reduction.
 
 ```python
-import os
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-df = pd.read_csv(os.path.join(BASE_DIR, "compas-scores-raw.csv"))
+df = pd.read_csv("COMPAS/compas-scores-raw.csv")
+df = df[df["Ethnic_Code_Text"].isin(["African-American", "Caucasian"])].copy()
+df = df[df["DisplayText"] == "Risk of Recidivism"].copy()
+df["high_risk"] = df["ScoreText"].isin(["High", "Medium"]).astype(int)
+df["race_binary"] = df["Ethnic_Code_Text"].map({"African-American": 1, "Caucasian": 0})
 
-# Simulated leakage: CustodyStatus encodes prior criminal justice outcome
-FEATURES_WITH_LEAKAGE  = ["age", "priors_count", "CustodyStatus", "race"]
-FEATURES_WITHOUT       = ["age", "priors_count"]
+# CustodyStatus is the structural-leakage feature: it encodes the outcome of a
+# prior criminal justice interaction, not a race-neutral input
+FEATURES_WITH_LEAKAGE = ["Sex_Code_Text", "race_binary", "CustodyStatus", "MaritalStatus"]
+FEATURES_WITHOUT = ["Sex_Code_Text", "MaritalStatus"]
+y = df["high_risk"]
 
-target = "two_year_recid"
-
-X_leak = df[FEATURES_WITH_LEAKAGE]
-X_clean = df[FEATURES_WITHOUT]
-y = df[target]
-
-for label, X in [("With leakage", X_leak), ("Without leakage", X_clean)]:
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
-    model = RandomForestClassifier(n_estimators=100, random_state=42)
+for label, feats in [("With leakage (race + CustodyStatus)", FEATURES_WITH_LEAKAGE),
+                     ("Without leakage", FEATURES_WITHOUT)]:
+    X = pd.get_dummies(df[feats])
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    model = RandomForestClassifier(random_state=42)
     model.fit(X_train, y_train)
-    acc = accuracy_score(y_test, model.predict(X_test))
-    print(f"{label}: test accuracy = {acc:.4f}")
+    pred = model.predict(X_test)
+    race_test = df.loc[X_test.index, "race_binary"]
+    black_rate, white_rate = pred[race_test == 1].mean(), pred[race_test == 0].mean()
+    print(f"{label}: Black flagged {black_rate:.2%}, White flagged {white_rate:.2%}, "
+          f"gap {black_rate - white_rate:.2%}")
 ```
 
-The leaked model will report higher test accuracy. That accuracy will not survive deployment.
+**Actual output:**
+
+```
+With leakage (race + CustodyStatus): Black flagged 87.16%, White flagged 0.40%, gap 86.77%
+Without leakage: Black flagged 84.71%, White flagged 69.02%, gap 15.69%
+```
+
+The leaked model's fairness gap is inflated by the leaking feature; removing `CustodyStatus` alongside `race_binary` cuts the gap by 82% (matching `COMPAS/unfair.py`/`COMPAS/fair.py` exactly, since this *is* that same recipe). The residual 15.69% gap - discussed further in [What Is Machine Learning Bias?](ml-bias.md) - shows leakage removal narrows a gap but doesn't always close it.
 
 ---
 

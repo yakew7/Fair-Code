@@ -211,34 +211,37 @@
 <p>The COMPAS audit in this repository demonstrates a proxy form of target leakage. <code>CustodyStatus</code> - a feature describing whether a defendant is currently in custody - correlates with race at p &lt; 0.001 and with the recidivism label at p &lt; 0.001. It is not a neutral operational variable. It encodes the outcome of a prior criminal justice interaction, which itself encodes historical over-policing of Black communities. Including it in the model achieves an 86.77% Black/White fairness gap in positive prediction rates.</p>
 <p>This is the structural form of leakage: a feature that looks like a legitimate input but whose predictive power comes from downstream effects of the very outcome being predicted.</p>
 <p>Removing <code>CustodyStatus</code> alongside the protected race attribute reduces the gap to 15.69% - an 82% reduction.</p>
-<pre><code class="language-python">import os
-import pandas as pd
+<pre><code class="language-python">import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-df = pd.read_csv(os.path.join(BASE_DIR, &quot;compas-scores-raw.csv&quot;))
+df = pd.read_csv(&quot;COMPAS/compas-scores-raw.csv&quot;)
+df = df[df[&quot;Ethnic_Code_Text&quot;].isin([&quot;African-American&quot;, &quot;Caucasian&quot;])].copy()
+df = df[df[&quot;DisplayText&quot;] == &quot;Risk of Recidivism&quot;].copy()
+df[&quot;high_risk&quot;] = df[&quot;ScoreText&quot;].isin([&quot;High&quot;, &quot;Medium&quot;]).astype(int)
+df[&quot;race_binary&quot;] = df[&quot;Ethnic_Code_Text&quot;].map({&quot;African-American&quot;: 1, &quot;Caucasian&quot;: 0})
 
-# Simulated leakage: CustodyStatus encodes prior criminal justice outcome
-FEATURES_WITH_LEAKAGE  = [&quot;age&quot;, &quot;priors_count&quot;, &quot;CustodyStatus&quot;, &quot;race&quot;]
-FEATURES_WITHOUT       = [&quot;age&quot;, &quot;priors_count&quot;]
+# CustodyStatus is the structural-leakage feature: it encodes the outcome of a
+# prior criminal justice interaction, not a race-neutral input
+FEATURES_WITH_LEAKAGE = [&quot;Sex_Code_Text&quot;, &quot;race_binary&quot;, &quot;CustodyStatus&quot;, &quot;MaritalStatus&quot;]
+FEATURES_WITHOUT = [&quot;Sex_Code_Text&quot;, &quot;MaritalStatus&quot;]
+y = df[&quot;high_risk&quot;]
 
-target = &quot;two_year_recid&quot;
-
-X_leak = df[FEATURES_WITH_LEAKAGE]
-X_clean = df[FEATURES_WITHOUT]
-y = df[target]
-
-for label, X in [(&quot;With leakage&quot;, X_leak), (&quot;Without leakage&quot;, X_clean)]:
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
-    model = RandomForestClassifier(n_estimators=100, random_state=42)
+for label, feats in [(&quot;With leakage (race + CustodyStatus)&quot;, FEATURES_WITH_LEAKAGE),
+                     (&quot;Without leakage&quot;, FEATURES_WITHOUT)]:
+    X = pd.get_dummies(df[feats])
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    model = RandomForestClassifier(random_state=42)
     model.fit(X_train, y_train)
-    acc = accuracy_score(y_test, model.predict(X_test))
-    print(f&quot;{label}: test accuracy = {acc:.4f}&quot;)</code></pre>
-<p>The leaked model will report higher test accuracy. That accuracy will not survive deployment.</p>
+    pred = model.predict(X_test)
+    race_test = df.loc[X_test.index, &quot;race_binary&quot;]
+    black_rate, white_rate = pred[race_test == 1].mean(), pred[race_test == 0].mean()
+    print(f&quot;{label}: Black flagged {black_rate:.2%}, White flagged {white_rate:.2%}, &quot;
+          f&quot;gap {black_rate - white_rate:.2%}&quot;)</code></pre>
+<p><strong>Actual output:</strong></p>
+<pre><code>With leakage (race + CustodyStatus): Black flagged 87.16%, White flagged 0.40%, gap 86.77%
+Without leakage: Black flagged 84.71%, White flagged 69.02%, gap 15.69%</code></pre>
+<p>The leaked model&#x27;s fairness gap is inflated by the leaking feature; removing <code>CustodyStatus</code> alongside <code>race_binary</code> cuts the gap by 82% (matching <code>COMPAS/unfair.py</code>/<code>COMPAS/fair.py</code> exactly, since this <em>is</em> that same recipe). The residual 15.69% gap - discussed further in <a href="ml-bias.html">What Is Machine Learning Bias?</a> - shows leakage removal narrows a gap but doesn&#x27;t always close it.</p>
 <hr>
 <h3 id="detection-code">Detection Code</h3>
 <pre><code class="language-python">import pandas as pd
