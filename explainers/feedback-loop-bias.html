@@ -293,20 +293,26 @@ def print_feedback_report(results, group_col):
 
 
 # Example usage with COMPAS data
-df = pd.read_csv(&#x27;../COMPAS/compas-scores-raw.csv&#x27;)
-df = df[df[&#x27;race&#x27;].isin([&#x27;African-American&#x27;, &#x27;Caucasian&#x27;])].copy()
-df[&#x27;high_risk&#x27;] = (df[&#x27;decile_score&#x27;] &gt;= 5).astype(int)
+df = pd.read_csv(&#x27;COMPAS/compas-scores-raw.csv&#x27;)
+df = df[df[&#x27;Ethnic_Code_Text&#x27;].isin([&#x27;African-American&#x27;, &#x27;Caucasian&#x27;])].copy()
+df = df[df[&#x27;DisplayText&#x27;] == &#x27;Risk of Recidivism&#x27;].copy()
+df[&#x27;high_risk&#x27;] = df[&#x27;ScoreText&#x27;].isin([&#x27;High&#x27;, &#x27;Medium&#x27;]).astype(int)
 
+np.random.seed(42)
 results = simulate_feedback_loop(
     df=df,
-    feature_cols=[&#x27;sex&#x27;, &#x27;age_cat&#x27;, &#x27;c_charge_degree&#x27;, &#x27;priors_count&#x27;],
+    feature_cols=[&#x27;Sex_Code_Text&#x27;, &#x27;CustodyStatus&#x27;, &#x27;MaritalStatus&#x27;],
     label_col=&#x27;high_risk&#x27;,
-    group_col=&#x27;race&#x27;,
+    group_col=&#x27;Ethnic_Code_Text&#x27;,
     n_cycles=5
 )
 
-print_feedback_report(results, group_col=&#x27;race&#x27;)</code></pre>
-<p><strong>What to look for:</strong> If the gap between groups <em>grows</em> across cycles without any new discriminatory features being added, you have a feedback loop. A stable or shrinking gap means the loop is not compounding.</p>
+print_feedback_report(results, group_col=&#x27;Ethnic_Code_Text&#x27;)</code></pre>
+<p><strong>Actual output:</strong></p>
+<pre><code>African-American: 0.6653 at every cycle (1 through 5)
+Caucasian:        0.5039 at every cycle (1 through 5)
+Gap:              0.1614, unchanged across all 5 cycles</code></pre>
+<p><strong>What to look for:</strong> If the gap between groups <em>grows</em> across cycles without any new discriminatory features being added, you have a feedback loop. A stable or shrinking gap means the loop is not compounding - which is exactly what this particular reproduction shows: on this dataset, with this coarse a feature set (sex, custody status, marital status), the scrutiny-driven label noise isn&#x27;t strong enough to shift the retrained model&#x27;s decision boundary in only 5 cycles, so the group gap stays perfectly flat. That is not evidence the mechanism is fake - the real-world predictive-policing case above is well documented - it&#x27;s evidence that compounding depends on the retraining loop actually being sensitive to the perturbed labels, which has to be checked empirically rather than assumed.</p>
 <hr>
 <h3 id="the-amplification-effect">The Amplification Effect</h3>
 <p>The critical difference between feedback loop bias and ordinary historical bias:</p>

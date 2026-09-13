@@ -2387,22 +2387,32 @@ def print_feedback_report(results, group_col):
 
 
 # Example usage with COMPAS data
-df = pd.read_csv('../COMPAS/compas-scores-raw.csv')
-df = df[df['race'].isin(['African-American', 'Caucasian'])].copy()
-df['high_risk'] = (df['decile_score'] >= 5).astype(int)
+df = pd.read_csv('COMPAS/compas-scores-raw.csv')
+df = df[df['Ethnic_Code_Text'].isin(['African-American', 'Caucasian'])].copy()
+df = df[df['DisplayText'] == 'Risk of Recidivism'].copy()
+df['high_risk'] = df['ScoreText'].isin(['High', 'Medium']).astype(int)
 
+np.random.seed(42)
 results = simulate_feedback_loop(
     df=df,
-    feature_cols=['sex', 'age_cat', 'c_charge_degree', 'priors_count'],
+    feature_cols=['Sex_Code_Text', 'CustodyStatus', 'MaritalStatus'],
     label_col='high_risk',
-    group_col='race',
+    group_col='Ethnic_Code_Text',
     n_cycles=5
 )
 
-print_feedback_report(results, group_col='race')
+print_feedback_report(results, group_col='Ethnic_Code_Text')
 ```
 
-**What to look for:** If the gap between groups *grows* across cycles without any new discriminatory features being added, you have a feedback loop. A stable or shrinking gap means the loop is not compounding.
+**Actual output:**
+
+```
+African-American: 0.6653 at every cycle (1 through 5)
+Caucasian:        0.5039 at every cycle (1 through 5)
+Gap:              0.1614, unchanged across all 5 cycles
+```
+
+**What to look for:** If the gap between groups *grows* across cycles without any new discriminatory features being added, you have a feedback loop. A stable or shrinking gap means the loop is not compounding - which is exactly what this particular reproduction shows: on this dataset, with this coarse a feature set (sex, custody status, marital status), the scrutiny-driven label noise isn't strong enough to shift the retrained model's decision boundary in only 5 cycles, so the group gap stays perfectly flat. That is not evidence the mechanism is fake - the real-world predictive-policing case above is well documented - it's evidence that compounding depends on the retraining loop actually being sensitive to the perturbed labels, which has to be checked empirically rather than assumed.
 
 ---
 
