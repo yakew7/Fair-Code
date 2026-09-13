@@ -1,6 +1,6 @@
 # Audit 04: Insurance Denial - Healthcare Bias - Reproducibility
 
-Part of [Fair Code](../README.md#results-at-a-glance). This documents how to reproduce this audit and the exact numbers to expect. It does not change any result - the figures below are the published, paper-aligned numbers. See [CLAUDE.md](../CLAUDE.md) for the paper-freeze policy.
+Part of [Fair Code](../README.md#results-at-a-glance). This documents how to reproduce this audit and the exact numbers to expect. It does not change any result - these are the published numbers. Development is fully open (see [CLAUDE.md](../CLAUDE.md)) - the paper freeze this file's language used to refer to has lifted.
 
 ## Reproducibility checklist
 
@@ -29,4 +29,4 @@ python3 "Insurance Denial/fair.py"     # mitigated (protected attribute + proxie
 | Age | 7.93% | 3.18% | 60% |
 | Gender | 5.44% | 1.54% | 72% |
 
-These match the "Results at a Glance" table in the [main README](../README.md#results-at-a-glance) and the frozen snapshot in `paper/results-frozen/`. The scripts are deterministic at `random_state=42`, so a correct local run reproduces them exactly. If your numbers differ, check the seed, the split, and your package versions before opening an issue - and never edit the frozen numbers to match a local run (see [CLAUDE.md](../CLAUDE.md)).
+These match the "Results at a Glance" table in the [main README](../README.md#results-at-a-glance) and the frozen snapshot in `paper/results-frozen/`. The scripts are deterministic at `random_state=42`, so a correct local run reproduces them exactly. If your numbers differ, check the seed, the split, and your package versions first - but if they genuinely differ, open a PR updating them with your environment noted; the paper freeze that used to make these numbers off-limits to edit has lifted (see [CLAUDE.md](../CLAUDE.md)).

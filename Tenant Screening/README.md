@@ -1,6 +1,6 @@
 # Audit 07: Tenant Screening - Rental Application Bias - Reproducibility
 
-Part of [Fair Code](../README.md#results-at-a-glance). This documents how to reproduce this audit and the exact numbers to expect. It does not change any result - the figures below are the published, paper-aligned numbers. See [CLAUDE.md](../CLAUDE.md) for the paper-freeze policy.
+Part of [Fair Code](../README.md#results-at-a-glance). This documents how to reproduce this audit and the exact numbers to expect. It does not change any result - these are the published numbers. Development is fully open (see [CLAUDE.md](../CLAUDE.md)) - the paper freeze this file's language used to refer to has lifted.
 
 ## Reproducibility checklist
 
