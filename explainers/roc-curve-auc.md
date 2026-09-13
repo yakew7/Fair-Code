@@ -44,7 +44,7 @@ A curve that bows toward the top-left is a better ranker. The area underneath it
 
 ## Concrete Example: COMPAS - Audit 01
 
-Audit 01 in this repo reproduces the COMPAS recidivism model on the ProPublica dataset (3,254 test records), with race as the protected attribute. Its baseline models are ordinary, unremarkable rankers: the logistic-regression baseline lands at an **AUC of 0.68**, and the random forest at **0.69** (frozen figures from `paper/results-frozen/summary.csv` and `results_performance.csv`).
+Audit 01 in this repo models COMPAS's own high/medium risk label from the ProPublica dataset (3,254 test records), with race as the protected attribute; it does not predict an independent two-year recidivism outcome. Its baseline models are ordinary, unremarkable rankers: the logistic-regression baseline lands at an **AUC of 0.68**, and the random forest at **0.69** (frozen figures from `paper/results-frozen/summary.csv` and `results_performance.csv`).
 
 That number sits squarely in the "weak" band - the model barely out-ranks a coin flip. But the documented harm in COMPAS was never really about *overall* ranking quality. It was about what happened at the operating threshold: Black defendants who did not go on to reoffend were labeled high-risk at nearly twice the rate of comparable white defendants. That is a false-positive-rate gap - a single point on the ROC curve, read separately for each group - and the aggregate AUC of 0.68 averages straight over it.
 
