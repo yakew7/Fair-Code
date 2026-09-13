@@ -413,8 +413,10 @@
   }
   function isMissing(v) {
     if (v === null || v === undefined) return true;
-    // Case-sensitive, matching pandas' STR_NA_VALUES exactly (no lower-casing).
-    return NA_TOKENS.hasOwnProperty(String(v).trim());
+    // Case-sensitive and whitespace-sensitive, matching pandas' STR_NA_VALUES
+    // exactly: no lower-casing, and no trimming - " NA " (with surrounding
+    // spaces) is a literal, non-missing value to pandas, not the token "NA".
+    return NA_TOKENS.hasOwnProperty(String(v));
   }
 
   // ── Column detection (SPEC section 1) ──────────────────────────────────
