@@ -607,3 +607,26 @@ def test_python_js_compare_parity(csv_name):
             result[side].pop("name", None)
 
     assert javascript_result == python_result
+
+
+def test_threshold_input_recovers_panel_after_invalid_value():
+    """profiler-ui.js's threshold-input handler must recover when the engine
+    rejects the typed value (e.g. min_share 1.5, see #602): reprofile() fails
+    and showError() hides the whole #results panel, including the very input
+    the user needs to correct. The handler must revert that opt to its
+    last-known-good value and retry once, the same recovery the mapping-select
+    handler got in #466. Source-level check (mirrors
+    test_compare_card_renderers_special_case_kind_mismatch) - this handler is
+    DOM-coupled and has no unit harness."""
+    src = (REPO_ROOT / "assets" / "profiler-ui.js").read_text(encoding="utf-8")
+
+    marker = "thresholdInputs.forEach(function (input) {\n    input.addEventListener('input'"
+    handler = src[src.index(marker):]
+    handler = handler[: handler.index("\n  });\n")]
+
+    # it must notice that the re-profile failed ...
+    assert "if (!reprofile(false))" in handler
+    # ... revert the offending opt to the value it held before ...
+    assert "currentOpts[opt] = previous;" in handler
+    # ... and retry once so the #results panel (and this input) come back
+    assert handler.count("reprofile(false)") >= 2
