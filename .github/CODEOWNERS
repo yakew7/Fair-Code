@@ -33,6 +33,12 @@
 # CI / automation
 /.github/workflows/ @yakew7 @ahmdkaml
 /.github/CODEOWNERS @yakew7 @ahmdkaml
+/.github/dependabot.yml @yakew7 @ahmdkaml
+/.github/codeql/ @yakew7 @ahmdkaml
+/.github/ACTIONS-AUDIT.md @yakew7 @ahmdkaml
+/.github/DEAD-FILE-AUDIT.md @yakew7 @ahmdkaml
+/.github/ISSUE_TEMPLATE/ @yakew7
+/.github/PULL_REQUEST_TEMPLATE.md @yakew7
 
 # Python packaging
 /pyproject.toml @yakew7
