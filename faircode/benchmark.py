@@ -23,8 +23,8 @@ nothing here reads numpy's global random state. GLOBAL_SEED exists as a
 defense-in-depth seed for any future strategy/model that isn't explicitly
 seeded; it is not what makes today's runs reproducible, the explicit seeds
 threaded through every call are. Do not change a manifest's random_state on
-a run whose numbers are cited anywhere - see "Reproducibility & Paper
-Freeze" in README.md before regenerating results/ for a citation.
+a run whose numbers are cited anywhere - see "Reproducibility & Results
+History" in README.md before regenerating results/ for a citation.
 """
 
 from __future__ import annotations
