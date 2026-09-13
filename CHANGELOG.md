@@ -17,7 +17,7 @@ All notable changes to Fair Code are documented here, newest first.
 > `paper/results-frozen/` (tag [`v1.0-paper`](https://github.com/yakew7/Fair-Code/releases/tag/v1.0-paper))
 > is kept as a historical reference snapshot. See [CLAUDE.md](CLAUDE.md).
 
-## [2.2.0] - 02 Sep 2026
+## [2.2.0] - 13 Sep 2026
 
 Three rounds of a fresh MCP-focused audit, each finding real gaps through direct verification
 (not guessed), fixing them, and adding one Phase 2 capability - completing the "read-only lookups
