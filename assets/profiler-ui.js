@@ -327,7 +327,7 @@
           '<span class="ref-label" title="' + esc(g.label) + '">' + esc(g.label) + '</span>' +
           '<span class="ref-vals">exp ' + pct(g.expected) + ' · act ' + pct(g.actual) + '</span>' +
           '<span class="ref-delta ' + dCls + '">' +
-            (g.delta > 0 ? '+' : '') + (g.delta * 100).toFixed(1) + ' pp</span>' +
+            (g.delta >= 0 ? '+' : '') + (g.delta * 100).toFixed(1) + ' pp</span>' +
           '</div>';
       }).join('');
       ref = '<div class="dim-reference"><div class="dim-reference-head">vs reference · ' +
