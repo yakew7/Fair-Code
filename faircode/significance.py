@@ -114,7 +114,13 @@ def significance_report(group_a, group_b, n_resamples=10000,
         "ci_low": ci_low,
         "ci_high": ci_high,
         "p_value": p_value,
-        "significant": p_value < (1.0 - confidence),
+        # round() strips the floating-point representation error in
+        # 1.0 - confidence (e.g. 1.0 - 0.95 == 0.050000000000000044) that
+        # would otherwise flag a real, exact p=0.05 permutation result
+        # (a reachable value - permutation_test always returns an exact
+        # multiple of 1/n_permutations) as significant at the default
+        # confidence=0.95, contradicting the documented "p < 0.05" rule.
+        "significant": p_value < round(1.0 - confidence, 10),
         "n_a": n_a,
         "n_b": n_b,
         "small_sample_warning": n_a < 30 or n_b < 30,
