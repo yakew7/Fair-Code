@@ -216,47 +216,55 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
-df = pd.read_csv(&#x27;compas-scores-raw.csv&#x27;)
+df = pd.read_csv(&#x27;COMPAS/compas-scores-raw.csv&#x27;)
+df = df[df[&#x27;Ethnic_Code_Text&#x27;].isin([&#x27;African-American&#x27;, &#x27;Caucasian&#x27;])].copy()
+df = df[df[&#x27;DisplayText&#x27;] == &#x27;Risk of Recidivism&#x27;].copy()
+df[&#x27;race_binary&#x27;] = df[&#x27;Ethnic_Code_Text&#x27;].map({&#x27;African-American&#x27;: 1, &#x27;Caucasian&#x27;: 0})
 
 # Biased feature set (includes race + proxy)
-X = pd.get_dummies(df[[&#x27;race&#x27;, &#x27;Sex_Code_Text&#x27;, &#x27;CustodyStatus&#x27;, &#x27;MaritalStatus&#x27;]])
-y = (df[&#x27;DecileScore&#x27;] &gt;= 5).astype(int)
+X = pd.get_dummies(df[[&#x27;race_binary&#x27;, &#x27;Sex_Code_Text&#x27;, &#x27;CustodyStatus&#x27;, &#x27;MaritalStatus&#x27;]])
+y = df[&#x27;ScoreText&#x27;].isin([&#x27;High&#x27;, &#x27;Medium&#x27;]).astype(int)
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)
 
-model = RandomForestClassifier(n_estimators=100, random_state=42)
+model = RandomForestClassifier(random_state=42)
 model.fit(X_train, y_train)
 
-# Compute SHAP values
+# Compute SHAP values (index [:, :, 1] selects the &quot;high risk&quot; class)
 explainer = shap.TreeExplainer(model)
-shap_values = explainer.shap_values(X_test)</code></pre>
+shap_values = explainer.shap_values(X_test)[:, :, 1]</code></pre>
 <h4 id="what-shap-revealed">What SHAP Revealed</h4>
+<p><strong>Actual output</strong> (mean absolute SHAP value per feature, this repo&#x27;s <code>COMPAS/compas-scores-raw.csv</code>):</p>
 <pre><code>--- MEAN ABSOLUTE SHAP VALUES (biased model) ---
 
 Feature                     Mean |SHAP|
 ----------------------------------------------
-race_African-American       0.1847   ← highest driver
-CustodyStatus_Jail          0.1623   ← second highest (proxy)
-race_Caucasian              0.1401
-Sex_Code_Text_Male          0.0412
-MaritalStatus_Single        0.0298</code></pre>
-<p><strong>The model&#x27;s single largest driver was race.</strong> The second largest was custody status - a known proxy for race. Together they accounted for more than 60% of total feature influence.</p>
+race_binary                 0.1066   ← highest driver
+MaritalStatus_Single        0.0624   ← second highest
+MaritalStatus_Married       0.0234
+CustodyStatus_Probation     0.0165   (proxy)
+MaritalStatus_Divorced      0.0126</code></pre>
+<p><strong>The model&#x27;s single largest driver was race.</strong> <code>MaritalStatus_Single</code> was the second largest; <code>CustodyStatus_Probation</code> - a proxy for race - ranks fourth. Race alone accounted for roughly 40% of the top-5 features&#x27; combined influence.</p>
 <p>Without SHAP, you would not know this. The model&#x27;s accuracy numbers alone tell you nothing about which features drove individual predictions.</p>
 <h4 id="after-the-fix-fair-model-shap">After the Fix - Fair Model SHAP</h4>
 <pre><code class="language-python"># Fair feature set (race + proxy removed)
 X_fair = pd.get_dummies(df[[&#x27;Sex_Code_Text&#x27;, &#x27;MaritalStatus&#x27;]])
-model_fair = RandomForestClassifier(n_estimators=100, random_state=42)
+X_train_fair, X_test_fair, y_train_fair, y_test_fair = train_test_split(
+    X_fair, y, test_size=0.2, random_state=42, stratify=y)
+model_fair = RandomForestClassifier(random_state=42)
 model_fair.fit(X_train_fair, y_train_fair)
 
 explainer_fair = shap.TreeExplainer(model_fair)
-shap_values_fair = explainer_fair.shap_values(X_test_fair)</code></pre>
+shap_values_fair = explainer_fair.shap_values(X_test_fair)[:, :, 1]</code></pre>
+<p><strong>Actual output:</strong></p>
 <pre><code>--- MEAN ABSOLUTE SHAP VALUES (fair model) ---
 
 Feature                     Mean |SHAP|
 ----------------------------------------------
-MaritalStatus_Single        0.0531
-Sex_Code_Text_Male          0.0489
-MaritalStatus_Married       0.0214</code></pre>
+MaritalStatus_Single        0.0626
+MaritalStatus_Married       0.0270
+MaritalStatus_Divorced      0.0195</code></pre>
 <p>Race is gone from the feature set. The model now distributes influence across legitimate remaining features. SHAP confirms the fix worked - not just at the aggregate fairness gap level, but at the level of individual decision logic.</p>
 <hr>
 <h3 id="how-to-use-shap-in-practice">How to Use SHAP in Practice</h3>
@@ -282,7 +290,7 @@ shap_values = explainer.shap_values(X_test[:10])</code></pre>
     Positive values → pushed prediction UP (toward flagged/rejected/denied)
     Negative values → pushed prediction DOWN
     &quot;&quot;&quot;
-    sv = explainer.shap_values(X_test.iloc[[sample_idx]])[1][0]
+    sv = explainer.shap_values(X_test.iloc[[sample_idx]])[0, :, 1]
     feature_names = X_test.columns.tolist()
 
     explanation = sorted(
@@ -292,18 +300,20 @@ shap_values = explainer.shap_values(X_test[:10])</code></pre>
     )
     return explanation
 
-# Example output for a high-risk COMPAS score:
-# [(&#x27;race_African-American&#x27;, +0.21), (&#x27;CustodyStatus_Jail&#x27;, +0.18), ...]</code></pre>
+# Actual output for test row 0 (a real high-risk COMPAS prediction):
+# [(&#x27;MaritalStatus_Single&#x27;, -0.122), (&#x27;race_binary&#x27;, +0.104), (&#x27;MaritalStatus_Significant Other&#x27;, +0.027), ...]</code></pre>
 <h4 id="bias-audit-using-shap">Bias Audit Using SHAP</h4>
-<pre><code class="language-python">def shap_bias_audit(shap_values, feature_names, protected_features):
+<pre><code class="language-python">import numpy as np
+
+def shap_bias_audit(shap_values, feature_names, protected_features):
     &quot;&quot;&quot;
     Flag any protected attribute or known proxy in the top drivers.
     Returns sorted mean absolute SHAP values, with bias flags.
     &quot;&quot;&quot;
     mean_abs_shap = pd.Series(
-        shap_values.mean(axis=0),
+        np.abs(shap_values).mean(axis=0),
         index=feature_names
-    ).abs().sort_values(ascending=False)
+    ).sort_values(ascending=False)
 
     result = mean_abs_shap.reset_index()
     result.columns = [&#x27;feature&#x27;, &#x27;mean_abs_shap&#x27;]
@@ -313,9 +323,17 @@ shap_values = explainer.shap_values(X_test[:10])</code></pre>
     return result
 
 # Run before deployment
-protected = [&#x27;race&#x27;, &#x27;gender&#x27;, &#x27;age&#x27;, &#x27;CustodyStatus&#x27;]
-audit = shap_bias_audit(shap_values[1], X_test.columns, protected)
-print(audit.head(10))</code></pre>
+protected = [&#x27;race_binary&#x27;, &#x27;CustodyStatus&#x27;]
+audit = shap_bias_audit(shap_values, X_test.columns, protected)
+print(audit.head(6))</code></pre>
+<p><strong>Actual output:</strong></p>
+<pre><code>                feature  mean_abs_shap          bias_flag
+            race_binary       0.106622 PROTECTED OR PROXY
+   MaritalStatus_Single       0.062441
+  MaritalStatus_Married       0.023384
+CustodyStatus_Probation       0.016462 PROTECTED OR PROXY
+ MaritalStatus_Divorced       0.012589
+    Sex_Code_Text_Male        0.006635</code></pre>
 <hr>
 <h3 id="shap-vs-other-explainability-methods">SHAP vs Other Explainability Methods</h3>
 <div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Method</th><th>Scope</th><th>Consistency</th><th>Model-Agnostic</th><th>Speed</th></tr></thead><tbody><tr><td><strong>SHAP</strong></td><td>Local + Global</td><td>✓ Mathematically guaranteed</td><td>✓ Yes</td><td>Medium–Fast</td></tr><tr><td>LIME</td><td>Local only</td><td>✗ Approximate</td><td>✓ Yes</td><td>Slow</td></tr><tr><td>Feature Importance (Gini)</td><td>Global only</td><td>✗ Biased toward high-cardinality</td><td>✗ Tree models only</td><td>Fast</td></tr><tr><td>Permutation Importance</td><td>Global only</td><td>Reasonable</td><td>✓ Yes</td><td>Medium</td></tr></tbody></table></div>

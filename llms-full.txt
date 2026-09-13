@@ -680,37 +680,43 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
-df = pd.read_csv('compas-scores-raw.csv')
+df = pd.read_csv('COMPAS/compas-scores-raw.csv')
+df = df[df['Ethnic_Code_Text'].isin(['African-American', 'Caucasian'])].copy()
+df = df[df['DisplayText'] == 'Risk of Recidivism'].copy()
+df['race_binary'] = df['Ethnic_Code_Text'].map({'African-American': 1, 'Caucasian': 0})
 
 # Biased feature set (includes race + proxy)
-X = pd.get_dummies(df[['race', 'Sex_Code_Text', 'CustodyStatus', 'MaritalStatus']])
-y = (df['DecileScore'] >= 5).astype(int)
+X = pd.get_dummies(df[['race_binary', 'Sex_Code_Text', 'CustodyStatus', 'MaritalStatus']])
+y = df['ScoreText'].isin(['High', 'Medium']).astype(int)
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)
 
-model = RandomForestClassifier(n_estimators=100, random_state=42)
+model = RandomForestClassifier(random_state=42)
 model.fit(X_train, y_train)
 
-# Compute SHAP values
+# Compute SHAP values (index [:, :, 1] selects the "high risk" class)
 explainer = shap.TreeExplainer(model)
-shap_values = explainer.shap_values(X_test)
+shap_values = explainer.shap_values(X_test)[:, :, 1]
 ```
 
 ### What SHAP Revealed
+
+**Actual output** (mean absolute SHAP value per feature, this repo's `COMPAS/compas-scores-raw.csv`):
 
 ```
 --- MEAN ABSOLUTE SHAP VALUES (biased model) ---
 
 Feature                     Mean |SHAP|
 ----------------------------------------------
-race_African-American       0.1847   ← highest driver
-CustodyStatus_Jail          0.1623   ← second highest (proxy)
-race_Caucasian              0.1401
-Sex_Code_Text_Male          0.0412
-MaritalStatus_Single        0.0298
+race_binary                 0.1066   ← highest driver
+MaritalStatus_Single        0.0624   ← second highest
+MaritalStatus_Married       0.0234
+CustodyStatus_Probation     0.0165   (proxy)
+MaritalStatus_Divorced      0.0126
 ```
 
-**The model's single largest driver was race.** The second largest was custody status - a known proxy for race. Together they accounted for more than 60% of total feature influence.
+**The model's single largest driver was race.** `MaritalStatus_Single` was the second largest; `CustodyStatus_Probation` - a proxy for race - ranks fourth. Race alone accounted for roughly 40% of the top-5 features' combined influence.
 
 Without SHAP, you would not know this. The model's accuracy numbers alone tell you nothing about which features drove individual predictions.
 
@@ -719,21 +725,25 @@ Without SHAP, you would not know this. The model's accuracy numbers alone tell y
 ```python
 # Fair feature set (race + proxy removed)
 X_fair = pd.get_dummies(df[['Sex_Code_Text', 'MaritalStatus']])
-model_fair = RandomForestClassifier(n_estimators=100, random_state=42)
+X_train_fair, X_test_fair, y_train_fair, y_test_fair = train_test_split(
+    X_fair, y, test_size=0.2, random_state=42, stratify=y)
+model_fair = RandomForestClassifier(random_state=42)
 model_fair.fit(X_train_fair, y_train_fair)
 
 explainer_fair = shap.TreeExplainer(model_fair)
-shap_values_fair = explainer_fair.shap_values(X_test_fair)
+shap_values_fair = explainer_fair.shap_values(X_test_fair)[:, :, 1]
 ```
+
+**Actual output:**
 
 ```
 --- MEAN ABSOLUTE SHAP VALUES (fair model) ---
 
 Feature                     Mean |SHAP|
 ----------------------------------------------
-MaritalStatus_Single        0.0531
-Sex_Code_Text_Male          0.0489
-MaritalStatus_Married       0.0214
+MaritalStatus_Single        0.0626
+MaritalStatus_Married       0.0270
+MaritalStatus_Divorced      0.0195
 ```
 
 Race is gone from the feature set. The model now distributes influence across legitimate remaining features. SHAP confirms the fix worked - not just at the aggregate fairness gap level, but at the level of individual decision logic.
@@ -778,7 +788,7 @@ def explain_decision(model, explainer, X_test, sample_idx):
     Positive values → pushed prediction UP (toward flagged/rejected/denied)
     Negative values → pushed prediction DOWN
     """
-    sv = explainer.shap_values(X_test.iloc[[sample_idx]])[1][0]
+    sv = explainer.shap_values(X_test.iloc[[sample_idx]])[0, :, 1]
     feature_names = X_test.columns.tolist()
 
     explanation = sorted(
@@ -788,22 +798,24 @@ def explain_decision(model, explainer, X_test, sample_idx):
     )
     return explanation
 
-# Example output for a high-risk COMPAS score:
-# [('race_African-American', +0.21), ('CustodyStatus_Jail', +0.18), ...]
+# Actual output for test row 0 (a real high-risk COMPAS prediction):
+# [('MaritalStatus_Single', -0.122), ('race_binary', +0.104), ('MaritalStatus_Significant Other', +0.027), ...]
 ```
 
 ### Bias Audit Using SHAP
 
 ```python
+import numpy as np
+
 def shap_bias_audit(shap_values, feature_names, protected_features):
     """
     Flag any protected attribute or known proxy in the top drivers.
     Returns sorted mean absolute SHAP values, with bias flags.
     """
     mean_abs_shap = pd.Series(
-        shap_values.mean(axis=0),
+        np.abs(shap_values).mean(axis=0),
         index=feature_names
-    ).abs().sort_values(ascending=False)
+    ).sort_values(ascending=False)
 
     result = mean_abs_shap.reset_index()
     result.columns = ['feature', 'mean_abs_shap']
@@ -813,9 +825,21 @@ def shap_bias_audit(shap_values, feature_names, protected_features):
     return result
 
 # Run before deployment
-protected = ['race', 'gender', 'age', 'CustodyStatus']
-audit = shap_bias_audit(shap_values[1], X_test.columns, protected)
-print(audit.head(10))
+protected = ['race_binary', 'CustodyStatus']
+audit = shap_bias_audit(shap_values, X_test.columns, protected)
+print(audit.head(6))
+```
+
+**Actual output:**
+
+```
+                feature  mean_abs_shap          bias_flag
+            race_binary       0.106622 PROTECTED OR PROXY
+   MaritalStatus_Single       0.062441
+  MaritalStatus_Married       0.023384
+CustodyStatus_Probation       0.016462 PROTECTED OR PROXY
+ MaritalStatus_Divorced       0.012589
+    Sex_Code_Text_Male        0.006635
 ```
 
 ---
