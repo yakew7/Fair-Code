@@ -204,23 +204,48 @@
 <p>The COMPAS risk tool, used in U.S. courts to inform bail and sentencing decisions, became the centre of a landmark fairness debate in 2016. ProPublica found that the tool made systematically different kinds of errors for Black and White defendants.</p>
 <p>Northpointe (the tool&#x27;s developer) responded that COMPAS <em>was</em> calibrated: among defendants scored &quot;high risk,&quot; roughly the same proportion reoffended regardless of race. That claim is true by the numbers. But calibration alone masked a different problem - the tool reached that calibration through asymmetric error rates. Black defendants were far more likely to be falsely labelled high risk (false positives), while White defendants were more likely to be falsely labelled low risk (false negatives).</p>
 <p>This is the <a href="https://arxiv.org/abs/1703.00056" target="_blank" rel="noreferrer noopener">Chouldechova (2017)</a> result in practice: <strong>when base rates differ between groups, you cannot simultaneously achieve calibration and equal false positive/false negative rates.</strong> You have to choose. COMPAS chose calibration. ProPublica measured the error rates. Both were right about what they measured.</p>
-<p>We can verify the calibration gap directly using the ProPublica dataset:</p>
+<p>Reproducing Northpointe&#x27;s and ProPublica&#x27;s exact tables takes ProPublica&#x27;s independent <em>two-year recidivism outcome</em> - whether a defendant was actually rearrested within two years - matched against COMPAS&#x27;s own score. This repo&#x27;s <code>COMPAS/compas-scores-raw.csv</code> is the raw score file only: it has <code>ScoreText</code>/<code>DecileScore</code> (what COMPAS predicted) but no such outcome column to check those scores against, so the calibration gap above can&#x27;t be reproduced from this file alone.</p>
+<p>What this repo <em>can</em> verify directly is the same concept - do predicted probabilities match real outcome rates across groups? - on an audit that has both a model&#x27;s own predicted probabilities and a genuine historical outcome: <a href="../index.html#project-credit">German Credit Lending</a>, where <code>class</code> (good/bad credit history) is a real recorded label, not a derived score.</p>
 <pre><code class="language-python">import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.calibration import calibration_curve
 
-df = pd.read_csv(&#x27;compas-scores-two-years.csv&#x27;)
-df = df[df[&#x27;score_text&#x27;].isin([&#x27;Low&#x27;, &#x27;Medium&#x27;, &#x27;High&#x27;])]
-df = df[df[&#x27;race&#x27;].isin([&#x27;African-American&#x27;, &#x27;Caucasian&#x27;])]
+df = pd.read_csv(&#x27;German Credit Lending/credit_customers.csv&#x27;)
+df[&#x27;target&#x27;] = (df[&#x27;class&#x27;] == &#x27;good&#x27;).astype(int)
+df[&#x27;is_young&#x27;] = (df[&#x27;age&#x27;] &lt; 30).astype(int)
 
-# Map score bands to numeric risk tiers
-score_map = {&#x27;Low&#x27;: 0, &#x27;Medium&#x27;: 1, &#x27;High&#x27;: 2}
-df[&#x27;score_tier&#x27;] = df[&#x27;score_text&#x27;].map(score_map)
+cat_cols = [&#x27;checking_status&#x27;, &#x27;credit_history&#x27;, &#x27;purpose&#x27;, &#x27;savings_status&#x27;,
+            &#x27;employment&#x27;, &#x27;personal_status&#x27;, &#x27;other_parties&#x27;, &#x27;property_magnitude&#x27;,
+            &#x27;other_payment_plans&#x27;, &#x27;housing&#x27;, &#x27;job&#x27;, &#x27;own_telephone&#x27;, &#x27;foreign_worker&#x27;]
+for col in cat_cols:
+    df[col] = LabelEncoder().fit_transform(df[col])
 
-# Actual recidivism rate per score band per race
-calibration_table = df.groupby([&#x27;race&#x27;, &#x27;score_text&#x27;])[&#x27;two_year_recid&#x27;].mean().round(3)
-print(calibration_table)</code></pre>
-<p><strong>Sample output:</strong></p>
-<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Race</th><th>Score Band</th><th>Actual Recidivism Rate</th></tr></thead><tbody><tr><td>African-American</td><td>Low</td><td>0.33</td></tr><tr><td>African-American</td><td>Medium</td><td>0.53</td></tr><tr><td>African-American</td><td>High</td><td>0.67</td></tr><tr><td>Caucasian</td><td>Low</td><td>0.21</td></tr><tr><td>Caucasian</td><td>Medium</td><td>0.45</td></tr><tr><td>Caucasian</td><td>High</td><td>0.63</td></tr></tbody></table></div>
-<p>The High band converges (0.67 vs 0.63) - that&#x27;s the calibration Northpointe pointed to. But the Low band reveals the asymmetry: a &quot;Low risk&quot; score means something very different for a Black defendant (33% actual recidivism) than for a White defendant (21%). The same label, different stakes.</p>
+features = [&#x27;checking_status&#x27;, &#x27;duration&#x27;, &#x27;credit_history&#x27;, &#x27;purpose&#x27;, &#x27;credit_amount&#x27;,
+            &#x27;savings_status&#x27;, &#x27;employment&#x27;, &#x27;installment_commitment&#x27;, &#x27;personal_status&#x27;,
+            &#x27;other_parties&#x27;, &#x27;residence_since&#x27;, &#x27;property_magnitude&#x27;, &#x27;age&#x27;,
+            &#x27;other_payment_plans&#x27;, &#x27;housing&#x27;, &#x27;existing_credits&#x27;, &#x27;job&#x27;,
+            &#x27;num_dependents&#x27;, &#x27;own_telephone&#x27;, &#x27;foreign_worker&#x27;]
+
+X_train, X_test, y_train, y_test, g_train, g_test = train_test_split(
+    df[features], df[&#x27;target&#x27;], df[&#x27;is_young&#x27;],
+    test_size=0.2, random_state=42, stratify=df[&#x27;target&#x27;])
+
+model = RandomForestClassifier(random_state=42)
+model.fit(X_train, y_train)
+probs = model.predict_proba(X_test)[:, 1]
+
+for group, label in [(1, &#x27;Young (&lt;30)&#x27;), (0, &#x27;Older (30+)&#x27;)]:
+    mask = (g_test == group).values
+    fraction_pos, mean_pred = calibration_curve(y_test[mask], probs[mask], n_bins=5)
+    print(f&quot;{label}: MACE = {np.mean(np.abs(fraction_pos - mean_pred)):.4f}&quot;)
+    for mp, fp in zip(mean_pred, fraction_pos):
+        print(f&quot;  predicted {mp:.2f} -&gt; actual {fp:.2f}&quot;)</code></pre>
+<p><strong>Actual output</strong> (<code>n_test=200</code>: 69 young, 131 older):</p>
+<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Group</th><th>Predicted</th><th>Actual</th></tr></thead><tbody><tr><td>Young (&lt;30)</td><td>0.32</td><td>0.29</td></tr><tr><td>Young (&lt;30)</td><td>0.52</td><td>0.62</td></tr><tr><td>Young (&lt;30)</td><td>0.71</td><td>0.71</td></tr><tr><td>Young (&lt;30)</td><td>0.90</td><td>1.00</td></tr><tr><td>Older (30+)</td><td>0.19</td><td>0.00</td></tr><tr><td>Older (30+)</td><td>0.36</td><td>0.43</td></tr><tr><td>Older (30+)</td><td>0.53</td><td>0.41</td></tr><tr><td>Older (30+)</td><td>0.71</td><td>0.80</td></tr><tr><td>Older (30+)</td><td>0.90</td><td>0.91</td></tr></tbody></table></div>
+<p>Mean Absolute Calibration Error: <strong>0.0559</strong> for young applicants, <strong>0.0964</strong> for older applicants - the model is <em>better</em> calibrated for young applicants here, the opposite of what the German Credit Lending audit&#x27;s own headline gap (young applicants flagged as bad credit risks at a higher rate, see <a href="README.html"><code>German Credit Lending/README.md</code></a>) might suggest. That&#x27;s the point calibration and error-rate metrics make separately: a model can be reasonably calibrated for a group (its probabilities mean roughly what they say) while still treating that group&#x27;s <em>predictions</em> asymmetrically - the same tension Northpointe and ProPublica each measured correctly, just along different axes.</p>
 <hr>
 <h3 id="how-to-measure-calibration">How to Measure Calibration</h3>
 <p>Calibration is measured by comparing predicted probabilities to actual outcome rates within prediction bins. The standard approach is a <strong>calibration curve</strong> (also called a reliability diagram).</p>
@@ -230,6 +255,7 @@ from sklearn.calibration import calibration_curve
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
 
 def measure_calibration_by_group(df, feature_cols, target_col, group_col, n_bins=5):
     &quot;&quot;&quot;
@@ -242,7 +268,7 @@ def measure_calibration_by_group(df, feature_cols, target_col, group_col, n_bins
     groups = df[group_col]
 
     X_train, X_test, y_train, y_test, g_train, g_test = train_test_split(
-        X, y, groups, test_size=0.2, random_state=42
+        X, y, groups, test_size=0.2, random_state=42, stratify=y
     )
 
     model = RandomForestClassifier(random_state=42)
@@ -275,12 +301,27 @@ def calibration_gap(results):
         print(f&quot;{group}: Mean Absolute Calibration Error = {error:.4f}&quot;)
 
 
-# Example usage with COMPAS
-feature_cols = [&#x27;sex&#x27;, &#x27;age_cat&#x27;, &#x27;priors_count&#x27;, &#x27;c_charge_degree&#x27;]
-results = measure_calibration_by_group(
-    df, feature_cols, &#x27;two_year_recid&#x27;, &#x27;race&#x27;
-)
+# Example usage with German Credit Lending
+df = pd.read_csv(&#x27;German Credit Lending/credit_customers.csv&#x27;)
+df[&#x27;target&#x27;] = (df[&#x27;class&#x27;] == &#x27;good&#x27;).astype(int)
+df[&#x27;is_young&#x27;] = (df[&#x27;age&#x27;] &lt; 30).astype(int)
+cat_cols = [&#x27;checking_status&#x27;, &#x27;credit_history&#x27;, &#x27;purpose&#x27;, &#x27;savings_status&#x27;,
+            &#x27;employment&#x27;, &#x27;personal_status&#x27;, &#x27;other_parties&#x27;, &#x27;property_magnitude&#x27;,
+            &#x27;other_payment_plans&#x27;, &#x27;housing&#x27;, &#x27;job&#x27;, &#x27;own_telephone&#x27;, &#x27;foreign_worker&#x27;]
+for col in cat_cols:
+    df[col] = LabelEncoder().fit_transform(df[col])
+
+feature_cols = [&#x27;checking_status&#x27;, &#x27;duration&#x27;, &#x27;credit_history&#x27;, &#x27;purpose&#x27;, &#x27;credit_amount&#x27;,
+                &#x27;savings_status&#x27;, &#x27;employment&#x27;, &#x27;installment_commitment&#x27;, &#x27;personal_status&#x27;,
+                &#x27;other_parties&#x27;, &#x27;residence_since&#x27;, &#x27;property_magnitude&#x27;, &#x27;age&#x27;,
+                &#x27;other_payment_plans&#x27;, &#x27;housing&#x27;, &#x27;existing_credits&#x27;, &#x27;job&#x27;,
+                &#x27;num_dependents&#x27;, &#x27;own_telephone&#x27;, &#x27;foreign_worker&#x27;]
+results = measure_calibration_by_group(df, feature_cols, &#x27;target&#x27;, &#x27;is_young&#x27;)
 calibration_gap(results)</code></pre>
+<p><strong>Actual output:</strong></p>
+<pre><code>0: Mean Absolute Calibration Error = 0.0964
+1: Mean Absolute Calibration Error = 0.0559</code></pre>
+<p>(group <code>0</code> = older/30+, group <code>1</code> = young/&lt;30, matching the worked example above exactly - this function is the reusable version of the same computation.)</p>
 <p>A perfectly calibrated model produces a diagonal line from (0, 0) to (1, 1). A model that is calibrated for one group but not another will show one group&#x27;s curve hugging the diagonal while the other curves away - the gap between those curves is the differential calibration.</p>
 <hr>
 <h3 id="limitations-and-trade-offs">Limitations and Trade-offs</h3>
