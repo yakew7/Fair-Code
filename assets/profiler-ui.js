@@ -10,7 +10,7 @@
 
   var DISPLAY_GROUPS = 12; // mirror faircode/report.py
   var E = window.FairCodeProfiler;
-  var FAIRCODE_VERSION = '2.2.0';
+  var FAIRCODE_VERSION = '2.3.0';
 
   var dropzone = document.getElementById('dropzone');
   var fileInput = document.getElementById('fileInput');

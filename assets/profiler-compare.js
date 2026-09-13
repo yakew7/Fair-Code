@@ -9,7 +9,7 @@
   'use strict';
 
   var DISPLAY_GROUPS = 12; // mirror faircode/report.py
-  var FAIRCODE_VERSION = '2.2.0'; // mirrors profiler-ui.js's own copy
+  var FAIRCODE_VERSION = '2.3.0'; // mirrors profiler-ui.js's own copy
   var E = window.FairCodeProfiler;
   if (!E || !E.compare) return;
 
