@@ -1,12 +1,12 @@
-"""Read a tabular dataset file, extending faircode.loaders with formats
-added after the paper freeze (.json, .parquet).
+"""Read a tabular dataset file, extending faircode.loaders with additional
+formats (.json, .parquet) beyond its core CSV/Excel support.
 
-`faircode/loaders.py` is on the frozen file list in CLAUDE.md and must stay
-byte-identical to what the paper's benchmark was run against - the benchmark
-harness (`faircode/benchmark.py`) reads its CSVs directly via `pd.read_csv`
-and never imports it, so it has no bearing on any published number, but the
-file itself is still not touched. New formats live here instead and delegate
-to the frozen `read_table()` for everything it already handles.
+New formats live here rather than in `faircode/loaders.py` itself so that
+core CLI/profiler usage never pulls in the extra formats' optional
+dependencies (e.g. `pyarrow` for `.parquet`) - `faircode/loaders.py` stays
+minimal, and this module delegates to its `read_table()` for everything it
+already handles. The benchmark harness (`faircode/benchmark.py`) reads its
+CSVs directly via `pd.read_csv` and never imports either module.
 """
 
 from __future__ import annotations
