@@ -85,6 +85,10 @@ The band shares are then analyzed exactly like a categorical column.
 
 For a dimension with `k` groups and null-excluded normalized shares `p_1 … p_k` (each `p_i = count_i / N_nonnull`):
 
+Category labels are literal data, including names such as `__proto__`, `constructor`,
+and `toString`. They must be retained in distinct counts, groups, intersections,
+reference baselines, and drift comparisons, with no inherited-property lookups.
+
 - **shares** - the `p_i`, descending, with raw counts.
 - **ci_low / ci_high** - a 95% **Wilson score interval** on each group's share, so a share read off a small sample carries its sampling uncertainty. For a group with count `c` out of `N_nonnull = n`, `p = c/n`, `z = 1.959963984540054`:
   - `center = (p + z²/2n) / (1 + z²/n)`, `margin = (z / (1 + z²/n)) · √( p(1−p)/n + z²/4n² )`
