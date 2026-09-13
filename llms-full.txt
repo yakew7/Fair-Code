@@ -10767,21 +10767,21 @@ The key word is **local**. LIME never claims to explain the model's global behav
 
 ## Concrete Example: COMPAS - Audit 01
 
-Applying LIME to a single high-risk COMPAS prediction, using the same biased feature set (race included) as [SHAP Values](shap-values.md)'s own COMPAS example, illustrates what a local explanation looks like in practice:
+Applying LIME to a single high-risk COMPAS prediction, using the same biased feature set (race included) as [SHAP Values](shap-values.md)'s own COMPAS example, illustrates what a local explanation looks like in practice - this is the actual output of the Detection Code below, for test row 0 (predicted probability 52.8% high-risk, predicted class: high risk):
 
 ```
 --- LIME EXPLANATION FOR ONE PREDICTION (predicted: high risk) ---
 
-Feature                        Local weight
-------------------------------------------------
-race_African-American          +0.31   ← pushed toward "high risk"
-CustodyStatus_Jail             +0.24   ← pushed toward "high risk"
-Sex_Code_Text_Male              +0.09
-MaritalStatus_Single             +0.04
-Age                              -0.02  ← pushed slightly toward "low risk"
+Feature                                Local weight
+------------------------------------------------------
+0.00 < race_binary <= 1.00             +0.1906  ← pushed toward "high risk"
+MaritalStatus_Married <= 0.00          +0.1201
+MaritalStatus_Divorced <= 0.00         +0.0969
+MaritalStatus_Separated <= 0.00        +0.0411
+CustodyStatus_Probation <= 0.00        +0.0339
 ```
 
-For this one individual, LIME's local surrogate says race and custody status - a known proxy for race - together dominate the decision, consistent with what SHAP's *aggregate* analysis found across many predictions in the SHAP explainer's own example. That agreement is reassuring, but it's also the exception worth watching for: LIME's local weights are computed fresh for every single prediction, so a different individual's flagged decision could show a completely different feature ranking even under the identical model, since each explanation only reflects the neighborhood immediately around that one input.
+For this one individual (who is African-American, `race_binary = 1`), LIME's local surrogate says race is the single largest local contributor toward the "high risk" prediction, consistent with what SHAP's *aggregate* analysis found across many predictions in the SHAP explainer's own example. That agreement is reassuring, but it's also the exception worth watching for: LIME's local weights are computed fresh for every single prediction, so a different individual's flagged decision could show a completely different feature ranking even under the identical model, since each explanation only reflects the neighborhood immediately around that one input.
 
 ## Detection Code
 
@@ -10792,14 +10792,18 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
-df = pd.read_csv('compas-scores-raw.csv')
+df = pd.read_csv('COMPAS/compas-scores-raw.csv')
+df = df[df['Ethnic_Code_Text'].isin(['African-American', 'Caucasian'])].copy()
+df = df[df['DisplayText'] == 'Risk of Recidivism'].copy()
+df['race_binary'] = df['Ethnic_Code_Text'].map({'African-American': 1, 'Caucasian': 0})
 
-X = pd.get_dummies(df[['race', 'Sex_Code_Text', 'CustodyStatus', 'MaritalStatus', 'Age']])
-y = (df['DecileScore'] >= 5).astype(int)
+X = pd.get_dummies(df[['race_binary', 'Sex_Code_Text', 'CustodyStatus', 'MaritalStatus']])
+y = df['ScoreText'].isin(['High', 'Medium']).astype(int)
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y)
 
-model = RandomForestClassifier(n_estimators=100, random_state=42)
+model = RandomForestClassifier(random_state=42)
 model.fit(X_train, y_train)
 
 explainer = lime.lime_tabular.LimeTabularExplainer(
