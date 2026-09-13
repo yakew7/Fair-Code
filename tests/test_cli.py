@@ -844,6 +844,21 @@ def test_cli_benchmark_no_manifests_found_error(tmp_path, capsys):
     assert f"error: no audit.yaml manifests found under {empty_dir}" in captured.err
 
 
+def test_cli_benchmark_missing_manifest_returns_2_with_clean_error(tmp_path, capsys):
+    """A missing explicit manifest should report a clean path-aware error."""
+    pytest.importorskip("sklearn", reason="benchmark extra required")
+    pytest.importorskip("fairlearn", reason="benchmark extra required")
+    pytest.importorskip("yaml", reason="benchmark extra required")
+
+    missing = tmp_path / "missing" / "audit.yaml"
+    exit_code = main(["benchmark", str(missing), "--no-plots"])
+
+    assert exit_code == 2
+    captured = capsys.readouterr()
+    assert f"error: {missing}:" in captured.err
+    assert "No such file or directory" in captured.err
+
+
 def test_cli_benchmark_malformed_manifest_returns_2_with_clean_error(monkeypatch, tmp_path, capsys):
     """A malformed manifest or degenerate dataset used to crash `faircode
     benchmark` with a raw traceback (yaml.YAMLError/KeyError/sklearn

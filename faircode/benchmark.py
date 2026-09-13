@@ -199,7 +199,7 @@ def run_benchmark(root=".", audits=None, n_resamples=2000, n_permutations=2000):
         try:
             manifest = load_manifest(path)
             fairness_rows, performance_rows = run_audit(manifest, n_resamples, n_permutations)
-        except (yaml.YAMLError, KeyError, ValueError) as exc:
+        except (yaml.YAMLError, KeyError, ValueError, FileNotFoundError) as exc:
             # A malformed manifest (bad YAML syntax, a missing required key)
             # or a degenerate dataset (e.g. filtered down to 0 rows, which
             # sklearn's train_test_split rejects with its own ValueError)
