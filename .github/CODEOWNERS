@@ -67,6 +67,7 @@
 # Website assets
 # =========================
 /assets/fonts/ @yakew7
+/assets/icons/ @yakew7
 /assets/og/ @yakew7
 /assets/og-light/ @yakew7
 /robots.txt @yakew7
