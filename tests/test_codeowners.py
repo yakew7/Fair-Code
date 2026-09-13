@@ -120,6 +120,28 @@ def test_every_codeowners_entry_names_at_least_one_owner():
     assert not missing_owners, "\n".join(missing_owners)
 
 
+def test_every_tracked_file_has_at_least_one_codeowners_owner():
+    # #585: the two existing coverage tests only check one direction each -
+    # every audit directory is covered (test_audit_directories_are_covered_...)
+    # and every pattern still matches something real
+    # (test_every_codeowners_path_matches_a_tracked_file_or_directory). Neither
+    # catches a directory/file that was simply never added to CODEOWNERS at
+    # all - the exact gap that let notebooks/, results/, assets/icons/, and
+    # several .github/ files sit unowned indefinitely (#581-#584) with this
+    # suite green the whole time.
+    tracked = _tracked_files()
+    entries = _parse_codeowners_paths()
+    patterns = [pattern for _line_no, pattern, _owners in entries]
+
+    unowned = [
+        t for t in tracked
+        if not any(_pattern_matches_a_tracked_path(p, [t]) for p in patterns)
+    ]
+    assert not unowned, (
+        "Tracked file(s) with no matching CODEOWNERS entry:\n" + "\n".join(unowned)
+    )
+
+
 def test_every_codeowners_owner_is_a_valid_github_handle():
     handle_re = re.compile(r"^@[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
     entries = _parse_codeowners_paths()

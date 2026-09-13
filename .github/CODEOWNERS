@@ -45,6 +45,8 @@
 /Makefile @yakew7 @propcgamer20-png
 /requirements.txt @yakew7
 /requirements-lock.txt @yakew7
+/.pre-commit-config.yaml @yakew7 @propcgamer20-png
+/.gitignore @yakew7
 
 # Scripts & tests
 /scripts/ @yakew7 @ahmdkaml @propcgamer20-png
