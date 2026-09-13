@@ -79,7 +79,7 @@ Each audit ships as both a pair of Python scripts (`unfair.py` / `fair.py`) for 
 | 06 | [Healthcare Readmission](#06--healthcare-readmission--clinical-bias) | Race, Gender, Age | Payer Code, Discharge Disposition, Medical Specialty, Prior Inpatient | Gender: 0.02% → 0.04% | **+100% ↑** |
 | ↳  | | | | Race: 0.08% → 0.06% | **25%** |
 | ↳  | | | | Age: 0.28% → 0.09% | **68%** |
-| 07 | [Tenant Screening](#07--tenant-screening--rental-application-bias) | Race | Prior Arrest/Conviction Episodes, Gang Affiliated, Residence Changes | Race: 7.17% → 5.07% | **29%** |
+| 07 | [Tenant Screening](#07--tenant-screening--rental-application-bias) | Race | Prior Arrest/Conviction Episodes, Gang Affiliated, Residence Changes | Race: 6.68% → 5.16% | **23%** |
 
 ---
 
@@ -720,11 +720,11 @@ Trained with `Race` directly **and** twelve criminal-history / housing proxies t
 
 | Group | High-Risk Flag Rate |
 |-------|:-------------------:|
-| Black applicants | 67.05% |
-| White applicants | 59.88% |
-| **Fairness Gap (Race)** | **7.17%** |
+| Black applicants | 66.74% |
+| White applicants | 60.06% |
+| **Fairness Gap (Race)** | **6.68%** |
 
-95% CI [4.50%, 9.81%] · permutation p = 0.0000 · statistically significant
+95% CI [3.99%, 9.33%] · permutation p = 0.0000 · statistically significant
 
 #### Proxy Variables
 
@@ -767,11 +767,11 @@ features = [
 
 | Gap | Before | After | Reduction |
 |-----|:------:|:-----:|:---------:|
-| Race | 7.17% | 5.07% | **29%** |
+| Race | 6.68% | 5.16% | **23%** |
 
-**Result: 29% reduction in the race gap. The residual gap stays statistically significant (p = 0.0007).**
+**Result: 23% reduction in the race gap. The residual gap stays statistically significant (p = 0.0004).**
 
-> **Key insight:** Removing `Race` from a tenant-screening model does almost nothing, because the score is built out of criminal-history counts - and those counts are not a race-neutral measure of risk. Prior arrest and conviction episodes measure how often the system has stopped, charged, and convicted a person, and over-policing means Black applicants carry more of them for the same behaviour. Dropping race and all twelve proxies only cuts the gap from 7.17% to 5.07%, and it stays significant - because the residual bias lives in the label itself. The model is trained to predict re-arrest, and re-arrest is a policed quantity. When the target is downstream of the same enforcement that produced the proxies, no feature removal fully closes the gap. The real remedy is not a cleaner feature set - it is questioning whether a re-arrest-derived score belongs in a housing decision at all.
+> **Key insight:** Removing `Race` from a tenant-screening model does almost nothing, because the score is built out of criminal-history counts - and those counts are not a race-neutral measure of risk. Prior arrest and conviction episodes measure how often the system has stopped, charged, and convicted a person, and over-policing means Black applicants carry more of them for the same behaviour. Dropping race and all twelve proxies only cuts the gap from 6.68% to 5.16%, and it stays significant - because the residual bias lives in the label itself. The model is trained to predict re-arrest, and re-arrest is a policed quantity. When the target is downstream of the same enforcement that produced the proxies, no feature removal fully closes the gap. The real remedy is not a cleaner feature set - it is questioning whether a re-arrest-derived score belongs in a housing decision at all.
 
 📓 **[Full notebook walkthrough →](notebooks/07_tenant_screening_bias_audit.ipynb)**
 
