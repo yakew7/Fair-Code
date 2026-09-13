@@ -46,12 +46,28 @@ jobs:
               return filePath === anchored;
             }
 
+            // GitHub's CODEOWNERS syntax escapes a literal space in a path
+            // with '\ ' (e.g. /AI\ Fair\ Recruitment/). A naive whitespace
+            // split breaks such a pattern into multiple tokens instead of
+            // one, silently losing its owner(s) - reassemble it the same
+            // way tests/test_codeowners.py's _split_codeowners_line() does.
+            function splitCodeownersLine(line) {
+              const tokens = line.split(/\s+/);
+              let pattern = tokens[0];
+              let i = 1;
+              while (pattern.endsWith('\\') && i < tokens.length) {
+                pattern = pattern.slice(0, -1) + ' ' + tokens[i];
+                i += 1;
+              }
+              return { pattern, owners: tokens.slice(i) };
+            }
+
             const entries = fs.readFileSync('.github/CODEOWNERS', 'utf8')
               .split('\n')
               .map((line) => line.trim())
               .filter((line) => line && !line.startsWith('#'))
               .map((line) => {
-                const [pattern, ...owners] = line.split(/\s+/);
+                const { pattern, owners } = splitCodeownersLine(line);
                 return { pattern, owners: owners.map((o) => o.replace(/^@/, '')) };
               });
 
