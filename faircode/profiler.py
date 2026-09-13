@@ -502,8 +502,20 @@ def profile(df: pd.DataFrame, overrides=None, opts=None) -> dict:
         ref_flags = _apply_reference(dimensions, o["reference"], o["reference_flag"])
 
     dimensions_detected = bool(dimensions)
-    overall = (_r(sum(d["dimension_score"] for d in dimensions) / len(dimensions))
-               if dimensions_detected else None)
+    # A dimension with zero observed groups (every value missing, or an empty
+    # column) has nothing to measure - unlike a genuine single-group column,
+    # which has real, lopsided data. Folding its fabricated dimension_score=0
+    # into the mean would silently drag overall_score down for a column that
+    # was never actually measured (see SPEC section 5).
+    measurable = [d for d in dimensions if d["n_groups"] > 0]
+    overall = _r(sum(d["dimension_score"] for d in measurable) / len(measurable)) if measurable else None
+
+    if not dimensions_detected:
+        note = "No demographic columns detected."
+    elif not measurable:
+        note = "No dimension had any non-missing values to measure."
+    else:
+        note = None
 
     return {
         "n_rows": len(df),
@@ -511,7 +523,7 @@ def profile(df: pd.DataFrame, overrides=None, opts=None) -> dict:
         "overall_score": overall,
         "grade": _grade(overall) if overall is not None else None,
         "dimensions_detected": dimensions_detected,
-        "note": None if dimensions_detected else "No demographic columns detected.",
+        "note": note,
         "dimensions": dimensions,
         "intersections": intersections,
         "flags": _build_flags(dimensions, intersections,

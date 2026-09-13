@@ -148,12 +148,19 @@ count is `0` (an absent subgroup) or `< intersection_floor` of total rows (defau
 ## 5. Headline score & grade
 
 ```
-overall_score = round( mean( dimension_score for every detected dimension ) )
+overall_score = round( mean( dimension_score for every detected dimension with n_groups > 0 ) )
 ```
 
 If no dimensions are detected, the result is unmeasured: `overall_score`, `grade`, and comparison
 `score_delta` are `null`, `dimensions_detected` is `false`, and `note` explains that no demographic
 columns were detected. A missing measurement must not be interpreted as the numeric score zero.
+
+A detected dimension with **zero observed groups** (every value missing, or an empty column) is the
+same kind of missing measurement, one level down: it is excluded from the mean rather than folding
+its fabricated `dimension_score = 0` into it. This differs from a genuine single-group dimension
+(`n_groups = 1`), which has real, lopsided data and correctly scores low - a zero-group dimension has
+nothing to measure at all. If *every* detected dimension has zero groups, `overall_score`/`grade` are
+`null` and `note` explains that no dimension had any non-missing values to measure.
 
 Grade bands:
 

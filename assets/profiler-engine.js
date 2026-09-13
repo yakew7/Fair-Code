@@ -874,11 +874,26 @@
       refFlags = applyReference(dimensions, o.reference, o.reference_flag);
     }
 
+    // A dimension with zero observed groups (every value missing, or an empty
+    // column) has nothing to measure - unlike a genuine single-group column,
+    // which has real, lopsided data. Excluded from the mean so it can't
+    // silently drag overall_score down for a column that was never actually
+    // measured (see SPEC section 5). Mirrors faircode.profiler.profile.
+    var measurable = dimensions.filter(function (d) { return d.n_groups > 0; });
     var overall = null;
-    if (dimensions.length) {
+    if (measurable.length) {
       var sum = 0;
-      dimensions.forEach(function (d) { sum += d.dimension_score; });
-      overall = Math.round(sum / dimensions.length);
+      measurable.forEach(function (d) { sum += d.dimension_score; });
+      overall = Math.round(sum / measurable.length);
+    }
+
+    var note;
+    if (!dimensions.length) {
+      note = 'No demographic columns detected.';
+    } else if (!measurable.length) {
+      note = 'No dimension had any non-missing values to measure.';
+    } else {
+      note = null;
     }
 
     return {
@@ -887,7 +902,7 @@
       overall_score: overall,
       grade: overall === null ? null : grade(overall),
       dimensions_detected: dimensions.length > 0,
-      note: dimensions.length ? null : 'No demographic columns detected.',
+      note: note,
       dimensions: dimensions,
       intersections: inters,
       flags: buildFlags(dimensions, inters, o.imbalance_flag, o.missing_flag).concat(refFlags)
