@@ -440,23 +440,30 @@ def parse_reference(df: pd.DataFrame) -> dict:
     raw = []
     for _, row in df.iterrows():
         value = row[shr_c]
-        if isinstance(value, str) and value.strip().endswith("%"):
+        # A '%' suffix is an explicit, unambiguous scale signal - convert it
+        # immediately rather than letting its raw (still-percent) magnitude
+        # compete in the per-column heuristic below, where it could otherwise
+        # force percent-scale onto a sibling row that was already a plain,
+        # correctly-scaled fraction (e.g. "51%" next to "0.49").
+        already_scaled = isinstance(value, str) and value.strip().endswith("%")
+        if already_scaled:
             value = value.strip()[:-1]
         try:
             share = float(value)
         except (TypeError, ValueError):
             continue
-        raw.append((str(row[col_c]).strip(), str(row[grp_c]).strip(), share))
+        raw.append((str(row[col_c]).strip(), str(row[grp_c]).strip(), share, already_scaled))
 
     by_col: dict = {}
-    for col, grp, share in raw:
-        by_col.setdefault(col, []).append((grp, share))
+    for col, grp, share, already_scaled in raw:
+        by_col.setdefault(col, []).append((grp, share, already_scaled))
 
     reference: dict = {}
-    for col, pairs in by_col.items():
-        scale = 100.0 if any(s > 1.5 for _, s in pairs) else 1.0
-        for grp, share in pairs:
-            reference.setdefault(col, {})[grp] = share / scale
+    for col, triples in by_col.items():
+        unscaled = [s for _, s, already_scaled in triples if not already_scaled]
+        scale = 100.0 if any(s > 1.5 for s in unscaled) else 1.0
+        for grp, share, already_scaled in triples:
+            reference.setdefault(col, {})[grp] = share / 100.0 if already_scaled else share / scale
     return reference
 
 

@@ -928,7 +928,13 @@
     var raw = [];
     table.rows.forEach(function (row) {
       var text = String(row[shrC]).trim();
-      if (text.endsWith('%')) text = text.slice(0, -1).trim();
+      // A '%' suffix is an explicit, unambiguous scale signal - convert it
+      // immediately rather than letting its raw (still-percent) magnitude
+      // compete in the per-column heuristic below, where it could otherwise
+      // force percent-scale onto a sibling row that was already a plain,
+      // correctly-scaled fraction (e.g. "51%" next to "0.49").
+      var alreadyScaled = text.endsWith('%');
+      if (alreadyScaled) text = text.slice(0, -1).trim();
       // Number() rejects anything with trailing garbage or that isn't a full
       // numeric literal (unlike parseFloat, which parses only a leading
       // prefix - "60abc" -> 60, "1e1junk" -> 10), and rejects '' the same
@@ -936,7 +942,7 @@
       if (text === '') return;
       var share = Number(text);
       if (isNaN(share)) return;
-      raw.push([String(row[colC]).trim(), String(row[grpC]).trim(), share]);
+      raw.push([String(row[colC]).trim(), String(row[grpC]).trim(), share, alreadyScaled]);
     });
     // Percent-vs-fraction scale is decided per column (grouped by the column
     // identifier), not once across the whole table: a reference file that
@@ -945,14 +951,17 @@
     // faircode.profiler.parse_reference.
     var byCol = {};
     raw.forEach(function (r) {
-      (byCol[r[0]] = byCol[r[0]] || []).push([r[1], r[2]]);
+      (byCol[r[0]] = byCol[r[0]] || []).push([r[1], r[2], r[3]]);
     });
     var reference = {};
     Object.keys(byCol).forEach(function (col) {
-      var pairs = byCol[col];
-      var scale = pairs.some(function (p) { return p[1] > 1.5; }) ? 100 : 1;
+      var triples = byCol[col];
+      var unscaled = triples.filter(function (t) { return !t[2]; });
+      var scale = unscaled.some(function (t) { return t[1] > 1.5; }) ? 100 : 1;
       reference[col] = Object.create(null);
-      pairs.forEach(function (p) { reference[col][p[0]] = p[1] / scale; });
+      triples.forEach(function (t) {
+        reference[col][t[0]] = t[2] ? t[1] / 100 : t[1] / scale;
+      });
     });
     return reference;
   }
