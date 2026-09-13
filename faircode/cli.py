@@ -43,6 +43,17 @@ from .report import compare_to_terminal, to_html, compare_to_html, to_json, to_t
 _MAP_CHOICES = VALID_KINDS + ("ignore",)
 
 
+def _positive_int(value: str) -> int:
+    """Parse a strictly positive integer for a benchmark iteration count."""
+    try:
+        parsed = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a positive integer, got {value!r}") from None
+    if parsed <= 0:
+        raise argparse.ArgumentTypeError(f"expected a positive integer, got {value!r}")
+    return parsed
+
+
 def _parse_map(pairs):
     """Parse repeated --map COL=KIND flags into an {column: kind} override dict."""
     overrides = {}
@@ -202,10 +213,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="output directory for results_fairness.csv, "
                         "results_performance.csv, summary.csv, and figures/ "
                         "(default: results)")
-    b.add_argument("--n-resamples", type=int, default=2000, metavar="N",
-                   help="bootstrap resamples per metric (default: 2000)")
-    b.add_argument("--n-permutations", type=int, default=2000, metavar="N",
-                   help="permutation-test shuffles per metric (default: 2000)")
+    b.add_argument("--n-resamples", type=_positive_int, default=2000, metavar="N",
+                   help="bootstrap resamples per metric (positive integer, default: 2000)")
+    b.add_argument("--n-permutations", type=_positive_int, default=2000, metavar="N",
+                   help="permutation-test shuffles per metric (positive integer, default: 2000)")
     b.add_argument("--no-plots", action="store_true",
                    help="skip rendering figures/*.png (no matplotlib needed)")
 
