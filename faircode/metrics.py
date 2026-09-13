@@ -110,7 +110,11 @@ def _ratio_report(disadv_pred, adv_pred, n_resamples, n_permutations, confidence
     p_value = _permutation_ratio_p(a, b, n_permutations, random_state)
     return {
         "value": ratio, "ci_low": ci_low, "ci_high": ci_high, "p_value": p_value,
-        "significant": p_value < 0.05, "n_disadvantaged": len(a), "n_advantaged": len(b),
+        # round() strips 1.0 - confidence's floating-point representation
+        # error, matching faircode.significance.significance_report's fix
+        # for the same issue (#579).
+        "significant": p_value < round(1.0 - confidence, 10),
+        "n_disadvantaged": len(a), "n_advantaged": len(b),
         "small_sample_warning": len(a) < 30 or len(b) < 30, "note": None,
     }
 
