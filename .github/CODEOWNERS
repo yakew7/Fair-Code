@@ -5,6 +5,7 @@
 
 # Research artifacts
 /paper/ @yakew7
+/results/ @yakew7
 **/audit.yaml @yakew7
 
 # Audit datasets & scripts (fair.py/unfair.py/data - everything in
