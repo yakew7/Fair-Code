@@ -17,7 +17,7 @@ import math
 
 import pandas as pd
 
-from .profiler import _age_band, _age_to_numeric, _looks_like_dates
+from .profiler import _age_band, _age_to_numeric, _is_categorical_age_sentinel, _looks_like_dates
 
 PROXY_ALPHA = 0.05
 
@@ -27,7 +27,18 @@ def _labelize(df, name, kind):
     if kind == "age" and not _looks_like_dates(df[name]):
         nums = [_age_to_numeric(v) for v in df[name]]
         if any(n is not None for n in nums):
-            return pd.Series([_age_band(n) for n in nums], index=df.index)
+            # Non-numeric age sentinels ("unknown", "prefer not to say") get
+            # their own categorical label here too, matching _dimension()'s
+            # main breakdown and _intersections()'s labelize() - otherwise a
+            # sentinel maps to None and pd.crosstab silently drops those rows
+            # from the chi-squared test (#614, the same bug already fixed
+            # for _intersections() as #524).
+            labels = [
+                _age_band(num) if num is not None
+                else (str(value) if _is_categorical_age_sentinel(value) else None)
+                for value, num in zip(df[name], nums)
+            ]
+            return pd.Series(labels, index=df.index)
     return df[name].astype("object")
 
 
