@@ -271,6 +271,26 @@ def test_compare_both_sides_from_stdin_returns_2_with_clean_error(capsys):
     assert "--compare can't read both datasets from stdin" in captured.err
 
 
+def test_profile_reference_and_input_from_stdin_returns_2_with_clean_error(monkeypatch, capsys):
+    monkeypatch.setattr("sys.stdin", io.StringIO("sex\nM\nF\n"))
+
+    exit_code = main(["profile", "-", "--reference", "-"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "profile input and --reference can't both read from stdin" in captured.err
+
+
+def test_profile_proxy_held_out_and_input_from_stdin_returns_2_with_clean_error(monkeypatch, capsys):
+    monkeypatch.setattr("sys.stdin", io.StringIO("sex\nM\nF\n"))
+
+    exit_code = main(["profile", "-", "--proxy-hints", "--proxy-hints-with=-=race"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "profile input and --proxy-hints-with can't both read from stdin" in captured.err
+
+
 def test_profile_read_table_runtime_error_exits_2_with_clean_error(tmp_path, capsys, monkeypatch):
     path = tmp_path / "a.parquet"
     path.write_text("not a real parquet file", encoding="utf-8")
