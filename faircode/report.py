@@ -122,6 +122,13 @@ def _delta(n: int | None) -> str:
     return "not available" if n is None else f"{n:+d}"
 
 
+def _kind_mismatch_reason(cd: dict) -> str:
+    """Mirrors assets/profiler-compare.js's kindMismatchReason()."""
+    if cd["kind_a"] != cd["kind_b"]:
+        return f"detected as {cd['kind_a']} vs {cd['kind_b']} on the two datasets"
+    return "age values banded on one dataset, raw on the other"
+
+
 def _strip_neg_zero(val: float, dp: int = 1) -> float:
     """Return 0.0 when ``val`` rounds to zero at ``dp`` decimals, so a tiny
     negative value does not render as a misleading ``-0.0``."""
@@ -157,6 +164,15 @@ def compare_to_terminal(cmp: dict) -> str:
         add("  No shared demographic dimensions to compare.")
     for cd in cmp["dimensions"]:
         add("-" * WIDTH)
+        if cd["kind_mismatch"]:
+            add(f"{cd['name']}  [{cd['kind_a']} / {cd['kind_b']}]    "
+                f"comparison skipped")
+            add(f"  {_kind_mismatch_reason(cd)}")
+            add(f"  score {cd['dimension_score_a']} → {cd['dimension_score_b']} "
+                f"({_delta(cd['dimension_score_delta'])})")
+            add("-" * WIDTH)
+            add("")
+            continue
         add(f"{cd['name']}  [{cd['kind']}]    PSI {cd['psi']:.3f}  "
             f"({cd['drift_level']} drift)")
         add(f"  score {cd['dimension_score_a']} → {cd['dimension_score_b']} "
@@ -401,6 +417,22 @@ def compare_to_html(cmp: dict) -> str:
         )
     else:
         for cd in cmp["dimensions"]:
+            if cd["kind_mismatch"]:
+                cards_html.append(
+                    '<section class="drift-card">'
+                    '<div class="drift-card-head">'
+                    f'<h2>{esc(cd["name"])} <span class="kind">{esc(cd["kind_a"])} / '
+                    f'{esc(cd["kind_b"])}</span> '
+                    f'<span class="drift-badge skipped">comparison skipped</span></h2>'
+                    f'<div class="drift-metrics">{esc(_kind_mismatch_reason(cd))} · '
+                    f'score {cd["dimension_score_a"]}→{cd["dimension_score_b"]} '
+                    f'({signed(cd["dimension_score_delta"], 0)})</div>'
+                    '</div>'
+                    '<p class="section-note">Drift metrics are not computed when a '
+                    'dimension is detected as a different kind on each side.</p>'
+                    '</section>'
+                )
+                continue
             max_share = max(
                 (max(g["share_a"], g["share_b"]) for g in cd["groups"]), default=1.0
             )

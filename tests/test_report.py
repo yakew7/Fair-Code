@@ -49,6 +49,7 @@ def mock_compare_result():
             {
                 "name": "Gender",
                 "kind": "Demographic",
+                "kind_mismatch": False,
                 "drift_level": "significant",
                 "psi": 0.125,
                 "tvd": 0.082,
@@ -411,7 +412,8 @@ def test_compare_does_not_render_negative_zero_share_delta():
         "added_dimensions": [], "removed_dimensions": [], "flags": [],
         "dimensions": [
             {
-                "name": "Gender", "kind": "Demographic", "drift_level": "none",
+                "name": "Gender", "kind": "Demographic", "kind_mismatch": False,
+                "drift_level": "none",
                 "psi": 0.0, "tvd": 0.0,
                 "dimension_score_a": 100, "dimension_score_b": 100,
                 "dimension_score_delta": 0,
@@ -427,6 +429,42 @@ def test_compare_does_not_render_negative_zero_share_delta():
 
     assert "-0.0 pp" not in compare_to_terminal(result)
     assert "-0.0 pp" not in compare_to_html(result)
+
+
+def test_compare_renderers_special_case_kind_mismatch():
+    """A kind_mismatch dimension (#519's own compare() logic zeroes psi/tvd
+    and empties groups since the comparison genuinely can't be measured, not
+    because there's no drift) must render as "comparison skipped" in both
+    the terminal and HTML compare reports, not as a fabricated "none drift"
+    result sitting right next to the flag that says it was skipped (#619)."""
+    result = {
+        "score_delta": -1,
+        "a": {"name": "A", "overall_score": 100, "n_rows": 40, "grade": "A"},
+        "b": {"name": "B", "overall_score": 99, "n_rows": 50, "grade": "A"},
+        "added_dimensions": [], "removed_dimensions": [],
+        "flags": ["DOB: age values are banded in one dataset but left raw in the other - drift comparison skipped"],
+        "dimensions": [
+            {
+                "name": "DOB", "kind": "age", "kind_a": "age", "kind_b": "age",
+                "kind_mismatch": True,
+                "dimension_score_a": 100, "dimension_score_b": 99,
+                "dimension_score_delta": -1,
+                "psi": 0.0, "tvd": 0.0, "drift_level": "none", "groups": [],
+                "missing_pct_a": 0.0, "missing_pct_b": 0.0, "missing_pct_delta": 0.0,
+            }
+        ],
+    }
+
+    term = compare_to_terminal(result)
+    html = compare_to_html(result)
+
+    assert "comparison skipped" in term
+    assert "none drift" not in term
+    assert "PSI 0.000" not in term
+
+    assert "comparison skipped" in html
+    assert "none drift" not in html
+    assert "PSI 0.000" not in html
 
 
 def test_to_terminal_does_not_render_negative_zero_skew():
