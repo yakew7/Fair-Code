@@ -74,14 +74,30 @@ This base rate gap (12.0 percentage points) was the direct mathematical cause of
 
 Both analyses were mathematically accurate. Northpointe's predictive parity was held up as evidence of model neutrality, while ProPublica's error-rate disparity demonstrated systemic unequal harm. Neither side acknowledged that because the base rates differed, satisfying predictive parity *forced* the false positive rate gap to exist. The model could not be adjusted to fix ProPublica's complaint without destroying Northpointe's proof of fairness, unless the underlying base rates were equalized first.
 
-```python
-# Demonstrating the base-rate-driven metric trade-off on COMPAS data
-base_rates = compas_df.groupby("race")["two_year_recid"].mean()
-print("Recidivism Base Rates by Group:")
-print(base_rates)
+The 51.4%/39.4% base rates and the PPV/FPR figures above are ProPublica's own published numbers from their original two-year-outcome analysis file - a different file from this repo's `COMPAS/compas-scores-raw.csv`, which has no independent recidivism-outcome column to compute a base rate from at all. The same mechanic is directly reproducible in this repo on [German Credit Lending](../German%20Credit%20Lending/), where `class` (good/bad credit history) is a real recorded label:
 
-# Black: 0.514, White: 0.394 -> Base Rate Gap: 12.0%
+```python
+import pandas as pd
+
+df = pd.read_csv("German Credit Lending/credit_customers.csv")
+df["is_young"] = (df["age"] < 30).astype(int)
+df["good_credit"] = (df["class"] == "good").astype(int)
+
+base_rates = df.groupby("is_young")["good_credit"].mean()
+print("Good-Credit Base Rates by Group:")
+print(base_rates)
 ```
+
+**Actual output:**
+
+```
+is_young
+0    0.740859
+1    0.630728
+Name: good_credit, dtype: float64
+```
+
+Older applicants (`is_young=0`) have a good-credit base rate of 74.1%, younger applicants (`is_young=1`) 63.1% - an 11.0-point base-rate gap, the same shape of disparity the ProPublica base rates show, just verifiable end to end against a file this repo actually ships.
 
 ## Detection Code
 

@@ -220,12 +220,22 @@
 <p>This base rate gap (12.0 percentage points) was the direct mathematical cause of the public clash between ProPublica and Northpointe (COMPAS&#x27;s vendor):</p>
 <p>1. <strong>Northpointe checked Predictive Parity</strong>: They demonstrated that a high-risk score produced comparable Positive Predictive Value across racial groups (~63% to 65%). Given a high-risk flag, the probability of reoffending was nearly identical regardless of race. 2. <strong>ProPublica checked Equalized Odds / False Positive Rates</strong>: They demonstrated that Black defendants who did not reoffend were flagged as high-risk at nearly double the rate of non-reoffending white defendants (44.9% vs. 23.5%).</p>
 <p>Both analyses were mathematically accurate. Northpointe&#x27;s predictive parity was held up as evidence of model neutrality, while ProPublica&#x27;s error-rate disparity demonstrated systemic unequal harm. Neither side acknowledged that because the base rates differed, satisfying predictive parity <em>forced</em> the false positive rate gap to exist. The model could not be adjusted to fix ProPublica&#x27;s complaint without destroying Northpointe&#x27;s proof of fairness, unless the underlying base rates were equalized first.</p>
-<pre><code class="language-python"># Demonstrating the base-rate-driven metric trade-off on COMPAS data
-base_rates = compas_df.groupby(&quot;race&quot;)[&quot;two_year_recid&quot;].mean()
-print(&quot;Recidivism Base Rates by Group:&quot;)
-print(base_rates)
+<p>The 51.4%/39.4% base rates and the PPV/FPR figures above are ProPublica&#x27;s own published numbers from their original two-year-outcome analysis file - a different file from this repo&#x27;s <code>COMPAS/compas-scores-raw.csv</code>, which has no independent recidivism-outcome column to compute a base rate from at all. The same mechanic is directly reproducible in this repo on <a href="../index.html#project-credit">German Credit Lending</a>, where <code>class</code> (good/bad credit history) is a real recorded label:</p>
+<pre><code class="language-python">import pandas as pd
 
-# Black: 0.514, White: 0.394 -&gt; Base Rate Gap: 12.0%</code></pre>
+df = pd.read_csv(&quot;German Credit Lending/credit_customers.csv&quot;)
+df[&quot;is_young&quot;] = (df[&quot;age&quot;] &lt; 30).astype(int)
+df[&quot;good_credit&quot;] = (df[&quot;class&quot;] == &quot;good&quot;).astype(int)
+
+base_rates = df.groupby(&quot;is_young&quot;)[&quot;good_credit&quot;].mean()
+print(&quot;Good-Credit Base Rates by Group:&quot;)
+print(base_rates)</code></pre>
+<p><strong>Actual output:</strong></p>
+<pre><code>is_young
+0    0.740859
+1    0.630728
+Name: good_credit, dtype: float64</code></pre>
+<p>Older applicants (<code>is_young=0</code>) have a good-credit base rate of 74.1%, younger applicants (<code>is_young=1</code>) 63.1% - an 11.0-point base-rate gap, the same shape of disparity the ProPublica base rates show, just verifiable end to end against a file this repo actually ships.</p>
 <h3 id="detection-code">Detection Code</h3>
 <p>The following Python module computes group-level base rates, PPV, FPR, and FNR, and quantifies the Chouldechova trade-off gap to detect when base rate disparities are driving fairness metric conflicts.</p>
 <pre><code class="language-python">import numpy as np
