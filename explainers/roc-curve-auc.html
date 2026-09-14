@@ -112,7 +112,7 @@
         "url": "https://www.thefaircode.xyz/index.html#explainers"
       },
       "datePublished": "2026-07-27",
-      "dateModified": "2026-08-17"
+      "dateModified": "2026-09-14"
     },
     {
       "@type": "FAQPage",
@@ -205,7 +205,7 @@
 <div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>AUC</th><th>Rough interpretation</th></tr></thead><tbody><tr><td>0.5</td><td>No better than random guessing</td></tr><tr><td>0.6 - 0.7</td><td>Weak - only slightly better than a coin flip</td></tr><tr><td>0.7 - 0.8</td><td>Acceptable for many applied settings</td></tr><tr><td>0.8 - 0.9</td><td>Strong ranking ability</td></tr><tr><td>&gt; 0.9</td><td>Excellent - or a sign of data leakage, worth checking</td></tr></tbody></table></div>
 <div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>What AUC tells you</th><th>What AUC does not tell you</th></tr></thead><tbody><tr><td>How well the model <em>orders</em> cases by risk</td><td>Where you should set the decision threshold</td></tr><tr><td>A threshold-independent summary of ranking</td><td>How the model behaves at the threshold you deploy</td></tr><tr><td>One number to compare models at a glance</td><td>Whether ranking quality is equal across groups</td></tr><tr><td>Robustness to class imbalance</td><td>Whether the scores are calibrated or comparable between groups</td></tr></tbody></table></div>
 <h3 id="concrete-example-compas-audit-01">Concrete Example: COMPAS - Audit 01</h3>
-<p>Audit 01 in this repo reproduces the COMPAS recidivism model on the ProPublica dataset (3,254 test records), with race as the protected attribute. Its baseline models are ordinary, unremarkable rankers: the logistic-regression baseline lands at an <strong>AUC of 0.68</strong>, and the random forest at <strong>0.69</strong> (frozen figures from <code>paper/results-frozen/summary.csv</code> and <code>results_performance.csv</code>).</p>
+<p>Audit 01 in this repo models COMPAS&#x27;s own high/medium risk label from the ProPublica dataset (3,254 test records), with race as the protected attribute; it does not predict an independent two-year recidivism outcome. Its baseline models are ordinary, unremarkable rankers: the logistic-regression baseline lands at an <strong>AUC of 0.68</strong>, and the random forest at <strong>0.69</strong> (frozen figures from <code>paper/results-frozen/summary.csv</code> and <code>results_performance.csv</code>).</p>
 <p>That number sits squarely in the &quot;weak&quot; band - the model barely out-ranks a coin flip. But the documented harm in COMPAS was never really about <em>overall</em> ranking quality. It was about what happened at the operating threshold: Black defendants who did not go on to reoffend were labeled high-risk at nearly twice the rate of comparable white defendants. That is a false-positive-rate gap - a single point on the ROC curve, read separately for each group - and the aggregate AUC of 0.68 averages straight over it.</p>
 <p>Plot a separate ROC curve for each group and the story changes. The two curves can diverge, and even when their <em>areas</em> are similar, the groups can sit at very different points along their own curves at one shared threshold. Neither of those facts is visible in a single pooled AUC:</p>
 <pre><code class="language-python">per_group_auc(compas_df, y_true_col=&quot;two_year_recid&quot;,

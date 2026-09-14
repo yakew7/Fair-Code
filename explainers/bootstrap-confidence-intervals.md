@@ -37,7 +37,7 @@ The second row, on the same audit, has a point estimate of 12.8 points - not sma
 
 ## Detection Code
 
-A minimal, from-scratch implementation of both methods - `faircode/significance.py` itself is a frozen file (see [CLAUDE.md](https://github.com/yakew7/Fair-Code/blob/main/CLAUDE.md)) and shouldn't be imported directly, so this mirrors its approach independently rather than wrapping it.
+A minimal, from-scratch implementation of both methods, so the mechanics are visible directly on the page rather than hidden behind a library call - this mirrors `faircode/significance.py`'s approach independently rather than wrapping it.
 
 ```python
 import numpy as np
