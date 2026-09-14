@@ -19,10 +19,18 @@ All notable changes to Fair Code are documented here, newest first.
 
 ## [2.3.0] - 13 Sep 2026
 
-Another self-filed, self-fixed sweep: 19 issues found through direct verification, each fixed and
-committed individually. Not tagged as a formal release.
+Another self-filed, self-fixed sweep - 19 issues found through direct verification, each fixed and
+committed individually - followed by a round of community PRs closing several of the replenishment
+issues filed alongside it. Not tagged as a formal release.
 
 ### Fixed
+- **`faircode profile` had no guard against reading both the primary input and `--reference`/`--proxy-hints-with` from stdin** (closes #615, by [@Rayan-and-beyond](https://github.com/Rayan-and-beyond), [#634](https://github.com/yakew7/Fair-Code/pull/634)) - a stream can only be read once; both cases now get a clear error instead of a confusing "No columns to parse from file" that misleadingly blamed the wrong read.
+- **README.md's audit swap-list was missing `"Tenant Screening"` entirely** (closes #627, by [@Rayan-and-beyond](https://github.com/Rayan-and-beyond), [#633](https://github.com/yakew7/Fair-Code/pull/633)) - "all six projects" corrected to "seven", and the 7th audit added to the list itself, not just the count.
+- **`roc-curve-auc.md`'s COMPAS example implied the model predicts real recidivism** (closes #623, by [@Voyagerroc-Lab](https://github.com/Voyagerroc-Lab), [#632](https://github.com/yakew7/Fair-Code/pull/632)) - it predicts COMPAS's own high/medium risk label, per `COMPAS/audit.yaml`'s declared target; the correct AUC numbers were left untouched, only the framing changed.
+- **`faircode benchmark` leaked a raw traceback for a missing manifest path** (closes #616, by [@Rayan-and-beyond](https://github.com/Rayan-and-beyond), [#631](https://github.com/yakew7/Fair-Code/pull/631)) - `FileNotFoundError` wasn't in `run_benchmark()`'s caught exception tuple; now converted to the same clean `error: ...` style as every other file-reading path in the CLI.
+- **`faircode benchmark --n-resamples 0` and `--n-permutations 0` crashed with raw `IndexError`/`ZeroDivisionError`** (closes #617, #618, by [@KingEmma7](https://github.com/KingEmma7), [#630](https://github.com/yakew7/Fair-Code/pull/630)) - both flags now validated as positive integers at the argparse level, with a clean usage error instead of a bare traceback.
+- **`profiler.html` still said "six bias audits"** (closes #624, by [@ege-arhan](https://github.com/ege-arhan), [#629](https://github.com/yakew7/Fair-Code/pull/629)) - "six" -> "seven", the same drift pattern already fixed elsewhere for #353/#592.
+- **`faircode.__version__` and both JS `FAIRCODE_VERSION` copies were left at `2.2.0`** after this version's own bump - leaked a stale version into the profiler's exported JSON provenance; bumped to match `pyproject.toml`/`CHANGELOG.md` (`CITATION.cff` intentionally stays on `2.2.0`, the last actually-tagged release).
 - **Benefits Denial declared Age as a protected attribute, but neither result table gave it a row** (closes #609) - `unfair.py`/`fair.py` already compute and print a real Age gap (-2.72% -> -2.79%, verified by running both scripts); added it to both README.md's row 05 and `Benefits Denial/README.md`'s own table, noting the mitigation makes this particular gap's magnitude very slightly worse, not better.
 - **`disparate_impact_ratio`'s `significant` flag hardcoded `p_value < 0.05`, ignoring the requested `confidence`** (closes #608) - the other 5 fairness metrics correctly derive significance from `confidence` via `significance_report`; this one didn't. Verified: `confidence=0.99` on a p=0.03 result now correctly returns `False` instead of always `True`.
 - **`faircode/loaders_extra.py`'s docstring still described a "frozen file list" CLAUDE.md no longer has** (closes #607) - rewrote it around the real, ongoing reason these formats live in a separate module (keeping `faircode/loaders.py`'s optional dependencies out of core usage).
