@@ -34,7 +34,7 @@ ordered by merged PR count, most first - ties broken by commit count, then by ea
 date. Within each entry, the PR numbers link the claim to the actual diff, so nothing here is an
 unverifiable "thanks to".
 
-**Snapshot:** 2026-09-13, covering everything merged through **PR #613**.
+**Snapshot:** 2026-09-14, covering everything merged through **PR #634**.
 Anything merged after that date is real and welcome, but is not yet reflected here - the
 [contributors graph](https://github.com/yakew7/Fair-Code/graphs/contributors) is always the live
 source of truth, and the `contrib.rocks` grid above regenerates from it automatically.
@@ -176,6 +176,12 @@ Fixed the MCP `list_explainers` wrapper silently swallowing a `FileNotFoundError
 **3 merged PRs · 3 commits · first merged 2026-08-16**
 
 Added a `test` extra (`pytest`, `pytest-cov`) to `pyproject.toml` ([#265](https://github.com/yakew7/Fair-Code/pull/265), [#266](https://github.com/yakew7/Fair-Code/pull/266)), part of the same test-coverage-reporting effort as [@ahmdkaml](https://github.com/ahmdkaml)'s [#263](https://github.com/yakew7/Fair-Code/pull/263)/[#264](https://github.com/yakew7/Fair-Code/pull/264), both closing issue #249. Later refined the `coverage` Makefile target's comment and added the `-q` flag to match `test`'s style ([#267](https://github.com/yakew7/Fair-Code/pull/267)).
+
+### [@Rayan-and-beyond](https://github.com/Rayan-and-beyond)
+
+**3 merged PRs · 3 commits · first merged 2026-09-13**
+
+Fixed `faircode benchmark` leaking a raw `FileNotFoundError` traceback for a missing manifest path instead of the same clean `error: ...` style every other file-reading path in the CLI already uses ([#631](https://github.com/yakew7/Fair-Code/pull/631), closing issue #616). Then added the 7th audit missing from README.md's "all six projects" swap-list ([#633](https://github.com/yakew7/Fair-Code/pull/633), closing issue #627). Most recently, gave `faircode profile` a guard against reading both the primary input and `--reference`/`--proxy-hints-with` from stdin - a stream can only be read once, and both cases previously produced a confusing error that blamed the wrong read ([#634](https://github.com/yakew7/Fair-Code/pull/634), closing issue #615).
 
 ### Anjali Tiwari - [@cannotdoit13](https://github.com/cannotdoit13)
 
@@ -380,6 +386,24 @@ Added `/notebooks/` to `.github/CODEOWNERS` - the per-audit entries' comment cla
 
 Fixed the web profiler's group counting silently dropping a category literally named `__proto__` (or `constructor`/`toString`/`hasOwnProperty`) - `assets/profiler-engine.js` used plain `{}` objects as hashmaps for category counts, distinct values, intersections, references, and drift shares, so assigning to one of those keys invoked the JS prototype chain instead of creating an own property ([#612](https://github.com/yakew7/Fair-Code/pull/612), closing issue #574). Switched to prototype-free dictionaries and own-property lookups throughout, and documented the literal-label contract in `faircode/SPEC.md` (Python already followed it).
 
+### Ege - [@ege-arhan](https://github.com/ege-arhan)
+
+**1 merged PR · 1 commit · first merged 2026-09-13**
+
+Fixed `profiler.html`'s stale "six bias audits" line - the same drift pattern already fixed elsewhere for #353/#592 ([#629](https://github.com/yakew7/Fair-Code/pull/629), closing issue #624).
+
+### Emmanuel Mawulolo Tagbor - [@KingEmma7](https://github.com/KingEmma7)
+
+**1 merged PR · 1 commit · first merged 2026-09-13**
+
+Fixed `faircode benchmark --n-resamples 0` and `--n-permutations 0` crashing with raw `IndexError`/`ZeroDivisionError` instead of a clean usage error - both flags are now validated as positive integers at the argparse level, with test coverage for both ([#630](https://github.com/yakew7/Fair-Code/pull/630), closing issues #617, #618).
+
+### Erol Tasci - [@Voyagerroc-Lab](https://github.com/Voyagerroc-Lab)
+
+**1 merged PR · 1 commit · first merged 2026-09-13**
+
+Fixed `roc-curve-auc.md`'s COMPAS example implying the model predicts real two-year recidivism, when per `COMPAS/audit.yaml` it actually predicts COMPAS's own high/medium risk label - corrected the framing while leaving the (already-accurate) AUC numbers untouched ([#632](https://github.com/yakew7/Fair-Code/pull/632), closing issue #623).
+
 ---
 
 ## Contributions by area
@@ -389,13 +413,13 @@ A cross-cut of the same work, for anyone looking for who to ask about what.
 | Area | Contributors |
 |------|--------------|
 | **Audits** (`*/unfair.py`, `*/fair.py`, `audit.yaml`) | [@yakew7](https://github.com/yakew7), [@YashKewlani1](https://github.com/YashKewlani1), [@Rajveerx11](https://github.com/Rajveerx11), [@cannotdoit13](https://github.com/cannotdoit13) |
-| **Explainers** (`explainers/`) | [@yakew7](https://github.com/yakew7), [@Shreyash0712](https://github.com/Shreyash0712), [@evanjain-dot](https://github.com/evanjain-dot), [@AnayDhawan](https://github.com/AnayDhawan), [@propcgamer20-png](https://github.com/propcgamer20-png), [@Rajveerx11](https://github.com/Rajveerx11), [@TanishGoyal-Dev](https://github.com/TanishGoyal-Dev), [@shwetagupta1234](https://github.com/shwetagupta1234), [@Aarav1611](https://github.com/Aarav1611), [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan) |
-| **Profiler - CLI & loaders** (`faircode/`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@tomatotomata](https://github.com/tomatotomata), [@ImMortaL0P](https://github.com/ImMortaL0P), [@propcgamer20-png](https://github.com/propcgamer20-png), [@evanjain-dot](https://github.com/evanjain-dot), [@AnayDhawan](https://github.com/AnayDhawan), [@VedantMadane](https://github.com/VedantMadane), [@mahirhir](https://github.com/mahirhir), [@StudentSuite3](https://github.com/StudentSuite3), [@oxura](https://github.com/oxura), [@nitishchauhan002](https://github.com/nitishchauhan002), [@be-student](https://github.com/be-student), [@slsgzs-cloud](https://github.com/slsgzs-cloud), [@wangzhengzhuo05](https://github.com/wangzhengzhuo05) |
-| **Profiler - web** (`profiler.html`, `assets/profiler-*.js`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@ImMortaL0P](https://github.com/ImMortaL0P), [@AnayDhawan](https://github.com/AnayDhawan), [@Shreyash0712](https://github.com/Shreyash0712), [@lovishmenaria14-gif](https://github.com/lovishmenaria14-gif), [@be-student](https://github.com/be-student), [@propcgamer20-png](https://github.com/propcgamer20-png), [@wangzhengzhuo05](https://github.com/wangzhengzhuo05), [@kevin-lozada-santos](https://github.com/kevin-lozada-santos) |
+| **Explainers** (`explainers/`) | [@yakew7](https://github.com/yakew7), [@Shreyash0712](https://github.com/Shreyash0712), [@evanjain-dot](https://github.com/evanjain-dot), [@AnayDhawan](https://github.com/AnayDhawan), [@propcgamer20-png](https://github.com/propcgamer20-png), [@Rajveerx11](https://github.com/Rajveerx11), [@TanishGoyal-Dev](https://github.com/TanishGoyal-Dev), [@shwetagupta1234](https://github.com/shwetagupta1234), [@Aarav1611](https://github.com/Aarav1611), [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan), [@Voyagerroc-Lab](https://github.com/Voyagerroc-Lab) |
+| **Profiler - CLI & loaders** (`faircode/`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@tomatotomata](https://github.com/tomatotomata), [@ImMortaL0P](https://github.com/ImMortaL0P), [@propcgamer20-png](https://github.com/propcgamer20-png), [@evanjain-dot](https://github.com/evanjain-dot), [@AnayDhawan](https://github.com/AnayDhawan), [@VedantMadane](https://github.com/VedantMadane), [@mahirhir](https://github.com/mahirhir), [@StudentSuite3](https://github.com/StudentSuite3), [@oxura](https://github.com/oxura), [@nitishchauhan002](https://github.com/nitishchauhan002), [@be-student](https://github.com/be-student), [@slsgzs-cloud](https://github.com/slsgzs-cloud), [@wangzhengzhuo05](https://github.com/wangzhengzhuo05), [@Rayan-and-beyond](https://github.com/Rayan-and-beyond), [@KingEmma7](https://github.com/KingEmma7) |
+| **Profiler - web** (`profiler.html`, `assets/profiler-*.js`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@ImMortaL0P](https://github.com/ImMortaL0P), [@AnayDhawan](https://github.com/AnayDhawan), [@Shreyash0712](https://github.com/Shreyash0712), [@lovishmenaria14-gif](https://github.com/lovishmenaria14-gif), [@be-student](https://github.com/be-student), [@propcgamer20-png](https://github.com/propcgamer20-png), [@wangzhengzhuo05](https://github.com/wangzhengzhuo05), [@kevin-lozada-santos](https://github.com/kevin-lozada-santos), [@ege-arhan](https://github.com/ege-arhan) |
 | **Benchmark harness & paper freeze** | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@shauryagangrade](https://github.com/shauryagangrade), [@be-student](https://github.com/be-student), [@propcgamer20-png](https://github.com/propcgamer20-png) |
 | **CI & workflows** (`.github/`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@cannotdoit13](https://github.com/cannotdoit13), [@Shreyash0712](https://github.com/Shreyash0712), [@evanjain-dot](https://github.com/evanjain-dot), [@propcgamer20-png](https://github.com/propcgamer20-png), [@Swastik-Yadav](https://github.com/Swastik-Yadav), [@AnayDhawan](https://github.com/AnayDhawan), [@raonishanth2000-hub](https://github.com/raonishanth2000-hub) |
-| **Website & explainer build** | [@yakew7](https://github.com/yakew7), [@anujkamdar](https://github.com/anujkamdar), [@Swastik-Yadav](https://github.com/Swastik-Yadav), [@Ayaan-20-11](https://github.com/Ayaan-20-11), [@sushicat75](https://github.com/sushicat75), [@propcgamer20-png](https://github.com/propcgamer20-png), [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan), [@slsgzs-cloud](https://github.com/slsgzs-cloud) |
-| **Tests** (`tests/`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@tomatotomata](https://github.com/tomatotomata), [@ImMortaL0P](https://github.com/ImMortaL0P), [@evanjain-dot](https://github.com/evanjain-dot), [@propcgamer20-png](https://github.com/propcgamer20-png), [@mahirhir](https://github.com/mahirhir), [@StudentSuite3](https://github.com/StudentSuite3), [@oxura](https://github.com/oxura), [@shauryagangrade](https://github.com/shauryagangrade), [@nitishchauhan002](https://github.com/nitishchauhan002), [@be-student](https://github.com/be-student), [@wangzhengzhuo05](https://github.com/wangzhengzhuo05) |
+| **Website & explainer build** | [@yakew7](https://github.com/yakew7), [@anujkamdar](https://github.com/anujkamdar), [@Swastik-Yadav](https://github.com/Swastik-Yadav), [@Ayaan-20-11](https://github.com/Ayaan-20-11), [@sushicat75](https://github.com/sushicat75), [@propcgamer20-png](https://github.com/propcgamer20-png), [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan), [@slsgzs-cloud](https://github.com/slsgzs-cloud), [@Rayan-and-beyond](https://github.com/Rayan-and-beyond) |
+| **Tests** (`tests/`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@tomatotomata](https://github.com/tomatotomata), [@ImMortaL0P](https://github.com/ImMortaL0P), [@evanjain-dot](https://github.com/evanjain-dot), [@propcgamer20-png](https://github.com/propcgamer20-png), [@mahirhir](https://github.com/mahirhir), [@StudentSuite3](https://github.com/StudentSuite3), [@oxura](https://github.com/oxura), [@shauryagangrade](https://github.com/shauryagangrade), [@nitishchauhan002](https://github.com/nitishchauhan002), [@be-student](https://github.com/be-student), [@wangzhengzhuo05](https://github.com/wangzhengzhuo05), [@Rayan-and-beyond](https://github.com/Rayan-and-beyond), [@KingEmma7](https://github.com/KingEmma7) |
 | **Contributor tooling & docs** | [@yakew7](https://github.com/yakew7), [@propcgamer20-png](https://github.com/propcgamer20-png), [@ahmdkaml](https://github.com/ahmdkaml), [@Swastik-Yadav](https://github.com/Swastik-Yadav), [@Circout-sudo](https://github.com/Circout-sudo), [@nivedmahendran](https://github.com/nivedmahendran), [@lovishmenaria14-gif](https://github.com/lovishmenaria14-gif), [@Zinniacodes01](https://github.com/Zinniacodes01), [@carryok](https://github.com/carryok) |
 
 ---
@@ -439,6 +463,7 @@ makes `git shortlog -sne` reconcilable with the list above.
 | [@lovishmenaria14-gif](https://github.com/lovishmenaria14-gif) | `Lovish Menaria` |
 | [@be-student](https://github.com/be-student) | `eunwoo song` |
 | [@raonishanth2000-hub](https://github.com/raonishanth2000-hub) | `Nishu` - commit email is a placeholder (`your@email.com`), not linked to the GitHub account, so [#611](https://github.com/yakew7/Fair-Code/pull/611) doesn't register in the repo's contributors graph despite being a real merged PR |
+| [@ege-arhan](https://github.com/ege-arhan) | `ege-arhan` - commit email isn't linked to (or public on) the GitHub account, so [#629](https://github.com/yakew7/Fair-Code/pull/629) doesn't register in the repo's contributors graph despite being a real merged PR |
 
 If your name is wrong, missing, or you would rather be listed under a different handle, or not
 listed at all, open an issue or a one-line PR against this file. It gets merged, no questions asked.
