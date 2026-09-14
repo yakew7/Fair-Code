@@ -6092,20 +6092,57 @@ Chouldechova (2017) proved the mechanism algebraically: if predictive parity hol
 
 ## Concrete Example: COMPAS - Audit 01
 
-The [COMPAS](../COMPAS/) audit in this repo uses the same ProPublica recidivism dataset at the center of the 2016 "Machine Bias" investigation, where race is the protected attribute and the target is two-year re-offense.
+The [COMPAS](../COMPAS/) audit in this repo uses the same ProPublica recidivism dataset at the center of the 2016 "Machine Bias" investigation, where race is the protected attribute - but this repo's `COMPAS/compas-scores-raw.csv` has no independent two-year re-offense outcome to check predictive parity against (per `COMPAS/audit.yaml`, its target is `ScoreText`, COMPAS's own risk label). The real-world 2016 controversy - which *is* about actual two-year re-offense, from ProPublica's own separate analysis file - unfolded exactly as follows:
 
 ProPublica and Northpointe (COMPAS's vendor) checked different fairness criteria on that dataset and both were internally correct. ProPublica's reading, an error-rate check, found the false positive rate for Black defendants was roughly double that of white defendants: Black defendants who did not reoffend were flagged high-risk far more often. Northpointe's reading, a predictive-parity check, found PPV was close across race: a "high risk" label corresponded to actual reoffending at a similar rate for both groups. Northpointe presented that second result as proof the tool was not biased.
 
-```python
-# Approximating each side's check on a COMPAS-style dataframe
-compas["flagged_high_risk"] = (compas["decile_score"] >= 7).astype(int)
+The same mechanism is directly reproducible in this repo on [German Credit Lending](../German%20Credit%20Lending/), where `class` (good/bad credit history) is a real recorded label a model can actually be scored against:
 
-ppv_by_race, gap = predictive_parity_gap(
-    compas, y_true="two_year_recid", y_pred="flagged_high_risk", group_col="race"
+```python
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+
+df = pd.read_csv("German Credit Lending/credit_customers.csv")
+df["target"] = (df["class"] == "good").astype(int)
+df["is_young"] = (df["age"] < 30).astype(int)
+
+cat_cols = ["checking_status", "credit_history", "purpose", "savings_status",
+            "employment", "personal_status", "other_parties", "property_magnitude",
+            "other_payment_plans", "housing", "job", "own_telephone", "foreign_worker"]
+for col in cat_cols:
+    df[col] = LabelEncoder().fit_transform(df[col])
+
+features = ["checking_status", "duration", "credit_history", "purpose", "credit_amount",
+            "savings_status", "employment", "installment_commitment", "personal_status",
+            "other_parties", "residence_since", "property_magnitude", "age",
+            "other_payment_plans", "housing", "existing_credits", "job",
+            "num_dependents", "own_telephone", "foreign_worker"]
+
+X_train, X_test, y_train, y_test, g_train, g_test = train_test_split(
+    df[features], df["target"], df["is_young"], test_size=0.2, random_state=42, stratify=df["target"])
+model = RandomForestClassifier(random_state=42)
+model.fit(X_train, y_train)
+
+predictions = pd.DataFrame({"target": y_test.values, "is_good_credit_pred": model.predict(X_test),
+                            "is_young": g_test.values})
+
+ppv_by_age, gap = predictive_parity_gap(
+    predictions, y_true="target", y_pred="is_good_credit_pred", group_col="is_young"
 )
 ```
 
-Both readings are correct and both cannot hold simultaneously once the two racial groups in the dataset have different recidivism base rates, which they do. Satisfying predictive parity here did nothing to close the false-positive gap ProPublica measured; the two metrics were trading off against each other the entire time, exactly as Chouldechova's proof predicts.
+**Actual output** (`is_young`: 1 = under 30, 0 = 30+):
+
+```
+PPV by group:
+  0: 78.76%
+  1: 73.08%
+Predictive Parity Gap: 5.68%
+```
+
+A real, if modest, predictive-parity gap - a "good credit" flag is a little more trustworthy for older applicants than younger ones. The COMPAS case above is the more dramatic historical illustration of the same trade-off (PPV close, FPR far apart), just not one this repo's own file can recompute end to end.
 
 ## Detection Code
 
