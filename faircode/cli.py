@@ -226,6 +226,26 @@ def main(argv: list[str] | None = None) -> int:
         if args.proxy_hints_with and not args.proxy_hints:
             print("error: --proxy-hints-with needs --proxy-hints", file=sys.stderr)
             return 2
+        if args.csv == "-" and args.reference == "-":
+            print(
+                "error: profile input and --reference can't both read from stdin "
+                "(a stream can only be read once)",
+                file=sys.stderr,
+            )
+            return 2
+        held_out_uses_stdin = any(
+            path == "-" and sep and column
+            for path, sep, column in (
+                spec.partition("=") for spec in args.proxy_hints_with or []
+            )
+        )
+        if args.csv == "-" and held_out_uses_stdin:
+            print(
+                "error: profile input and --proxy-hints-with can't both read from stdin "
+                "(a stream can only be read once)",
+                file=sys.stderr,
+            )
+            return 2
 
         df = _read_or_exit(args.csv)
 
