@@ -117,6 +117,13 @@ class ProtectedAttribute:
                 raise ValueError(
                     f"{self.name}: disadvantaged must be 'below' or 'above', got {self.disadvantaged!r}"
                 )
+        if self.disadvantaged_values is not None and self.advantaged_values is not None:
+            overlap = set(self.disadvantaged_values) & set(self.advantaged_values)
+            if overlap:
+                raise ValueError(
+                    f"{self.name}: value(s) {sorted(overlap)!r} appear in both "
+                    f"disadvantaged_values and advantaged_values"
+                )
 
     def disadvantaged_mask(self, df: pd.DataFrame) -> tuple[pd.Series, pd.Series]:
         """Returns (disadvantaged_mask, known_mask) - both boolean Series aligned to df.
