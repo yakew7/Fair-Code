@@ -845,6 +845,11 @@ features = [
 | [What Is a Multiple-Comparisons Correction (Bonferroni, Holm, and False Discovery Rate)?](explainers/multiple-comparisons.md) | Run enough p-values at 0.05 and some will read "significant" by chance alone |
 | [What Is the Fairness-Accuracy Trade-off?](explainers/fairness-accuracy-tradeoff.md) | Closing a fairness gap is rarely free, and the cost isn't always the same size |
 | [What Is Treatment Equality?](explainers/treatment-equality.md) | Equal error rates across groups can still hide opposite-skewed error types within each group |
+| [What Is Conditional Demographic Parity?](explainers/conditional-demographic-parity.md) | Why holding a "legitimate" factor fixed before comparing group outcome rates can launder bias instead of removing it, depending on what factor you pick |
+| [What Is Differential Privacy (and Its Tension With Fairness)?](explainers/differential-privacy.md) | Why the accuracy cost of privacy-preserving noise falls hardest on the underrepresented groups a fairness audit is trying to protect |
+| [What Is Reject Option Classification?](explainers/reject-option-classification.md) | A post-processing mitigation that hands the favorable outcome to the disadvantaged group only in the model's least-confident cases |
+| [What Is Simpson's Paradox in Fairness Audits?](explainers/simpsons-paradox.md) | Why a model can look fair pooled across groups while every disaggregated subgroup shows the opposite pattern |
+| [What Is Subgroup Fairness (and Fairness Gerrymandering)?](explainers/subgroup-fairness.md) | Why passing every single-attribute fairness check doesn't rule out a large gap hiding in an unchecked combination of attributes |
 
 </details>
 

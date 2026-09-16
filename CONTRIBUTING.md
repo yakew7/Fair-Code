@@ -366,6 +366,11 @@ Explainers live in `explainers/` and should make one fairness concept easy to un
 | `multiple-comparisons.md` | Why running dozens of p-values per audit inflates the odds of a false "significant," and how Bonferroni, Holm, and Benjamini-Hochberg FDR each answer that differently on a real 90-p-value COMPAS slice |
 | `fairness-accuracy-tradeoff.md` | Why closing a fairness gap often costs predictive accuracy, and why the two aren't always improved together, with a real S0-S4 fairness-vs-accuracy table from the COMPAS audit |
 | `treatment-equality.md` | Why two groups with matching TPR/FPR gaps can still have opposite-skewed error types underneath, with a real 0.13-vs-31.0 FN:FP ratio split from the COMPAS audit |
+| `conditional-demographic-parity.md` | Why holding a "legitimate" factor fixed before comparing group outcome rates can launder bias instead of removing it, depending on what factor you pick |
+| `differential-privacy.md` | Why the accuracy cost of privacy-preserving training noise falls hardest on the underrepresented groups a fairness audit is trying to protect |
+| `reject-option-classification.md` | A post-processing mitigation that hands the favorable outcome to the disadvantaged group only in the model's least-confident cases |
+| `simpsons-paradox.md` | Why a model can look fair pooled across groups while every disaggregated subgroup shows the opposite pattern |
+| `subgroup-fairness.md` | Why passing every single-attribute fairness check doesn't rule out a large gap hiding in an unchecked combination of attributes |
 
 ### A good explainer should include
 
