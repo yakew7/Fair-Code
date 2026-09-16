@@ -14,25 +14,25 @@ def test_requirements_lock_versions_satisfy_pyproject_minimums():
     pyproject_text = pyproject.read_text(encoding="utf-8")
     lock_text = requirements_lock.read_text(encoding="utf-8")
 
-    pyproject_versions = dict(
-        re.findall(
+    pyproject_versions = {
+        normalize_dependency(name): minimum
+        for name, minimum in re.findall(
             r'([A-Za-z0-9_.-]+)\s*>=\s*([0-9]+(?:\.[0-9]+)*)',
             pyproject_text,
         )
-    )
+    }
 
-    locked_versions = dict(
-        re.findall(
+    locked_versions = {
+        normalize_dependency(name): version
+        for name, version in re.findall(
             r'^([A-Za-z0-9_.-]+)==([0-9]+(?:\.[0-9]+)*)',
             lock_text,
             re.MULTILINE,
         )
-    )
+    }
 
     for dependency, minimum in pyproject_versions.items():
         locked = locked_versions.get(dependency)
-
-        dependency = normalize_dependency(dependency)
 
         if locked is None:
             continue
