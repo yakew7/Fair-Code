@@ -154,7 +154,8 @@ def compare_to_fixed_cross(df, outcome_col, pair):
 # df = pd.read_csv("Healthcare Readmission/diabetic_data.csv", low_memory=False)
 # df["y"] = (df["readmitted"] == "<30").astype(int)
 # print(subgroup_scan(df, "y", ["gender", "race", "age"], max_depth=2))
-# # the gender x race = (Asian, Female) cell surfaces with deviation ~ -0.036
+# # 9 cells clear the default 0.05 threshold; the top-ranked one is
+# # race x age = (Caucasian, [20-30)), n=975, deviation ~ +0.055
 ```
 
 ## Limitations and Trade-offs

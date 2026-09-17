@@ -302,7 +302,8 @@ def compare_to_fixed_cross(df, outcome_col, pair):
 # df = pd.read_csv(&quot;Healthcare Readmission/diabetic_data.csv&quot;, low_memory=False)
 # df[&quot;y&quot;] = (df[&quot;readmitted&quot;] == &quot;&lt;30&quot;).astype(int)
 # print(subgroup_scan(df, &quot;y&quot;, [&quot;gender&quot;, &quot;race&quot;, &quot;age&quot;], max_depth=2))
-# # the gender x race = (Asian, Female) cell surfaces with deviation ~ -0.036</code></pre>
+# # 9 cells clear the default 0.05 threshold; the top-ranked one is
+# # race x age = (Caucasian, [20-30)), n=975, deviation ~ +0.055</code></pre>
 <h3 id="limitations-and-trade-offs">Limitations and Trade-offs</h3>
 <h4 id="1-a-full-combinatorial-search-is-expensive-and-overfits-noise">1. A full combinatorial search is expensive and overfits noise</h4>
 <p>Enumerating every conjunction of <code>k</code> columns is exponential in <code>k</code>, and the search rewards finding the most extreme cell - which, for small subgroups, is often the noisiest one rather than the most unfair one. This repo&#x27;s <code>min_group_size</code> default (100) and its &quot;small group (metric may be unreliable)&quot; warnings exist for exactly this reason. A flagged subgroup with 60 members and a 15-point deviation may be sampling noise; the same deviation at n = 5,000 is a finding.</p>
