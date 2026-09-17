@@ -495,7 +495,7 @@ print(f"\nAccuracy gap: {abs(results.loc['A','accuracy'] - results.loc['B','accu
 print(f"Positive rate gap: {abs(results.loc['A','positive_rate'] - results.loc['B','positive_rate']):.4f}")
 ```
 
-**What you'll see:** Group B - the undersampled group - has measurably lower accuracy and a distorted positive rate, despite having nearly identical underlying skill scores. The bias is entirely a function of who was in the training data, not who deserves to be hired.
+**What you'll see:** both groups end up with near-perfect, nearly identical accuracy (~0.998-1.000) - accuracy alone hides the problem entirely. The real distortion shows up in the positive rate: Group B, the undersampled group, gets predicted "hired" noticeably less often than Group A (about an 8-point gap), despite having nearly identical underlying skill scores. The bias is entirely a function of who was in the training data, not who deserves to be hired - and it is invisible to an accuracy-only check.
 
 ---
 
@@ -1213,8 +1213,11 @@ Every biased model in this repo is a disparate treatment example. The protected 
 
 ```python
 # DISPARATE TREATMENT: Race is a direct model feature
+# (compas-scores-raw.csv has no raw `race` column - `race_binary` is
+# derived from the real `Ethnic_Code_Text` column, exactly as unfair.py does)
+df['race_binary'] = df['Ethnic_Code_Text'].map({'African-American': 1, 'Caucasian': 0})
 X = pd.get_dummies(df[[
-    'race',            # ← protected attribute, fed directly to the classifier
+    'race_binary',     # ← protected attribute, fed directly to the classifier
     'Sex_Code_Text',
     'CustodyStatus',
     'MaritalStatus'
@@ -1227,8 +1230,7 @@ Race is an explicit input. The model is permitted to use race as a predictive si
 
 ```python
 # DISPARATE TREATMENT: Gender and Age are direct model features
-features = ['Gender', 'Age', 'Experience_Years', 'Technical_Test_Score',
-            'Education_Level', 'Previous_Companies', 'Distance_from_Company']
+features = ['Gender', 'Age', 'Experience_Years', 'Technical_Test_Score']
 ```
 
 `Gender` is a direct input. `Age` is both an input and a proxy for gender (women in the dataset more often have career gaps, so age encodes gender signal twice over - once directly, once through correlation). The model was *designed* to see these attributes. The 4.51pp hire rate gap (21.62% vs 17.10%) is the disparate impact.
@@ -1291,8 +1293,7 @@ def disparate_treatment_audit(feature_columns, protected=PROTECTED_ATTRIBUTES):
 
 
 # Example - AI Fair Recruitment biased model
-features_unfair = ['Gender', 'Age', 'Experience_Years', 'Technical_Test_Score',
-                   'Education_Level', 'Previous_Companies', 'Distance_from_Company']
+features_unfair = ['Gender', 'Age', 'Experience_Years', 'Technical_Test_Score']
 
 disparate_treatment_audit(features_unfair)
 # ⚠ Disparate treatment risk - protected attributes in feature set:
@@ -1334,7 +1335,7 @@ from sklearn.model_selection import train_test_split
 df = pd.read_csv('AI_Fair_Recruitment_Dataset.csv')
 feature_cols = ['Gender', 'Age', 'Experience_Years', 'Technical_Test_Score']
 X = pd.get_dummies(df[feature_cols])
-y = (df['HiringDecision'] == 1).astype(int)
+y = (df['Hiring_Decision'] == 1).astype(int)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 model = RandomForestClassifier(n_estimators=100, random_state=42)
@@ -1398,7 +1399,10 @@ def proxy_treatment_check(df, feature_col, protected_col, threshold=0.05):
     return flag
 
 # Example - German Credit Lending: employment tenure as age proxy
-proxy_treatment_check(df, feature_col='employment', protected_col='age_class')
+# (German Credit Lending/credit_customers.csv has no `age_class` column -
+# `is_young` is derived from the real `age` column, exactly as fair.py/unfair.py do)
+df['is_young'] = (df['age'] < 30).astype(int)
+proxy_treatment_check(df, feature_col='employment', protected_col='is_young')
 ```
 
 If a feature is significantly correlated with the protected attribute *and* you knowingly include it in the model, the case for indirect disparate treatment strengthens. The safest position is to document the decision either way. See [`proxy-variables.md`](proxy-variables.md) for the full proxy detection methodology.
@@ -2584,8 +2588,8 @@ test_results['prediction'] = model.predict(X_test)
 
 rates = test_results.groupby('gender')['prediction'].mean()
 print(rates)
-# Female    0.189
-# Male      0.241
+# Female    0.668
+# Male      0.773
 # The model reproduces the historical gap - not because of any feature engineering,
 # but because it faithfully learned from biased labels.
 ```
@@ -2661,13 +2665,13 @@ label_bias_audit(
 
 # gender         Female    Male
 # _merit_bin
-# 0               0.084   0.098   ← low merit tier: small gap, plausible
-# 1               0.151   0.182   ← moderate tier: gap growing
-# 2               0.231   0.290   ← gap persists even at high merit
-# 3               0.350   0.431   ← top tier: 8pp gap - flags label bias
+# 0               0.480   0.531   ← low merit tier: 5.1pp gap
+# 1               0.565   0.680   ← moderate tier: 11.5pp gap - widens
+# 2               0.645   0.750   ← gap persists even at high merit: 10.5pp
+# 3               0.770   0.865   ← top tier: 9.5pp gap - flags label bias
 ```
 
-A consistent gap that *increases with merit* - exactly where it should disappear - is a strong label-bias signal.
+A consistent gap that does not shrink as merit rises - exactly where it should disappear if the labels reflected merit alone - is a strong label-bias signal.
 
 ### 3. Counterfactual label audit
 
@@ -3009,9 +3013,9 @@ violations = matched[matched['pred_male'] != matched['pred_female']]
 print(f"Matched pairs: {len(matched)}")
 print(f"Individual fairness violations: {len(violations)}")
 print(f"Violation rate: {len(violations)/len(matched)*100:.1f}%")
-# Matched pairs: 142
-# Individual fairness violations: 31
-# Violation rate: 21.8% - over 1 in 5 identical profiles, different outcomes
+# Matched pairs: 44
+# Individual fairness violations: 11
+# Violation rate: 25.0% - 1 in 4 identical profiles, different outcomes
 ```
 
 ---
@@ -4591,7 +4595,7 @@ The standard mitigation playbook says: identify proxy variables, then remove the
 
 Proxy entanglement breaks that assumption. When proxies are entangled - when `feature A`, `feature B`, and `feature C` all carry the same protected signal *and* all correlate with each other - removing any single one still leaves the full signal alive in the others. Worse, a model that loses one entangled proxy can partially *reconstruct* it from the remaining ones, because the remaining features already encode much of the same information.
 
-This is not a theoretical edge case. It is the default condition in datasets built on structural inequalities. Insurance access, discharge destination, and prior hospitalisation don't each carry an independent slice of a patient's race and income - they carry *overlapping* slices, shaped by the same upstream structural inequalities in the US healthcare system. Removing `payer_code` still leaves race encoded in `discharge_disposition_id`. Removing both still leaves it partially encoded in `number_inpatient`. All three variables originate from the same causal root: unequal access to care.
+This is not a theoretical edge case. It is the default condition in datasets built on structural inequalities. Insurance access, discharge destination, specialty of the treating clinician, and prior hospitalisation don't each carry an independent slice of a patient's race and income - they carry *overlapping* slices, shaped by the same upstream structural inequalities in the US healthcare system. Removing `payer_code` still leaves race encoded in `discharge_disposition_id`. Removing both still leaves it partially encoded in `medical_specialty` and `number_inpatient`. All four variables originate from the same causal root: unequal access to care.
 
 High-stakes systems that stop at one-variable-at-a-time removal will report a reduction in the fairness gap while leaving most of the bias mechanism intact.
 
@@ -4599,7 +4603,7 @@ High-stakes systems that stop at one-variable-at-a-time removal will report a re
 
 ## Real-World Case: Healthcare Readmission - Audit 06
 
-The sharpest illustration of proxy entanglement in this repository is the `Healthcare Readmission` audit - the most structurally complex of all six audits.
+The sharpest illustration of proxy entanglement in this repository is the `Healthcare Readmission` audit - the most structurally complex of all seven audits.
 
 The dataset is `diabetic_data.csv`, drawn from 130 US hospitals between 1999 and 2008 (101,766 records). The model predicts whether a diabetic patient will be readmitted within 30 days and flags them as high clinical risk - a decision that directly affects discharge planning, post-acute care allocation, and follow-up resource assignment.
 
@@ -4617,7 +4621,7 @@ The protected attributes are race, gender, and age. The biased model (`unfair.py
 | 70+ (elderly) | 0.08% |
 | **Fairness Gap (Age)** | **0.28%** |
 
-Removing race and age alone is not enough. Three proxy variables - `payer_code`, `discharge_disposition_id`, and `number_inpatient` - form an entangled cluster, each encoding race and income through a different administrative channel, all tracing back to the same structural cause.
+Removing race and age alone is not enough. Four proxy variables - `payer_code`, `discharge_disposition_id`, `medical_specialty`, and `number_inpatient` - form an entangled cluster, each encoding race and income through a different administrative channel, all tracing back to the same structural cause.
 
 ### The Entanglement Structure
 
@@ -4680,9 +4684,9 @@ features = [
 | Race | 0.08% | 0.06% | **25%** |
 | Age | 0.28% | 0.09% | **68%** |
 
-Removing the entire entangled cluster - rather than any single variable - is what produces the reduction. Dropping only `payer_code` and leaving `discharge_disposition_id` and `number_inpatient` in place would have left most of the race signal intact, because those two remaining variables still encode the same structural inequality through different administrative columns.
+Removing the entire entangled cluster - rather than any single variable - is what produces the reduction. Dropping only `payer_code` and leaving `discharge_disposition_id`, `medical_specialty`, and `number_inpatient` in place would have left most of the race signal intact, because those three remaining variables still encode the same structural inequality through different administrative columns.
 
-> **Key insight:** `payer_code`, `discharge_disposition_id`, and `number_inpatient` are not three independent proxies. They are three administrative measurements of the same underlying structural gap in US healthcare access. The causal direction matters: lower insurance coverage creates both restricted discharge destinations and fragmented inpatient histories. The patient does not bring the disparity - the system creates it, and then measures it three times. Removing only one measurement while leaving the other two is not mitigation; it is relabelling.
+> **Key insight:** `payer_code`, `discharge_disposition_id`, `medical_specialty`, and `number_inpatient` are not four independent proxies. They are four administrative measurements of the same underlying structural gap in US healthcare access. The causal direction matters: lower insurance coverage creates both restricted discharge destinations and fragmented inpatient histories. The patient does not bring the disparity - the system creates it, and then measures it four times. Removing only one measurement while leaving the others is not mitigation; it is relabelling.
 
 📓 **[Full notebook walkthrough →](../notebooks/06_healthcare_readmission_bias_audit.ipynb)**
 
@@ -4899,9 +4903,9 @@ The COMPAS audit is the sharpest illustration of how all four entry points conve
 
 **Training data:** 60,000+ records from Broward County, Florida. Predominantly from a jurisdiction with documented history of racially unequal policing - meaning the training distribution reflects over-policing of Black communities, not actual recidivism rates.
 
-**Labels:** The label is `is_recid` - whether a defendant reoffended within two years. Reoffending is measured by re-arrest, not by actual criminal behaviour. In a jurisdiction where Black defendants are more likely to be stopped, searched, and arrested for equivalent behaviour, re-arrest is a biased label. The model trains to predict re-arrest and produces a proxy for policing intensity, not criminal propensity.
+**Labels:** The label used here, `is_high_risk`, is derived from `ScoreText` - COMPAS's *own* existing risk classification (High/Medium vs. Low), not an independent ground-truth reoffense outcome. Training a new model to predict COMPAS's own risk category means the model is learning to reproduce whatever pattern - and whatever bias - the original scoring system already encoded, using demographic-correlated features as its inputs. See [label-bias.md](label-bias.md) for why training on a system's own past decisions, rather than an independent outcome, compounds this problem.
 
-**Proxy variable:** Custody status correlates with race because pretrial detention patterns reflect unequal bail access, which reflects income inequality, which is racially structured. Removing race while leaving custody status in the model leaves most of the racial signal intact.
+**Proxy variable:** Custody status correlates with race because pretrial detention patterns reflect unequal bail access, which reflects income inequality, which is racially structured. That correlation is real, but its own contribution to the model's output is modest here: removing race alone (keeping custody status) already takes the fairness gap from 86.77pp down to 18.38pp - most of the racial signal was riding on race directly, not laundered entirely through this one proxy. Custody status accounts for the remaining difference between that 18.38pp and the 15.69pp reached once both are removed.
 
 **Feedback loop:** COMPAS scores influence bail and sentencing decisions. A defendant flagged as high-risk is more likely to be detained pretrial. Pretrial detention increases the probability of conviction and reoffending (due to job loss, housing instability, and network effects). The model produces the outcome it predicted, and the outcome enters the next training set as evidence the prediction was correct.
 
@@ -4913,11 +4917,16 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
 df = pd.read_csv("COMPAS/compas-scores-raw.csv")
+df = df[df['Ethnic_Code_Text'].isin(['African-American', 'Caucasian'])]
+df = df[df['DisplayText'] == 'Risk of Recidivism']
+df['is_high_risk'] = df['ScoreText'].apply(lambda x: 1 if x in ['High', 'Medium'] else 0)
+# compas-scores-raw.csv has no raw `race` column - race_binary is derived
+# from Ethnic_Code_Text, exactly as unfair.py does
+df['race_binary'] = df['Ethnic_Code_Text'].map({'African-American': 1, 'Caucasian': 0})
 
 # Biased model: race and proxy both present
-X_biased  = df[['age', 'priors_count', 'juv_fel_count', 'juv_misd_count',
-                 'sex', 'c_charge_degree', 'race', 'CustodyStatus']]
-y         = df['is_recid']
+X_biased  = pd.get_dummies(df[['Sex_Code_Text', 'race_binary', 'CustodyStatus', 'MaritalStatus']])
+y         = df['is_high_risk']
 
 X_train, X_test, y_train, y_test = train_test_split(
     X_biased, y, test_size=0.2, random_state=42
@@ -4928,11 +4937,11 @@ model.fit(X_train, y_train)
 
 # Measure demographic parity gap
 preds   = model.predict(X_test)
-results = X_test.copy()
+results = df.loc[X_test.index].copy()
 results['prediction'] = preds
 
-black_rate = results[results['race'] == 'African-American']['prediction'].mean()
-white_rate = results[results['race'] == 'Caucasian']['prediction'].mean()
+black_rate = results[results['race_binary'] == 1]['prediction'].mean()
+white_rate = results[results['race_binary'] == 0]['prediction'].mean()
 
 print(f"Black defendants flagged high-risk: {black_rate:.2%}")
 print(f"White defendants flagged high-risk: {white_rate:.2%}")
@@ -5348,17 +5357,19 @@ A single tree overfits to noise. A forest of 100 trees (`n_estimators=100`, as u
 
 ### 3. Ranking features by importance
 
-After training, each feature gets an importance score based on how much it improved splits across the forest. In the COMPAS audit, `race` and `CustodyStatus` both score highly - not because the model was told they matter, but because they correlated with the recidivism label in the training data.
+After training, each feature gets an importance score based on how much it improved splits across the forest. In the COMPAS audit, `race_binary` scores highly - not because the model was told it matters, but because it correlated with the recidivism label in the training data. `CustodyStatus`, despite also correlating with race (see [confounding-variable.md](confounding-variable.md)), ends up with much lower importance here - a reminder that "correlates with a protected attribute" and "is highly ranked by this particular model" are different claims.
 
 ```python
-# Feature importance after training on COMPAS data
+# Feature importance after training on COMPAS data (importances summed
+# back to their source column, since pd.get_dummies() one-hot-encodes
+# CustodyStatus and MaritalStatus into several columns each)
 importances = pd.Series(model.feature_importances_, index=X.columns)
 print(importances.sort_values(ascending=False).head())
 
-# CustodyStatus    0.31
-# race             0.18
-# Sex_Code_Text    0.09
-# ...
+# MaritalStatus    0.4884
+# race_binary      0.4208
+# CustodyStatus    0.0517
+# Sex_Code_Text    0.0391
 ```
 
 A high importance score tells you the model relied on that feature. It does not tell you *why* the feature and the outcome are correlated - that requires the proxy analysis covered in [proxy-variables.md](proxy-variables.md).
@@ -5370,13 +5381,15 @@ The COMPAS dataset gives a Random Forest two protected-adjacent features: `race`
 The pattern the model found was real, in the sense that it exists in the data. Black defendants in this dataset genuinely were flagged at higher rates historically. But the pattern is not a measure of who is more likely to reoffend - it is a measure of who was more likely to be *flagged* by a system already shaped by over-policing.
 
 ```python
-# unfair.py pattern: race and CustodyStatus both carry strong signal
-X = pd.get_dummies(df[['Sex_Code_Text', 'MaritalStatus', 'race', 'CustodyStatus']])
+# unfair.py pattern: race_binary and CustodyStatus both carry signal
+# (compas-scores-raw.csv has no raw `race` column - race_binary is
+# derived from Ethnic_Code_Text, exactly as unfair.py does)
+X = pd.get_dummies(df[['Sex_Code_Text', 'MaritalStatus', 'race_binary', 'CustodyStatus']])
 model = RandomForestClassifier(n_estimators=100, random_state=42)
 model.fit(X_train, y_train)
 ```
 
-When `race` is dropped, the gap barely moves - `CustodyStatus` alone reconstructs most of the pattern, because it correlates with `race` at 0.31 importance even on its own. Only when both `race` and `CustodyStatus` are removed does the gap fall to 15.69%, an 82% reduction. The pattern the model was detecting was never really about behavior - it was about which neighborhoods got patrolled.
+When `race_binary` is dropped and `CustodyStatus` is kept, the gap falls from 86.77pp to 18.38pp - a ~79% reduction from dropping race alone, not "barely moves." Only when both `race_binary` and `CustodyStatus` are removed does the gap fall further to 15.69%, an 82% reduction overall from the original 86.77pp. `CustodyStatus`'s own marginal contribution beyond race is therefore only about 2.7 percentage points - it does not "reconstruct" the racial gap on its own, despite correlating with race (see [confounding-variable.md](confounding-variable.md) for how that correlation still matters even at low feature importance).
 
 ## Detection Code
 
@@ -5446,7 +5459,7 @@ A high feature importance score means the model used that feature heavily. It do
 
 ### 2. Removing high-importance features can shift the pattern elsewhere
 
-When a strongly relied-upon feature is dropped, the forest does not simply "give up" on the pattern - it redistributes importance to the next most correlated feature. This is exactly what happens with `CustodyStatus` after `race` is dropped in the COMPAS audit. Pattern detection at the feature level must be paired with cluster-level analysis (see [proxy-entanglement.md](proxy-entanglement.md)).
+When a strongly relied-upon feature is dropped, the forest does not simply "give up" on the pattern - it redistributes importance to whatever remaining features are next most useful for the split, whether or not those features are the ones a human would expect. In the COMPAS audit, dropping `race_binary` redistributes most of its importance to `MaritalStatus`, not to `CustodyStatus` - importance redistribution follows whatever correlational structure the remaining features happen to have, not necessarily the feature an auditor most suspects. Pattern detection at the feature level must be paired with cluster-level analysis (see [proxy-entanglement.md](proxy-entanglement.md)).
 
 ### 3. Small subgroups produce unstable importance estimates
 
@@ -5515,15 +5528,20 @@ The relationship between features and outcome `P(Y|X)` itself changes. This is t
 
 The Healthcare Readmission audit uses the Diabetes 130-US Hospitals dataset, spanning 1999-2008 across 130 hospitals. That's nearly a decade of data pooled from many different care systems, each with its own admission practices, insurance mixes, and discharge protocols.
 
-A model trained on this pooled data implicitly learns the *average* relationship between features like `payer_code`, `discharge_disposition_id`, and `number_inpatient` and the readmission outcome. But a hospital in 1999 and a hospital in 2008 don't share the same payer mix, the same average length of stay, or the same discharge practices. Deploy a model trained on the 1999-2003 slice against 2008 patients, and `payer_code` distributions alone can shift enough to change the racial composition of who gets flagged, since insurance type correlates with race in this dataset.
+A model trained on this pooled data implicitly learns the *average* relationship between features like `payer_code`, `discharge_disposition_id`, and `number_inpatient` and the readmission outcome. But a hospital admitting patients early in this pooled record and one admitting patients later in it don't necessarily share the same payer mix, the same average length of stay, or the same discharge practices. `diabetic_data.csv` has no per-record date column - `encounter_id` is the closest stand-in for chronological order this dataset has (encounter IDs increase with each encounter, though they are not a calendar date), the same honest limitation this repo's [model drift](model-drift.md) explainer names explicitly for `German Credit Lending`'s row order. Splitting on encounter order this way, `payer_code` distributions shift enough on their own to plausibly change the racial composition of who gets flagged, since insurance type correlates with race in this dataset.
 
 ```python
-# Compare feature distributions across two time slices of the same dataset
-early = df[df["year"] <= 2003]
-late = df[df["year"] >= 2006]
+# Compare feature distributions across an early vs. late slice of the same
+# dataset, ordered by encounter_id - the closest stand-in for chronological
+# order this dataset has, since it carries no real per-record date column.
+ordered = df.sort_values("encounter_id")
+early = ordered.iloc[:len(ordered) // 2]
+late = ordered.iloc[len(ordered) // 2:]
 
 print(early["payer_code"].value_counts(normalize=True))
 print(late["payer_code"].value_counts(normalize=True))
+# "?" (missing payer code) alone: 64.6% of the early half vs. 14.5% of the
+# late half - a real, large shift, not a rounding artifact.
 ```
 
 The fix for ml-bias-style audits isn't just removing proxies once. It's re-running the proxy analysis whenever the underlying population changes, because a proxy relationship measured on one slice of data can weaken or strengthen on another.
@@ -5709,14 +5727,16 @@ COMPAS is used across 46 US states to score a defendant's likelihood of reoffend
 The biased model (`unfair.py`), trained with race included, produced a "High Risk" classification rate of 86.77% for one group versus 0.4% for another - an 86.77% percentage-point fairness gap on a tool actively informing custody decisions for over a million people a year.
 
 ```python
-# unfair.py - race included as a direct feature
-features = ['race', 'CustodyStatus', 'age', 'priors_count', ...]
+# unfair.py - race_binary included as a direct feature
+# (compas-scores-raw.csv has no raw `race` column - race_binary is
+# derived from Ethnic_Code_Text, exactly as unfair.py does)
+features = ['Sex_Code_Text', 'race_binary', 'CustodyStatus', 'MaritalStatus']
 model = RandomForestClassifier(n_estimators=100, random_state=42)
 model.fit(X_train, y_train)
 # Fairness Gap: 86.77%
 ```
 
-Removing `race` alone barely moves the number, because `CustodyStatus` - a record of prior system contact - carries the same signal: communities that were over-policed historically generate more "custody status" records today, independent of actual reoffense risk. Only after `race` *and* `CustodyStatus` are both dropped does the gap fall to 15.69%, an 82% reduction. The model was never neutral. It was a faithful record of an unequal criminal justice system, expressed as a probability.
+Removing `race_binary` alone takes the gap from 86.77pp down to 18.38pp - a real, large drop, not a "barely moves" story. `CustodyStatus` does correlate with race (communities that were over-policed historically generate more "custody status" records today, independent of actual reoffense risk), but its own marginal contribution on top of race is only about 2.7 points: dropping `race_binary` *and* `CustodyStatus` together reaches 15.69%, an 82% reduction overall. The model was never neutral. It was a faithful record of an unequal criminal justice system, expressed as a probability - and most of that record ran through race directly, not through a single proxy standing in for it.
 
 ## Detection Code
 
@@ -5778,8 +5798,8 @@ def find_features_explaining_gap(df, protected_col, candidate_cols, p_threshold=
 
 
 # Usage example
-# audit_objectivity_claim(df, "predicted_high_risk", "race")
-# find_features_explaining_gap(df, "race", ["CustodyStatus", "priors_count", "age"])
+# audit_objectivity_claim(df, "predicted_high_risk", "race_binary")
+# find_features_explaining_gap(df, "race_binary", ["CustodyStatus", "MaritalStatus", "Sex_Code_Text"])
 ```
 
 ## Limitations and Trade-offs
@@ -5978,26 +5998,32 @@ def check_confounding(df, feature_col, outcome_col, confounder_col, protected_co
 
 ```python
 # Load the COMPAS dataset and generate predictions from unfair.py
+# (compas-scores-raw.csv has no raw `race` column - race_binary is derived
+# from Ethnic_Code_Text, exactly as unfair.py does)
 result = check_confounding(
     df=df,
-    feature_col="CustodyStatus",
-    outcome_col="prediction",      # model's high-risk flag
-    confounder_col="race",
-    protected_col="race",
+    feature_col="race_binary",       # the raw racial disparity in predictions
+    outcome_col="prediction",        # model's high-risk flag
+    confounder_col="CustodyStatus",  # suspected confounder
+    protected_col="race_binary",     # confirms CustodyStatus itself correlates with race
 )
 
 print(result["marginal"])
-# {'chi2': 412.7, 'p_value': 0.0, 'associated': True}
-# Strong marginal association - CustodyStatus predicts the model output.
+# {'chi2': 2439.482, 'p_value': 0.0, 'associated': True}
+# Strong marginal association - race predicts the model's high-risk flag.
 
 print(result["confounder_vs_protected"])
-# {'chi2': 389.2, 'p_value': 0.0, 'associated': True}
+# {'chi2': 67.491, 'p_value': 0.0, 'associated': True}
 # CustodyStatus is also strongly associated with race.
 # Both arms of the confounding path are confirmed.
 
-# Within racial strata, the CustodyStatus → prediction association weakens -
-# confirming that part of the marginal association runs through race, not through
-# individual risk.
+# Within every CustodyStatus stratum (Jail Inmate, Pretrial Defendant,
+# Probation), the race -> prediction association is still large and
+# significant (chi2 ranging ~328-1308, vs. 2439 marginally) - attenuated,
+# but not eliminated. CustodyStatus explains part of the marginal
+# association, not all of it, which is exactly why dropping race and
+# CustodyStatus together still leaves a residual 15.69% gap rather than
+# closing it to zero.
 ```
 
 For continuous features, replace `chi2_contingency` with a Pearson correlation or partial correlation controlling for the confounder.
@@ -6944,7 +6970,7 @@ With only 200 rows per window here, and a youth subgroup that is a minority of t
 ## Related Projects in This Repo
 
 * [`German Credit Lending/`](../German%20Credit%20Lending/) - the anchor for this explainer: its `unfair.py` age/employment fairness gap re-measured across five sequential windows instead of one snapshot, and checked with PSI on three features.
-* [`Healthcare Readmission/`](../Healthcare%20Readmission/) - already used by distribution-shift.md as a decade-spanning, multi-hospital dataset; the same year field there is a candidate for a genuinely time-ordered (rather than row-order-proxy) rolling drift check.
+* [`Healthcare Readmission/`](../Healthcare%20Readmission/) - already used by distribution-shift.md as a decade-spanning, multi-hospital dataset; like German Credit Lending above, `diabetic_data.csv` carries no per-record date, so distribution-shift.md's early/late split there is also a row-order (`encounter_id`) proxy for chronological order, not a genuine calendar-based rolling drift check.
 
 ## Further Reading
 
@@ -7286,37 +7312,37 @@ df = pd.DataFrame({
     'candidate_id': range(n),
     'gender': np.random.choice(['M', 'F'], n, p=[0.5, 0.5]),
     'true_skill': np.random.normal(0, 1, n),
-    # Biased model: underestimates women's skill by 0.3 std
-    'ai_score': np.where(
-        df['gender'] == 'F',
-        df['true_skill'] - 0.3 + np.random.normal(0, 0.5, n),
-        df['true_skill'] + np.random.normal(0, 0.5, n)
-    ),
-    # Human decision: 80% follow AI, 20% use own judgment
-    'human_hire': np.where(
-        np.random.random(n) < 0.8,
-        (df['ai_score'] >= 0).astype(int),
-        (df['true_skill'] >= 0).astype(int)
-    ),
-    'actual_performance': (df['true_skill'] >= 0).astype(int)
 })
+# Biased model: underestimates women's skill by 0.3 std
+df['ai_score'] = np.where(
+    df['gender'] == 'F',
+    df['true_skill'] - 0.3 + np.random.normal(0, 0.5, n),
+    df['true_skill'] + np.random.normal(0, 0.5, n)
+)
+# Human decision: 80% follow AI, 20% use own judgment
+df['human_hire'] = np.where(
+    np.random.random(n) < 0.8,
+    (df['ai_score'] >= 0).astype(int),
+    (df['true_skill'] >= 0).astype(int)
+)
+df['actual_performance'] = (df['true_skill'] >= 0).astype(int)
 
 result = automation_bias_audit(
     df, 'ai_score', 'human_hire', 'actual_performance', 'gender'
 )
 print(result)
-# Typical output:
+# Actual output (this exact seed, n=1000):
 # {
-#   'overall_agreement_rate': 0.80,
-#   'override_rate_by_group': {'M': 0.18, 'F': 0.22},
-#   'model_fairness_gap': 0.18,
-#   'human_fairness_gap': 0.24,
-#   'disparity_amplified': True,
-#   'amplification_factor': 1.33
+#   'overall_agreement_rate': 0.824,
+#   'override_rate_by_group': {'M': 0.167, 'F': 0.185},
+#   'model_fairness_gap': 0.09,
+#   'human_fairness_gap': 0.068,
+#   'disparity_amplified': False,
+#   'amplification_factor': 0.76
 # }
 ```
 
-**Interpretation**: When humans defer to a biased model 80% of the time, the final decision gap (24%) exceeds the model's own gap (18%). Automation bias *amplified* the disparity by 33%.
+**Interpretation**: In this run, the final human-decision gap (6.8 points) is actually *smaller* than the model's own gap (9.0 points) - not larger. That is not a counterexample to automation bias; it is a property of this specific simulation: the 20% of decisions that don't follow the AI score fall back to `true_skill`, which has no gender bias baked into it at all, so that fallback partially cancels the model's bias rather than compounding it. Automation bias amplifies a gap specifically when the human deviates from the model in ways that are *not* an unbiased correction - a recruiter's "gut feeling" override in the real world is not guaranteed to be unbiased the way `true_skill` is by construction here. Treat this block as a worked example of how to *measure* `model_fairness_gap` vs. `human_fairness_gap` with real data, not as proof that amplification is the only possible direction - the direction depends entirely on whether the human's departures from the model are themselves biased or not.
 
 ---
 
@@ -7552,7 +7578,7 @@ This creates two immediate problems for fairness. First, the model achieves its 
 
 ## Concrete Example: Healthcare Readmission - Audit 06
 
-Audit 06 in this repo predicts 30-day hospital readmissions using the Diabetes 130-US Hospitals dataset. Like most clinical prediction tasks, readmission is a relatively rare event compared to safe discharges. The baseline models flag only a tiny fraction of patients as high clinical risk - around 0.2% to 0.3%. 
+Audit 06 in this repo predicts 30-day hospital readmissions using the Diabetes 130-US Hospitals dataset. Like most clinical prediction tasks, readmission is a relatively rare event compared to safe discharges. The baseline models flag only a tiny fraction of patients as high clinical risk, and the exact fraction varies noticeably by model family: logistic regression flags about 0.4%, random forest about 0.2%, and gradient boosting about 0.3%.
 
 When an outcome is this rare, standard machine learning classifiers struggle to learn the pattern of the minority class. A model could simply output "no readmission" for everyone and achieve near-perfect global accuracy, completely missing the patients who actually need follow-up care.
 
@@ -7611,6 +7637,12 @@ def audit_imbalance(X, y, protected_attribute):
 
 # Usage example:
 # audit_imbalance(X, y_imbalanced, df['Race'])
+```
+
+`imbalanced-learn` (the `imblearn` import above) is not part of this repo's own `requirements-lock.txt` - it is an illustrative external dependency, not something this repo's own audits install or run. Install it separately to run the code above:
+
+```bash
+pip install imbalanced-learn
 ```
 
 ## Limitations
@@ -7714,9 +7746,9 @@ def check_variance_by_group(model, X_train, y_train, X_test, y_test, group_col):
         if sum(train_mask) == 0 or sum(test_mask) == 0:
             continue
             
-        # Get predictions
-        train_preds = model.predict(X_train[train_mask])
-        test_preds = model.predict(X_test[test_mask])
+        # Get predictions (drop group_col - the model was fit on feature columns only)
+        train_preds = model.predict(X_train[train_mask].drop(columns=[group_col]))
+        test_preds = model.predict(X_test[test_mask].drop(columns=[group_col]))
         
         # Calculate accuracy
         train_acc = accuracy_score(y_train[train_mask], train_preds)
@@ -8361,7 +8393,7 @@ Audit 06's underlying dataset, Diabetes 130-US Hospitals (101,766 encounters), i
 ```text
 Column               Overall missing   Caucasian   African American   Gap
 weight                     96.9%          96.2%          99.4%        3.2 pts
-payer_code                 39.9%          37.5%          48.2%       10.7 pts
+payer_code                 39.6%          37.5%          48.2%       10.7 pts
 medical_specialty          49.0%          50.9%          43.0%        7.9 pts
 ```
 
@@ -9104,7 +9136,7 @@ Spirometers measure Forced Expiratory Volume in 1 second (FEV1) and Forced Vital
 - **The Impact**: Scaling reference norms downward meant that a Black worker with damaged lungs had to demonstrate much greater impairment to be diagnosed with disability or occupational lung disease compared to a White worker with identical lung measurements.
 
 ### VBAC Calculator (Obstetrics)
-The Grobman VBAC calculator estimates the probability that a pregnant individual who previously underwent a cesarean section can safely deliver vaginally. Until 2021, the algorithm subtracted specific point values if the patient was African American (-0.67) or Hispanic (-0.39).
+The Grobman VBAC calculator estimates the probability that a pregnant individual who previously underwent a cesarean section can safely deliver vaginally. Until 2021, the algorithm subtracted specific point values if the patient was African American (-0.67) or Hispanic (-0.68).
 - **The Justification**: Observational data showing lower historical rates of successful vaginal birth among Black and Hispanic women - driven by structural disparities in prenatal care, hospital quality, and clinician bias.
 - **The Impact**: The formula systematically assigned lower success predictions to minority women, leading clinicians to recommend repeat cesarean deliveries, which carry higher risks of hemorrhage, infection, and surgical complications.
 
@@ -10731,7 +10763,9 @@ The demographic parity gap for the baseline logistic regression model on race (d
 
 Dropping race from the model's inputs did not shrink the gap - it grew, from 6.0 points to 10.5 points, and both numbers are tightly estimated and clearly significant (large n, narrow CIs, p essentially 0). This is the opposite of what "fairness through unawareness" predicts.
 
-The core features still available to the model - `Supervision_Risk_Score_First`, prior-arrest-episode counts across felony/violent/property/drug categories, employment percentage - carry real correlation with race, a well-documented pattern from decades of unequal policing and enforcement. Removing race directly didn't remove that correlation; it just meant the model could no longer see race as a labeled input while still learning from features that track it closely, and the resulting fitted model happened to rely on those correlates *more* once race itself stopped absorbing part of the signal. `faircode/strategies.py`'s next strategy, `unawareness_proxy_removal` (S2), goes further and drops the explicitly-listed proxy features too - see [Mitigation Strategies](mitigation-strategies.md) for how that step, and the constraint-based strategies after it, actually move this specific gap.
+It's tempting to explain this by saying the core features still available to the model - `Supervision_Risk_Score_First`, prior-arrest-episode counts, employment percentage - carry strong correlation with race, and the model just leaned on those correlates once race itself was gone. Running this file's own `unawareness_gap_check()` (below) against exactly that feature set on the real data doesn't support that story: reconstruction accuracy comes out to **0.602** (0.617 with a fuller feature list), barely above the 0.573 majority-class base rate and well under the function's own 0.75 "reconstructs well" threshold. By this check, these features do not cleanly reconstruct race - so a clean "the proxies stood in for race" explanation for the widened gap does not hold up against this repo's own tool.
+
+What more plausibly moved the gap instead is the model's fitted coefficients, not a proxy reconstructing race: with race unavailable, `LogisticRegression` refits every remaining coefficient from scratch, and even a modest, imperfect correlate can get reweighted differently once it's the only remaining signal touching group membership - without that correlate ever reconstructing race well enough to clear a 0.75 bar. `faircode/strategies.py`'s next strategy, `unawareness_proxy_removal` (S2), goes further and drops the explicitly-listed proxy features too - see [Mitigation Strategies](mitigation-strategies.md) for how that step, and the constraint-based strategies after it, actually move this specific gap.
 
 ## Detection Code
 
@@ -10996,14 +11030,14 @@ For an applicant denied credit by the baseline model, a counterfactual search ov
 ```
 --- ORIGINAL APPLICATION (predicted: denied) ---
 credit_amount: 4,800
-duration_months: 36
-employment_years: 1
+duration: 36
+employment: 1<=X<4
 existing_credits: 2
 
 --- NEAREST COUNTERFACTUAL (predicted: approved) ---
 credit_amount: 4,800          (unchanged)
-duration_months: 24            (-12 months)
-employment_years: 1            (unchanged)
+duration: 24                   (-12 months)
+employment: 1<=X<4              (unchanged)
 existing_credits: 1             (-1)
 ```
 
@@ -11047,6 +11081,13 @@ def nearest_counterfactual(model, instance, actionable_features, feature_ranges,
 
     for _ in range(max_iters):
         candidate = instance.copy()
+        if pd.api.types.is_integer_dtype(candidate):
+            # An instance built from all-integer values (e.g. a hand-built
+            # example row) infers an int64 Series, which raises a TypeError
+            # the moment a float perturbation is assigned into it. A real
+            # dataset row is usually mixed-dtype (object) already, where
+            # this cast is a no-op.
+            candidate = candidate.astype("float64")
         for feature in actionable_features:
             low, high = feature_ranges[feature]
             delta = rng.uniform(-step, step) * (high - low)
@@ -11066,11 +11107,11 @@ def nearest_counterfactual(model, instance, actionable_features, feature_ranges,
 # Usage example:
 # counterfactual = nearest_counterfactual(
 #     model, denied_applicant,
-#     actionable_features=["duration_months", "existing_credits"],
-#     feature_ranges={"duration_months": (6, 72), "existing_credits": (1, 4)},
+#     actionable_features=["duration", "existing_credits"],
+#     feature_ranges={"duration": (4, 72), "existing_credits": (1, 4)},
 # )
 # if counterfactual is not None:
-#     print(counterfactual[["duration_months", "existing_credits"]])
+#     print(counterfactual[["duration", "existing_credits"]])
 ```
 
 ## Limitations
@@ -12186,7 +12227,8 @@ def compare_to_fixed_cross(df, outcome_col, pair):
 # df = pd.read_csv("Healthcare Readmission/diabetic_data.csv", low_memory=False)
 # df["y"] = (df["readmitted"] == "<30").astype(int)
 # print(subgroup_scan(df, "y", ["gender", "race", "age"], max_depth=2))
-# # the gender x race = (Asian, Female) cell surfaces with deviation ~ -0.036
+# # 9 cells clear the default 0.05 threshold; the top-ranked one is
+# # race x age = (Caucasian, [20-30)), n=975, deviation ~ +0.055
 ```
 
 ## Limitations and Trade-offs
