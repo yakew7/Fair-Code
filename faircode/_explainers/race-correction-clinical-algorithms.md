@@ -41,7 +41,7 @@ Spirometers measure Forced Expiratory Volume in 1 second (FEV1) and Forced Vital
 - **The Impact**: Scaling reference norms downward meant that a Black worker with damaged lungs had to demonstrate much greater impairment to be diagnosed with disability or occupational lung disease compared to a White worker with identical lung measurements.
 
 ### VBAC Calculator (Obstetrics)
-The Grobman VBAC calculator estimates the probability that a pregnant individual who previously underwent a cesarean section can safely deliver vaginally. Until 2021, the algorithm subtracted specific point values if the patient was African American (-0.67) or Hispanic (-0.39).
+The Grobman VBAC calculator estimates the probability that a pregnant individual who previously underwent a cesarean section can safely deliver vaginally. Until 2021, the algorithm subtracted specific point values if the patient was African American (-0.67) or Hispanic (-0.68).
 - **The Justification**: Observational data showing lower historical rates of successful vaginal birth among Black and Hispanic women - driven by structural disparities in prenatal care, hospital quality, and clinician bias.
 - **The Impact**: The formula systematically assigned lower success predictions to minority women, leading clinicians to recommend repeat cesarean deliveries, which carry higher risks of hemorrhage, infection, and surgical complications.
 
