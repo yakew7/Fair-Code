@@ -262,9 +262,9 @@ violations = matched[matched[&#x27;pred_male&#x27;] != matched[&#x27;pred_female
 print(f&quot;Matched pairs: {len(matched)}&quot;)
 print(f&quot;Individual fairness violations: {len(violations)}&quot;)
 print(f&quot;Violation rate: {len(violations)/len(matched)*100:.1f}%&quot;)
-# Matched pairs: 142
-# Individual fairness violations: 31
-# Violation rate: 21.8% - over 1 in 5 identical profiles, different outcomes</code></pre>
+# Matched pairs: 44
+# Individual fairness violations: 11
+# Violation rate: 25.0% - 1 in 4 identical profiles, different outcomes</code></pre>
 <hr>
 <h3 id="how-to-measure-it-in-python">How to Measure It in Python</h3>
 <p>Individual fairness has no single universal metric - it requires defining what &quot;similar&quot; means for the task. The three practical approaches are: matched-pair testing, Lipschitz testing, and consistency scoring.</p>

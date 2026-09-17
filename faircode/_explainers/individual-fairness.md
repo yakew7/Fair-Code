@@ -110,9 +110,9 @@ violations = matched[matched['pred_male'] != matched['pred_female']]
 print(f"Matched pairs: {len(matched)}")
 print(f"Individual fairness violations: {len(violations)}")
 print(f"Violation rate: {len(violations)/len(matched)*100:.1f}%")
-# Matched pairs: 142
-# Individual fairness violations: 31
-# Violation rate: 21.8% - over 1 in 5 identical profiles, different outcomes
+# Matched pairs: 44
+# Individual fairness violations: 11
+# Violation rate: 25.0% - 1 in 4 identical profiles, different outcomes
 ```
 
 ---
