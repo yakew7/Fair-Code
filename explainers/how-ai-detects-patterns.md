@@ -24,17 +24,19 @@ A single tree overfits to noise. A forest of 100 trees (`n_estimators=100`, as u
 
 ### 3. Ranking features by importance
 
-After training, each feature gets an importance score based on how much it improved splits across the forest. In the COMPAS audit, `race` and `CustodyStatus` both score highly - not because the model was told they matter, but because they correlated with the recidivism label in the training data.
+After training, each feature gets an importance score based on how much it improved splits across the forest. In the COMPAS audit, `race_binary` scores highly - not because the model was told it matters, but because it correlated with the recidivism label in the training data. `CustodyStatus`, despite also correlating with race (see [confounding-variable.md](confounding-variable.md)), ends up with much lower importance here - a reminder that "correlates with a protected attribute" and "is highly ranked by this particular model" are different claims.
 
 ```python
-# Feature importance after training on COMPAS data
+# Feature importance after training on COMPAS data (importances summed
+# back to their source column, since pd.get_dummies() one-hot-encodes
+# CustodyStatus and MaritalStatus into several columns each)
 importances = pd.Series(model.feature_importances_, index=X.columns)
 print(importances.sort_values(ascending=False).head())
 
-# CustodyStatus    0.31
-# race             0.18
-# Sex_Code_Text    0.09
-# ...
+# MaritalStatus    0.4884
+# race_binary      0.4208
+# CustodyStatus    0.0517
+# Sex_Code_Text    0.0391
 ```
 
 A high importance score tells you the model relied on that feature. It does not tell you *why* the feature and the outcome are correlated - that requires the proxy analysis covered in [proxy-variables.md](proxy-variables.md).
@@ -46,13 +48,15 @@ The COMPAS dataset gives a Random Forest two protected-adjacent features: `race`
 The pattern the model found was real, in the sense that it exists in the data. Black defendants in this dataset genuinely were flagged at higher rates historically. But the pattern is not a measure of who is more likely to reoffend - it is a measure of who was more likely to be *flagged* by a system already shaped by over-policing.
 
 ```python
-# unfair.py pattern: race and CustodyStatus both carry strong signal
-X = pd.get_dummies(df[['Sex_Code_Text', 'MaritalStatus', 'race', 'CustodyStatus']])
+# unfair.py pattern: race_binary and CustodyStatus both carry signal
+# (compas-scores-raw.csv has no raw `race` column - race_binary is
+# derived from Ethnic_Code_Text, exactly as unfair.py does)
+X = pd.get_dummies(df[['Sex_Code_Text', 'MaritalStatus', 'race_binary', 'CustodyStatus']])
 model = RandomForestClassifier(n_estimators=100, random_state=42)
 model.fit(X_train, y_train)
 ```
 
-When `race` is dropped, the gap barely moves - `CustodyStatus` alone reconstructs most of the pattern, because it correlates with `race` at 0.31 importance even on its own. Only when both `race` and `CustodyStatus` are removed does the gap fall to 15.69%, an 82% reduction. The pattern the model was detecting was never really about behavior - it was about which neighborhoods got patrolled.
+When `race_binary` is dropped and `CustodyStatus` is kept, the gap falls from 86.77pp to 18.38pp - a ~79% reduction from dropping race alone, not "barely moves." Only when both `race_binary` and `CustodyStatus` are removed does the gap fall further to 15.69%, an 82% reduction overall from the original 86.77pp. `CustodyStatus`'s own marginal contribution beyond race is therefore only about 2.7 percentage points - it does not "reconstruct" the racial gap on its own, despite correlating with race (see [confounding-variable.md](confounding-variable.md) for how that correlation still matters even at low feature importance).
 
 ## Detection Code
 
@@ -122,7 +126,7 @@ A high feature importance score means the model used that feature heavily. It do
 
 ### 2. Removing high-importance features can shift the pattern elsewhere
 
-When a strongly relied-upon feature is dropped, the forest does not simply "give up" on the pattern - it redistributes importance to the next most correlated feature. This is exactly what happens with `CustodyStatus` after `race` is dropped in the COMPAS audit. Pattern detection at the feature level must be paired with cluster-level analysis (see [proxy-entanglement.md](proxy-entanglement.md)).
+When a strongly relied-upon feature is dropped, the forest does not simply "give up" on the pattern - it redistributes importance to whatever remaining features are next most useful for the split, whether or not those features are the ones a human would expect. In the COMPAS audit, dropping `race_binary` redistributes most of its importance to `MaritalStatus`, not to `CustodyStatus` - importance redistribution follows whatever correlational structure the remaining features happen to have, not necessarily the feature an auditor most suspects. Pattern detection at the feature level must be paired with cluster-level analysis (see [proxy-entanglement.md](proxy-entanglement.md)).
 
 ### 3. Small subgroups produce unstable importance estimates
 

@@ -33,14 +33,16 @@ COMPAS is used across 46 US states to score a defendant's likelihood of reoffend
 The biased model (`unfair.py`), trained with race included, produced a "High Risk" classification rate of 86.77% for one group versus 0.4% for another - an 86.77% percentage-point fairness gap on a tool actively informing custody decisions for over a million people a year.
 
 ```python
-# unfair.py - race included as a direct feature
-features = ['race', 'CustodyStatus', 'age', 'priors_count', ...]
+# unfair.py - race_binary included as a direct feature
+# (compas-scores-raw.csv has no raw `race` column - race_binary is
+# derived from Ethnic_Code_Text, exactly as unfair.py does)
+features = ['Sex_Code_Text', 'race_binary', 'CustodyStatus', 'MaritalStatus']
 model = RandomForestClassifier(n_estimators=100, random_state=42)
 model.fit(X_train, y_train)
 # Fairness Gap: 86.77%
 ```
 
-Removing `race` alone barely moves the number, because `CustodyStatus` - a record of prior system contact - carries the same signal: communities that were over-policed historically generate more "custody status" records today, independent of actual reoffense risk. Only after `race` *and* `CustodyStatus` are both dropped does the gap fall to 15.69%, an 82% reduction. The model was never neutral. It was a faithful record of an unequal criminal justice system, expressed as a probability.
+Removing `race_binary` alone takes the gap from 86.77pp down to 18.38pp - a real, large drop, not a "barely moves" story. `CustodyStatus` does correlate with race (communities that were over-policed historically generate more "custody status" records today, independent of actual reoffense risk), but its own marginal contribution on top of race is only about 2.7 points: dropping `race_binary` *and* `CustodyStatus` together reaches 15.69%, an 82% reduction overall. The model was never neutral. It was a faithful record of an unequal criminal justice system, expressed as a probability - and most of that record ran through race directly, not through a single proxy standing in for it.
 
 ## Detection Code
 
@@ -102,8 +104,8 @@ def find_features_explaining_gap(df, protected_col, candidate_cols, p_threshold=
 
 
 # Usage example
-# audit_objectivity_claim(df, "predicted_high_risk", "race")
-# find_features_explaining_gap(df, "race", ["CustodyStatus", "priors_count", "age"])
+# audit_objectivity_claim(df, "predicted_high_risk", "race_binary")
+# find_features_explaining_gap(df, "race_binary", ["CustodyStatus", "MaritalStatus", "Sex_Code_Text"])
 ```
 
 ## Limitations and Trade-offs

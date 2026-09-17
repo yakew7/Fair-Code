@@ -206,12 +206,14 @@
 <h3 id="concrete-example-compas-audit-01">Concrete Example: COMPAS - Audit 01</h3>
 <p>COMPAS is used across 46 US states to score a defendant&#x27;s likelihood of reoffending, and judges use that score in bail, sentencing, and parole decisions. It is presented to courts as a neutral, statistically validated risk tool - the textbook case of the objectivity myth in production.</p>
 <p>The biased model (<code>unfair.py</code>), trained with race included, produced a &quot;High Risk&quot; classification rate of 86.77% for one group versus 0.4% for another - an 86.77% percentage-point fairness gap on a tool actively informing custody decisions for over a million people a year.</p>
-<pre><code class="language-python"># unfair.py - race included as a direct feature
-features = [&#x27;race&#x27;, &#x27;CustodyStatus&#x27;, &#x27;age&#x27;, &#x27;priors_count&#x27;, ...]
+<pre><code class="language-python"># unfair.py - race_binary included as a direct feature
+# (compas-scores-raw.csv has no raw `race` column - race_binary is
+# derived from Ethnic_Code_Text, exactly as unfair.py does)
+features = [&#x27;Sex_Code_Text&#x27;, &#x27;race_binary&#x27;, &#x27;CustodyStatus&#x27;, &#x27;MaritalStatus&#x27;]
 model = RandomForestClassifier(n_estimators=100, random_state=42)
 model.fit(X_train, y_train)
 # Fairness Gap: 86.77%</code></pre>
-<p>Removing <code>race</code> alone barely moves the number, because <code>CustodyStatus</code> - a record of prior system contact - carries the same signal: communities that were over-policed historically generate more &quot;custody status&quot; records today, independent of actual reoffense risk. Only after <code>race</code> <em>and</em> <code>CustodyStatus</code> are both dropped does the gap fall to 15.69%, an 82% reduction. The model was never neutral. It was a faithful record of an unequal criminal justice system, expressed as a probability.</p>
+<p>Removing <code>race_binary</code> alone takes the gap from 86.77pp down to 18.38pp - a real, large drop, not a &quot;barely moves&quot; story. <code>CustodyStatus</code> does correlate with race (communities that were over-policed historically generate more &quot;custody status&quot; records today, independent of actual reoffense risk), but its own marginal contribution on top of race is only about 2.7 points: dropping <code>race_binary</code> <em>and</em> <code>CustodyStatus</code> together reaches 15.69%, an 82% reduction overall. The model was never neutral. It was a faithful record of an unequal criminal justice system, expressed as a probability - and most of that record ran through race directly, not through a single proxy standing in for it.</p>
 <h3 id="detection-code">Detection Code</h3>
 <p>This function checks whether a model&#x27;s outcome rates differ across protected groups by more than a configurable threshold, and flags features that correlate with the protected attribute strongly enough to explain the gap on their own.</p>
 <pre><code class="language-python">import pandas as pd
@@ -269,8 +271,8 @@ def find_features_explaining_gap(df, protected_col, candidate_cols, p_threshold=
 
 
 # Usage example
-# audit_objectivity_claim(df, &quot;predicted_high_risk&quot;, &quot;race&quot;)
-# find_features_explaining_gap(df, &quot;race&quot;, [&quot;CustodyStatus&quot;, &quot;priors_count&quot;, &quot;age&quot;])</code></pre>
+# audit_objectivity_claim(df, &quot;predicted_high_risk&quot;, &quot;race_binary&quot;)
+# find_features_explaining_gap(df, &quot;race_binary&quot;, [&quot;CustodyStatus&quot;, &quot;MaritalStatus&quot;, &quot;Sex_Code_Text&quot;])</code></pre>
 <h3 id="limitations-and-trade-offs">Limitations and Trade-offs</h3>
 <h4 id="1-a-passing-audit-is-a-snapshot-not-a-guarantee">1. A passing audit is a snapshot, not a guarantee</h4>
 <p>Demonstrating that a model&#x27;s outcome rates are close across groups today says nothing about tomorrow. Retraining on new data, a shift in the applicant or defendant population, or a change in how an upstream system labels its inputs can reopen a gap that was previously closed. See <a href="distribution-shift.html">distribution-shift.md</a>.</p>

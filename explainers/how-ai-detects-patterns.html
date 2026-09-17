@@ -202,24 +202,28 @@
 <h4 id="2-aggregating-across-many-trees">2. Aggregating across many trees</h4>
 <p>A single tree overfits to noise. A forest of 100 trees (<code>n_estimators=100</code>, as used throughout this repo), each trained on a random subset of data and features, averages out that noise. What survives the averaging are the patterns that are <em>consistently</em> useful - which includes consistent societal patterns, not just consistent physical ones.</p>
 <h4 id="3-ranking-features-by-importance">3. Ranking features by importance</h4>
-<p>After training, each feature gets an importance score based on how much it improved splits across the forest. In the COMPAS audit, <code>race</code> and <code>CustodyStatus</code> both score highly - not because the model was told they matter, but because they correlated with the recidivism label in the training data.</p>
-<pre><code class="language-python"># Feature importance after training on COMPAS data
+<p>After training, each feature gets an importance score based on how much it improved splits across the forest. In the COMPAS audit, <code>race_binary</code> scores highly - not because the model was told it matters, but because it correlated with the recidivism label in the training data. <code>CustodyStatus</code>, despite also correlating with race (see <a href="confounding-variable.html">confounding-variable.md</a>), ends up with much lower importance here - a reminder that &quot;correlates with a protected attribute&quot; and &quot;is highly ranked by this particular model&quot; are different claims.</p>
+<pre><code class="language-python"># Feature importance after training on COMPAS data (importances summed
+# back to their source column, since pd.get_dummies() one-hot-encodes
+# CustodyStatus and MaritalStatus into several columns each)
 importances = pd.Series(model.feature_importances_, index=X.columns)
 print(importances.sort_values(ascending=False).head())
 
-# CustodyStatus    0.31
-# race             0.18
-# Sex_Code_Text    0.09
-# ...</code></pre>
+# MaritalStatus    0.4884
+# race_binary      0.4208
+# CustodyStatus    0.0517
+# Sex_Code_Text    0.0391</code></pre>
 <p>A high importance score tells you the model relied on that feature. It does not tell you <em>why</em> the feature and the outcome are correlated - that requires the proxy analysis covered in <a href="proxy-variables.html">proxy-variables.md</a>.</p>
 <h3 id="concrete-example-compas-audit-01">Concrete Example: COMPAS - Audit 01</h3>
 <p>The COMPAS dataset gives a Random Forest two protected-adjacent features: <code>race</code> and <code>CustodyStatus</code>. Trained on these alongside other inputs, the model produces an 87.16% high-risk flag rate for Black defendants versus 0.40% for White defendants - an 86.77% fairness gap.</p>
 <p>The pattern the model found was real, in the sense that it exists in the data. Black defendants in this dataset genuinely were flagged at higher rates historically. But the pattern is not a measure of who is more likely to reoffend - it is a measure of who was more likely to be <em>flagged</em> by a system already shaped by over-policing.</p>
-<pre><code class="language-python"># unfair.py pattern: race and CustodyStatus both carry strong signal
-X = pd.get_dummies(df[[&#x27;Sex_Code_Text&#x27;, &#x27;MaritalStatus&#x27;, &#x27;race&#x27;, &#x27;CustodyStatus&#x27;]])
+<pre><code class="language-python"># unfair.py pattern: race_binary and CustodyStatus both carry signal
+# (compas-scores-raw.csv has no raw `race` column - race_binary is
+# derived from Ethnic_Code_Text, exactly as unfair.py does)
+X = pd.get_dummies(df[[&#x27;Sex_Code_Text&#x27;, &#x27;MaritalStatus&#x27;, &#x27;race_binary&#x27;, &#x27;CustodyStatus&#x27;]])
 model = RandomForestClassifier(n_estimators=100, random_state=42)
 model.fit(X_train, y_train)</code></pre>
-<p>When <code>race</code> is dropped, the gap barely moves - <code>CustodyStatus</code> alone reconstructs most of the pattern, because it correlates with <code>race</code> at 0.31 importance even on its own. Only when both <code>race</code> and <code>CustodyStatus</code> are removed does the gap fall to 15.69%, an 82% reduction. The pattern the model was detecting was never really about behavior - it was about which neighborhoods got patrolled.</p>
+<p>When <code>race_binary</code> is dropped and <code>CustodyStatus</code> is kept, the gap falls from 86.77pp to 18.38pp - a ~79% reduction from dropping race alone, not &quot;barely moves.&quot; Only when both <code>race_binary</code> and <code>CustodyStatus</code> are removed does the gap fall further to 15.69%, an 82% reduction overall from the original 86.77pp. <code>CustodyStatus</code>&#x27;s own marginal contribution beyond race is therefore only about 2.7 percentage points - it does not &quot;reconstruct&quot; the racial gap on its own, despite correlating with race (see <a href="confounding-variable.html">confounding-variable.md</a> for how that correlation still matters even at low feature importance).</p>
 <h3 id="detection-code">Detection Code</h3>
 <p>The following functions inspect what patterns a trained model relied on, and flag features whose importance may be inflated by correlation with a protected attribute.</p>
 <pre><code class="language-python">import pandas as pd
@@ -279,7 +283,7 @@ def flag_correlated_patterns(df, protected_attr, candidate_features, threshold=0
 <h4 id="1-importance-scores-show-reliance-not-causation">1. Importance scores show reliance, not causation</h4>
 <p>A high feature importance score means the model used that feature heavily. It does not mean the feature <em>causes</em> the outcome. <code>CustodyStatus</code> and recidivism are correlated through a shared history of policing patterns, not through a direct causal link from custody status to future behavior. Distinguishing correlation from causation requires domain knowledge the model does not have.</p>
 <h4 id="2-removing-high-importance-features-can-shift-the-pattern-elsewhere">2. Removing high-importance features can shift the pattern elsewhere</h4>
-<p>When a strongly relied-upon feature is dropped, the forest does not simply &quot;give up&quot; on the pattern - it redistributes importance to the next most correlated feature. This is exactly what happens with <code>CustodyStatus</code> after <code>race</code> is dropped in the COMPAS audit. Pattern detection at the feature level must be paired with cluster-level analysis (see <a href="proxy-entanglement.html">proxy-entanglement.md</a>).</p>
+<p>When a strongly relied-upon feature is dropped, the forest does not simply &quot;give up&quot; on the pattern - it redistributes importance to whatever remaining features are next most useful for the split, whether or not those features are the ones a human would expect. In the COMPAS audit, dropping <code>race_binary</code> redistributes most of its importance to <code>MaritalStatus</code>, not to <code>CustodyStatus</code> - importance redistribution follows whatever correlational structure the remaining features happen to have, not necessarily the feature an auditor most suspects. Pattern detection at the feature level must be paired with cluster-level analysis (see <a href="proxy-entanglement.html">proxy-entanglement.md</a>).</p>
 <h4 id="3-small-subgroups-produce-unstable-importance-estimates">3. Small subgroups produce unstable importance estimates</h4>
 <p>In datasets with small demographic subgroups - such as the Asian and Hispanic groups in the Healthcare Readmission audit - feature importance and correlation statistics are sensitive to sample size. A pattern that looks strong in a subgroup of a few hundred records may not replicate at scale, and a pattern that looks weak may simply be underpowered.</p>
 <h4 id="4-pattern-detection-cannot-tell-you-which-patterns-are-legitimate">4. Pattern detection cannot tell you which patterns are legitimate</h4>

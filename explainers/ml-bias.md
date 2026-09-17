@@ -70,9 +70,9 @@ The COMPAS audit is the sharpest illustration of how all four entry points conve
 
 **Training data:** 60,000+ records from Broward County, Florida. Predominantly from a jurisdiction with documented history of racially unequal policing - meaning the training distribution reflects over-policing of Black communities, not actual recidivism rates.
 
-**Labels:** The label is `is_recid` - whether a defendant reoffended within two years. Reoffending is measured by re-arrest, not by actual criminal behaviour. In a jurisdiction where Black defendants are more likely to be stopped, searched, and arrested for equivalent behaviour, re-arrest is a biased label. The model trains to predict re-arrest and produces a proxy for policing intensity, not criminal propensity.
+**Labels:** The label used here, `is_high_risk`, is derived from `ScoreText` - COMPAS's *own* existing risk classification (High/Medium vs. Low), not an independent ground-truth reoffense outcome. Training a new model to predict COMPAS's own risk category means the model is learning to reproduce whatever pattern - and whatever bias - the original scoring system already encoded, using demographic-correlated features as its inputs. See [label-bias.md](label-bias.md) for why training on a system's own past decisions, rather than an independent outcome, compounds this problem.
 
-**Proxy variable:** Custody status correlates with race because pretrial detention patterns reflect unequal bail access, which reflects income inequality, which is racially structured. Removing race while leaving custody status in the model leaves most of the racial signal intact.
+**Proxy variable:** Custody status correlates with race because pretrial detention patterns reflect unequal bail access, which reflects income inequality, which is racially structured. That correlation is real, but its own contribution to the model's output is modest here: removing race alone (keeping custody status) already takes the fairness gap from 86.77pp down to 18.38pp - most of the racial signal was riding on race directly, not laundered entirely through this one proxy. Custody status accounts for the remaining difference between that 18.38pp and the 15.69pp reached once both are removed.
 
 **Feedback loop:** COMPAS scores influence bail and sentencing decisions. A defendant flagged as high-risk is more likely to be detained pretrial. Pretrial detention increases the probability of conviction and reoffending (due to job loss, housing instability, and network effects). The model produces the outcome it predicted, and the outcome enters the next training set as evidence the prediction was correct.
 
@@ -84,11 +84,16 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
 df = pd.read_csv("COMPAS/compas-scores-raw.csv")
+df = df[df['Ethnic_Code_Text'].isin(['African-American', 'Caucasian'])]
+df = df[df['DisplayText'] == 'Risk of Recidivism']
+df['is_high_risk'] = df['ScoreText'].apply(lambda x: 1 if x in ['High', 'Medium'] else 0)
+# compas-scores-raw.csv has no raw `race` column - race_binary is derived
+# from Ethnic_Code_Text, exactly as unfair.py does
+df['race_binary'] = df['Ethnic_Code_Text'].map({'African-American': 1, 'Caucasian': 0})
 
 # Biased model: race and proxy both present
-X_biased  = df[['age', 'priors_count', 'juv_fel_count', 'juv_misd_count',
-                 'sex', 'c_charge_degree', 'race', 'CustodyStatus']]
-y         = df['is_recid']
+X_biased  = pd.get_dummies(df[['Sex_Code_Text', 'race_binary', 'CustodyStatus', 'MaritalStatus']])
+y         = df['is_high_risk']
 
 X_train, X_test, y_train, y_test = train_test_split(
     X_biased, y, test_size=0.2, random_state=42
@@ -99,11 +104,11 @@ model.fit(X_train, y_train)
 
 # Measure demographic parity gap
 preds   = model.predict(X_test)
-results = X_test.copy()
+results = df.loc[X_test.index].copy()
 results['prediction'] = preds
 
-black_rate = results[results['race'] == 'African-American']['prediction'].mean()
-white_rate = results[results['race'] == 'Caucasian']['prediction'].mean()
+black_rate = results[results['race_binary'] == 1]['prediction'].mean()
+white_rate = results[results['race_binary'] == 0]['prediction'].mean()
 
 print(f"Black defendants flagged high-risk: {black_rate:.2%}")
 print(f"White defendants flagged high-risk: {white_rate:.2%}")
