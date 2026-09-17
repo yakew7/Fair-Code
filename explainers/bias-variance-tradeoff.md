@@ -61,9 +61,9 @@ def check_variance_by_group(model, X_train, y_train, X_test, y_test, group_col):
         if sum(train_mask) == 0 or sum(test_mask) == 0:
             continue
             
-        # Get predictions
-        train_preds = model.predict(X_train[train_mask])
-        test_preds = model.predict(X_test[test_mask])
+        # Get predictions (drop group_col - the model was fit on feature columns only)
+        train_preds = model.predict(X_train[train_mask].drop(columns=[group_col]))
+        test_preds = model.predict(X_test[test_mask].drop(columns=[group_col]))
         
         # Calculate accuracy
         train_acc = accuracy_score(y_train[train_mask], train_preds)
