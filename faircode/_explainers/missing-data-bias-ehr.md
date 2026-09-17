@@ -29,7 +29,7 @@ Audit 06's underlying dataset, Diabetes 130-US Hospitals (101,766 encounters), i
 ```text
 Column               Overall missing   Caucasian   African American   Gap
 weight                     96.9%          96.2%          99.4%        3.2 pts
-payer_code                 39.9%          37.5%          48.2%       10.7 pts
+payer_code                 39.6%          37.5%          48.2%       10.7 pts
 medical_specialty          49.0%          50.9%          43.0%        7.9 pts
 ```
 
