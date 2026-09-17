@@ -16,7 +16,7 @@ The standard mitigation playbook says: identify proxy variables, then remove the
 
 Proxy entanglement breaks that assumption. When proxies are entangled - when `feature A`, `feature B`, and `feature C` all carry the same protected signal *and* all correlate with each other - removing any single one still leaves the full signal alive in the others. Worse, a model that loses one entangled proxy can partially *reconstruct* it from the remaining ones, because the remaining features already encode much of the same information.
 
-This is not a theoretical edge case. It is the default condition in datasets built on structural inequalities. Insurance access, discharge destination, and prior hospitalisation don't each carry an independent slice of a patient's race and income - they carry *overlapping* slices, shaped by the same upstream structural inequalities in the US healthcare system. Removing `payer_code` still leaves race encoded in `discharge_disposition_id`. Removing both still leaves it partially encoded in `number_inpatient`. All three variables originate from the same causal root: unequal access to care.
+This is not a theoretical edge case. It is the default condition in datasets built on structural inequalities. Insurance access, discharge destination, specialty of the treating clinician, and prior hospitalisation don't each carry an independent slice of a patient's race and income - they carry *overlapping* slices, shaped by the same upstream structural inequalities in the US healthcare system. Removing `payer_code` still leaves race encoded in `discharge_disposition_id`. Removing both still leaves it partially encoded in `medical_specialty` and `number_inpatient`. All four variables originate from the same causal root: unequal access to care.
 
 High-stakes systems that stop at one-variable-at-a-time removal will report a reduction in the fairness gap while leaving most of the bias mechanism intact.
 
@@ -24,7 +24,7 @@ High-stakes systems that stop at one-variable-at-a-time removal will report a re
 
 ## Real-World Case: Healthcare Readmission - Audit 06
 
-The sharpest illustration of proxy entanglement in this repository is the `Healthcare Readmission` audit - the most structurally complex of all six audits.
+The sharpest illustration of proxy entanglement in this repository is the `Healthcare Readmission` audit - the most structurally complex of all seven audits.
 
 The dataset is `diabetic_data.csv`, drawn from 130 US hospitals between 1999 and 2008 (101,766 records). The model predicts whether a diabetic patient will be readmitted within 30 days and flags them as high clinical risk - a decision that directly affects discharge planning, post-acute care allocation, and follow-up resource assignment.
 
@@ -42,7 +42,7 @@ The protected attributes are race, gender, and age. The biased model (`unfair.py
 | 70+ (elderly) | 0.08% |
 | **Fairness Gap (Age)** | **0.28%** |
 
-Removing race and age alone is not enough. Three proxy variables - `payer_code`, `discharge_disposition_id`, and `number_inpatient` - form an entangled cluster, each encoding race and income through a different administrative channel, all tracing back to the same structural cause.
+Removing race and age alone is not enough. Four proxy variables - `payer_code`, `discharge_disposition_id`, `medical_specialty`, and `number_inpatient` - form an entangled cluster, each encoding race and income through a different administrative channel, all tracing back to the same structural cause.
 
 ### The Entanglement Structure
 
@@ -105,9 +105,9 @@ features = [
 | Race | 0.08% | 0.06% | **25%** |
 | Age | 0.28% | 0.09% | **68%** |
 
-Removing the entire entangled cluster - rather than any single variable - is what produces the reduction. Dropping only `payer_code` and leaving `discharge_disposition_id` and `number_inpatient` in place would have left most of the race signal intact, because those two remaining variables still encode the same structural inequality through different administrative columns.
+Removing the entire entangled cluster - rather than any single variable - is what produces the reduction. Dropping only `payer_code` and leaving `discharge_disposition_id`, `medical_specialty`, and `number_inpatient` in place would have left most of the race signal intact, because those three remaining variables still encode the same structural inequality through different administrative columns.
 
-> **Key insight:** `payer_code`, `discharge_disposition_id`, and `number_inpatient` are not three independent proxies. They are three administrative measurements of the same underlying structural gap in US healthcare access. The causal direction matters: lower insurance coverage creates both restricted discharge destinations and fragmented inpatient histories. The patient does not bring the disparity - the system creates it, and then measures it three times. Removing only one measurement while leaving the other two is not mitigation; it is relabelling.
+> **Key insight:** `payer_code`, `discharge_disposition_id`, `medical_specialty`, and `number_inpatient` are not four independent proxies. They are four administrative measurements of the same underlying structural gap in US healthcare access. The causal direction matters: lower insurance coverage creates both restricted discharge destinations and fragmented inpatient histories. The patient does not bring the disparity - the system creates it, and then measures it four times. Removing only one measurement while leaving the others is not mitigation; it is relabelling.
 
 📓 **[Full notebook walkthrough →](../notebooks/06_healthcare_readmission_bias_audit.ipynb)**
 
