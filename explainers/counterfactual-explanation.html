@@ -205,14 +205,14 @@
 <p>For an applicant denied credit by the baseline model, a counterfactual search over actionable features illustrates the difference from a feature-attribution explanation:</p>
 <pre><code>--- ORIGINAL APPLICATION (predicted: denied) ---
 credit_amount: 4,800
-duration_months: 36
-employment_years: 1
+duration: 36
+employment: 1&lt;=X&lt;4
 existing_credits: 2
 
 --- NEAREST COUNTERFACTUAL (predicted: approved) ---
 credit_amount: 4,800          (unchanged)
-duration_months: 24            (-12 months)
-employment_years: 1            (unchanged)
+duration: 24                   (-12 months)
+employment: 1&lt;=X&lt;4              (unchanged)
 existing_credits: 1             (-1)</code></pre>
 <p>Where a SHAP or LIME explanation would report <em>how much</em> each feature contributed to the denial, the counterfactual explanation says something directly actionable instead: shorten the requested loan term by a year and close one existing credit line, and this specific model would have approved the application. That&#x27;s the kind of statement an adverse-action notice is meant to contain, and it&#x27;s a fundamentally different output than a feature-importance ranking.</p>
 <h3 id="detection-code">Detection Code</h3>
@@ -250,6 +250,13 @@ def nearest_counterfactual(model, instance, actionable_features, feature_ranges,
 
     for _ in range(max_iters):
         candidate = instance.copy()
+        if pd.api.types.is_integer_dtype(candidate):
+            # An instance built from all-integer values (e.g. a hand-built
+            # example row) infers an int64 Series, which raises a TypeError
+            # the moment a float perturbation is assigned into it. A real
+            # dataset row is usually mixed-dtype (object) already, where
+            # this cast is a no-op.
+            candidate = candidate.astype(&quot;float64&quot;)
         for feature in actionable_features:
             low, high = feature_ranges[feature]
             delta = rng.uniform(-step, step) * (high - low)
@@ -269,11 +276,11 @@ def nearest_counterfactual(model, instance, actionable_features, feature_ranges,
 # Usage example:
 # counterfactual = nearest_counterfactual(
 #     model, denied_applicant,
-#     actionable_features=[&quot;duration_months&quot;, &quot;existing_credits&quot;],
-#     feature_ranges={&quot;duration_months&quot;: (6, 72), &quot;existing_credits&quot;: (1, 4)},
+#     actionable_features=[&quot;duration&quot;, &quot;existing_credits&quot;],
+#     feature_ranges={&quot;duration&quot;: (4, 72), &quot;existing_credits&quot;: (1, 4)},
 # )
 # if counterfactual is not None:
-#     print(counterfactual[[&quot;duration_months&quot;, &quot;existing_credits&quot;]])</code></pre>
+#     print(counterfactual[[&quot;duration&quot;, &quot;existing_credits&quot;]])</code></pre>
 <h3 id="limitations">Limitations</h3>
 <h4 id="1-multiple-equally-valid-counterfactuals-can-exist">1. Multiple, equally valid counterfactuals can exist</h4>
 <p>There is rarely one unique &quot;nearest&quot; counterfactual - several different, equally small edits might all flip the outcome. Which one gets shown to the applicant is a choice, and different choices can suggest very different, sometimes contradictory, advice.</p>

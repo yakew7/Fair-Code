@@ -29,14 +29,14 @@ For an applicant denied credit by the baseline model, a counterfactual search ov
 ```
 --- ORIGINAL APPLICATION (predicted: denied) ---
 credit_amount: 4,800
-duration_months: 36
-employment_years: 1
+duration: 36
+employment: 1<=X<4
 existing_credits: 2
 
 --- NEAREST COUNTERFACTUAL (predicted: approved) ---
 credit_amount: 4,800          (unchanged)
-duration_months: 24            (-12 months)
-employment_years: 1            (unchanged)
+duration: 24                   (-12 months)
+employment: 1<=X<4              (unchanged)
 existing_credits: 1             (-1)
 ```
 
@@ -80,6 +80,13 @@ def nearest_counterfactual(model, instance, actionable_features, feature_ranges,
 
     for _ in range(max_iters):
         candidate = instance.copy()
+        if pd.api.types.is_integer_dtype(candidate):
+            # An instance built from all-integer values (e.g. a hand-built
+            # example row) infers an int64 Series, which raises a TypeError
+            # the moment a float perturbation is assigned into it. A real
+            # dataset row is usually mixed-dtype (object) already, where
+            # this cast is a no-op.
+            candidate = candidate.astype("float64")
         for feature in actionable_features:
             low, high = feature_ranges[feature]
             delta = rng.uniform(-step, step) * (high - low)
@@ -99,11 +106,11 @@ def nearest_counterfactual(model, instance, actionable_features, feature_ranges,
 # Usage example:
 # counterfactual = nearest_counterfactual(
 #     model, denied_applicant,
-#     actionable_features=["duration_months", "existing_credits"],
-#     feature_ranges={"duration_months": (6, 72), "existing_credits": (1, 4)},
+#     actionable_features=["duration", "existing_credits"],
+#     feature_ranges={"duration": (4, 72), "existing_credits": (1, 4)},
 # )
 # if counterfactual is not None:
-#     print(counterfactual[["duration_months", "existing_credits"]])
+#     print(counterfactual[["duration", "existing_credits"]])
 ```
 
 ## Limitations
