@@ -282,35 +282,35 @@ df = pd.DataFrame({
     &#x27;candidate_id&#x27;: range(n),
     &#x27;gender&#x27;: np.random.choice([&#x27;M&#x27;, &#x27;F&#x27;], n, p=[0.5, 0.5]),
     &#x27;true_skill&#x27;: np.random.normal(0, 1, n),
-    # Biased model: underestimates women&#x27;s skill by 0.3 std
-    &#x27;ai_score&#x27;: np.where(
-        df[&#x27;gender&#x27;] == &#x27;F&#x27;,
-        df[&#x27;true_skill&#x27;] - 0.3 + np.random.normal(0, 0.5, n),
-        df[&#x27;true_skill&#x27;] + np.random.normal(0, 0.5, n)
-    ),
-    # Human decision: 80% follow AI, 20% use own judgment
-    &#x27;human_hire&#x27;: np.where(
-        np.random.random(n) &lt; 0.8,
-        (df[&#x27;ai_score&#x27;] &gt;= 0).astype(int),
-        (df[&#x27;true_skill&#x27;] &gt;= 0).astype(int)
-    ),
-    &#x27;actual_performance&#x27;: (df[&#x27;true_skill&#x27;] &gt;= 0).astype(int)
 })
+# Biased model: underestimates women&#x27;s skill by 0.3 std
+df[&#x27;ai_score&#x27;] = np.where(
+    df[&#x27;gender&#x27;] == &#x27;F&#x27;,
+    df[&#x27;true_skill&#x27;] - 0.3 + np.random.normal(0, 0.5, n),
+    df[&#x27;true_skill&#x27;] + np.random.normal(0, 0.5, n)
+)
+# Human decision: 80% follow AI, 20% use own judgment
+df[&#x27;human_hire&#x27;] = np.where(
+    np.random.random(n) &lt; 0.8,
+    (df[&#x27;ai_score&#x27;] &gt;= 0).astype(int),
+    (df[&#x27;true_skill&#x27;] &gt;= 0).astype(int)
+)
+df[&#x27;actual_performance&#x27;] = (df[&#x27;true_skill&#x27;] &gt;= 0).astype(int)
 
 result = automation_bias_audit(
     df, &#x27;ai_score&#x27;, &#x27;human_hire&#x27;, &#x27;actual_performance&#x27;, &#x27;gender&#x27;
 )
 print(result)
-# Typical output:
+# Actual output (this exact seed, n=1000):
 # {
-#   &#x27;overall_agreement_rate&#x27;: 0.80,
-#   &#x27;override_rate_by_group&#x27;: {&#x27;M&#x27;: 0.18, &#x27;F&#x27;: 0.22},
-#   &#x27;model_fairness_gap&#x27;: 0.18,
-#   &#x27;human_fairness_gap&#x27;: 0.24,
-#   &#x27;disparity_amplified&#x27;: True,
-#   &#x27;amplification_factor&#x27;: 1.33
+#   &#x27;overall_agreement_rate&#x27;: 0.824,
+#   &#x27;override_rate_by_group&#x27;: {&#x27;M&#x27;: 0.167, &#x27;F&#x27;: 0.185},
+#   &#x27;model_fairness_gap&#x27;: 0.09,
+#   &#x27;human_fairness_gap&#x27;: 0.068,
+#   &#x27;disparity_amplified&#x27;: False,
+#   &#x27;amplification_factor&#x27;: 0.76
 # }</code></pre>
-<p><strong>Interpretation</strong>: When humans defer to a biased model 80% of the time, the final decision gap (24%) exceeds the model&#x27;s own gap (18%). Automation bias <em>amplified</em> the disparity by 33%.</p>
+<p><strong>Interpretation</strong>: In this run, the final human-decision gap (6.8 points) is actually <em>smaller</em> than the model&#x27;s own gap (9.0 points) - not larger. That is not a counterexample to automation bias; it is a property of this specific simulation: the 20% of decisions that don&#x27;t follow the AI score fall back to <code>true_skill</code>, which has no gender bias baked into it at all, so that fallback partially cancels the model&#x27;s bias rather than compounding it. Automation bias amplifies a gap specifically when the human deviates from the model in ways that are <em>not</em> an unbiased correction - a recruiter&#x27;s &quot;gut feeling&quot; override in the real world is not guaranteed to be unbiased the way <code>true_skill</code> is by construction here. Treat this block as a worked example of how to <em>measure</em> <code>model_fairness_gap</code> vs. <code>human_fairness_gap</code> with real data, not as proof that amplification is the only possible direction - the direction depends entirely on whether the human&#x27;s departures from the model are themselves biased or not.</p>
 <hr>
 <h3 id="mitigation-strategies">Mitigation Strategies</h3>
 <div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Strategy</th><th>Mechanism</th><th>Limitation</th></tr></thead><tbody><tr><td><strong>Friction by design</strong></td><td>Require explicit override justification; show confidence intervals, not just scores</td><td>Adds workflow time; may be bypassed under pressure</td></tr><tr><td><strong>Counterfactual display</strong></td><td>&quot;If this applicant were male, the score would be X&quot;</td><td>Requires causal model; contested in court</td></tr><tr><td><strong>Blind review first</strong></td><td>Human evaluates case <em>before</em> seeing AI score</td><td>Not always feasible (e.g., triage)</td></tr><tr><td><strong>Disagreement logging</strong></td><td>Track every human-vs-model divergence for audit</td><td>Passive; does not prevent harm in real time</td></tr><tr><td><strong>Calibrated thresholds per group</strong></td><td>Different decision thresholds to equalize outcomes</td><td>Legal risk (disparate treatment); hard to justify</td></tr><tr><td><strong>Human-in-the-loop training</strong></td><td>Simulate edge cases where model is wrong; train reviewers to catch them</td><td>Resource-intensive; decay over time</td></tr></tbody></table></div>

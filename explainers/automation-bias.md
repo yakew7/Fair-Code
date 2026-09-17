@@ -128,37 +128,37 @@ df = pd.DataFrame({
     'candidate_id': range(n),
     'gender': np.random.choice(['M', 'F'], n, p=[0.5, 0.5]),
     'true_skill': np.random.normal(0, 1, n),
-    # Biased model: underestimates women's skill by 0.3 std
-    'ai_score': np.where(
-        df['gender'] == 'F',
-        df['true_skill'] - 0.3 + np.random.normal(0, 0.5, n),
-        df['true_skill'] + np.random.normal(0, 0.5, n)
-    ),
-    # Human decision: 80% follow AI, 20% use own judgment
-    'human_hire': np.where(
-        np.random.random(n) < 0.8,
-        (df['ai_score'] >= 0).astype(int),
-        (df['true_skill'] >= 0).astype(int)
-    ),
-    'actual_performance': (df['true_skill'] >= 0).astype(int)
 })
+# Biased model: underestimates women's skill by 0.3 std
+df['ai_score'] = np.where(
+    df['gender'] == 'F',
+    df['true_skill'] - 0.3 + np.random.normal(0, 0.5, n),
+    df['true_skill'] + np.random.normal(0, 0.5, n)
+)
+# Human decision: 80% follow AI, 20% use own judgment
+df['human_hire'] = np.where(
+    np.random.random(n) < 0.8,
+    (df['ai_score'] >= 0).astype(int),
+    (df['true_skill'] >= 0).astype(int)
+)
+df['actual_performance'] = (df['true_skill'] >= 0).astype(int)
 
 result = automation_bias_audit(
     df, 'ai_score', 'human_hire', 'actual_performance', 'gender'
 )
 print(result)
-# Typical output:
+# Actual output (this exact seed, n=1000):
 # {
-#   'overall_agreement_rate': 0.80,
-#   'override_rate_by_group': {'M': 0.18, 'F': 0.22},
-#   'model_fairness_gap': 0.18,
-#   'human_fairness_gap': 0.24,
-#   'disparity_amplified': True,
-#   'amplification_factor': 1.33
+#   'overall_agreement_rate': 0.824,
+#   'override_rate_by_group': {'M': 0.167, 'F': 0.185},
+#   'model_fairness_gap': 0.09,
+#   'human_fairness_gap': 0.068,
+#   'disparity_amplified': False,
+#   'amplification_factor': 0.76
 # }
 ```
 
-**Interpretation**: When humans defer to a biased model 80% of the time, the final decision gap (24%) exceeds the model's own gap (18%). Automation bias *amplified* the disparity by 33%.
+**Interpretation**: In this run, the final human-decision gap (6.8 points) is actually *smaller* than the model's own gap (9.0 points) - not larger. That is not a counterexample to automation bias; it is a property of this specific simulation: the 20% of decisions that don't follow the AI score fall back to `true_skill`, which has no gender bias baked into it at all, so that fallback partially cancels the model's bias rather than compounding it. Automation bias amplifies a gap specifically when the human deviates from the model in ways that are *not* an unbiased correction - a recruiter's "gut feeling" override in the real world is not guaranteed to be unbiased the way `true_skill` is by construction here. Treat this block as a worked example of how to *measure* `model_fairness_gap` vs. `human_fairness_gap` with real data, not as proof that amplification is the only possible direction - the direction depends entirely on whether the human's departures from the model are themselves biased or not.
 
 ---
 
