@@ -12,7 +12,7 @@ This creates two immediate problems for fairness. First, the model achieves its 
 
 ## Concrete Example: Healthcare Readmission - Audit 06
 
-Audit 06 in this repo predicts 30-day hospital readmissions using the Diabetes 130-US Hospitals dataset. Like most clinical prediction tasks, readmission is a relatively rare event compared to safe discharges. The baseline models flag only a tiny fraction of patients as high clinical risk - around 0.2% to 0.3%. 
+Audit 06 in this repo predicts 30-day hospital readmissions using the Diabetes 130-US Hospitals dataset. Like most clinical prediction tasks, readmission is a relatively rare event compared to safe discharges. The baseline models flag only a tiny fraction of patients as high clinical risk, and the exact fraction varies noticeably by model family: logistic regression flags about 0.4%, random forest about 0.2%, and gradient boosting about 0.3%.
 
 When an outcome is this rare, standard machine learning classifiers struggle to learn the pattern of the minority class. A model could simply output "no readmission" for everyone and achieve near-perfect global accuracy, completely missing the patients who actually need follow-up care.
 
@@ -71,6 +71,12 @@ def audit_imbalance(X, y, protected_attribute):
 
 # Usage example:
 # audit_imbalance(X, y_imbalanced, df['Race'])
+```
+
+`imbalanced-learn` (the `imblearn` import above) is not part of this repo's own `requirements-lock.txt` - it is an illustrative external dependency, not something this repo's own audits install or run. Install it separately to run the code above:
+
+```bash
+pip install imbalanced-learn
 ```
 
 ## Limitations
