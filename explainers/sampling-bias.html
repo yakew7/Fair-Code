@@ -263,7 +263,7 @@ print(&quot;--- BIASED TRAINING SAMPLE RESULTS ---&quot;)
 print(results.round(4))
 print(f&quot;\nAccuracy gap: {abs(results.loc[&#x27;A&#x27;,&#x27;accuracy&#x27;] - results.loc[&#x27;B&#x27;,&#x27;accuracy&#x27;]):.4f}&quot;)
 print(f&quot;Positive rate gap: {abs(results.loc[&#x27;A&#x27;,&#x27;positive_rate&#x27;] - results.loc[&#x27;B&#x27;,&#x27;positive_rate&#x27;]):.4f}&quot;)</code></pre>
-<p><strong>What you&#x27;ll see:</strong> Group B - the undersampled group - has measurably lower accuracy and a distorted positive rate, despite having nearly identical underlying skill scores. The bias is entirely a function of who was in the training data, not who deserves to be hired.</p>
+<p><strong>What you&#x27;ll see:</strong> both groups end up with near-perfect, nearly identical accuracy (~0.998-1.000) - accuracy alone hides the problem entirely. The real distortion shows up in the positive rate: Group B, the undersampled group, gets predicted &quot;hired&quot; noticeably less often than Group A (about an 8-point gap), despite having nearly identical underlying skill scores. The bias is entirely a function of who was in the training data, not who deserves to be hired - and it is invisible to an accuracy-only check.</p>
 <hr>
 <h3 id="how-to-detect-sampling-bias">How to Detect Sampling Bias</h3>
 <pre><code class="language-python">import pandas as pd

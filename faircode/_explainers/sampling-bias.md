@@ -110,7 +110,7 @@ print(f"\nAccuracy gap: {abs(results.loc['A','accuracy'] - results.loc['B','accu
 print(f"Positive rate gap: {abs(results.loc['A','positive_rate'] - results.loc['B','positive_rate']):.4f}")
 ```
 
-**What you'll see:** Group B - the undersampled group - has measurably lower accuracy and a distorted positive rate, despite having nearly identical underlying skill scores. The bias is entirely a function of who was in the training data, not who deserves to be hired.
+**What you'll see:** both groups end up with near-perfect, nearly identical accuracy (~0.998-1.000) - accuracy alone hides the problem entirely. The real distortion shows up in the positive rate: Group B, the undersampled group, gets predicted "hired" noticeably less often than Group A (about an 8-point gap), despite having nearly identical underlying skill scores. The bias is entirely a function of who was in the training data, not who deserves to be hired - and it is invisible to an accuracy-only check.
 
 ---
 
