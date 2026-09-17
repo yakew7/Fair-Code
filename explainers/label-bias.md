@@ -75,8 +75,8 @@ test_results['prediction'] = model.predict(X_test)
 
 rates = test_results.groupby('gender')['prediction'].mean()
 print(rates)
-# Female    0.189
-# Male      0.241
+# Female    0.668
+# Male      0.773
 # The model reproduces the historical gap - not because of any feature engineering,
 # but because it faithfully learned from biased labels.
 ```
@@ -152,13 +152,13 @@ label_bias_audit(
 
 # gender         Female    Male
 # _merit_bin
-# 0               0.084   0.098   ← low merit tier: small gap, plausible
-# 1               0.151   0.182   ← moderate tier: gap growing
-# 2               0.231   0.290   ← gap persists even at high merit
-# 3               0.350   0.431   ← top tier: 8pp gap - flags label bias
+# 0               0.480   0.531   ← low merit tier: 5.1pp gap
+# 1               0.565   0.680   ← moderate tier: 11.5pp gap - widens
+# 2               0.645   0.750   ← gap persists even at high merit: 10.5pp
+# 3               0.770   0.865   ← top tier: 9.5pp gap - flags label bias
 ```
 
-A consistent gap that *increases with merit* - exactly where it should disappear - is a strong label-bias signal.
+A consistent gap that does not shrink as merit rises - exactly where it should disappear if the labels reflected merit alone - is a strong label-bias signal.
 
 ### 3. Counterfactual label audit
 
