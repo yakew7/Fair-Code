@@ -28,15 +28,20 @@ The relationship between features and outcome `P(Y|X)` itself changes. This is t
 
 The Healthcare Readmission audit uses the Diabetes 130-US Hospitals dataset, spanning 1999-2008 across 130 hospitals. That's nearly a decade of data pooled from many different care systems, each with its own admission practices, insurance mixes, and discharge protocols.
 
-A model trained on this pooled data implicitly learns the *average* relationship between features like `payer_code`, `discharge_disposition_id`, and `number_inpatient` and the readmission outcome. But a hospital in 1999 and a hospital in 2008 don't share the same payer mix, the same average length of stay, or the same discharge practices. Deploy a model trained on the 1999-2003 slice against 2008 patients, and `payer_code` distributions alone can shift enough to change the racial composition of who gets flagged, since insurance type correlates with race in this dataset.
+A model trained on this pooled data implicitly learns the *average* relationship between features like `payer_code`, `discharge_disposition_id`, and `number_inpatient` and the readmission outcome. But a hospital admitting patients early in this pooled record and one admitting patients later in it don't necessarily share the same payer mix, the same average length of stay, or the same discharge practices. `diabetic_data.csv` has no per-record date column - `encounter_id` is the closest stand-in for chronological order this dataset has (encounter IDs increase with each encounter, though they are not a calendar date), the same honest limitation this repo's [model drift](model-drift.md) explainer names explicitly for `German Credit Lending`'s row order. Splitting on encounter order this way, `payer_code` distributions shift enough on their own to plausibly change the racial composition of who gets flagged, since insurance type correlates with race in this dataset.
 
 ```python
-# Compare feature distributions across two time slices of the same dataset
-early = df[df["year"] <= 2003]
-late = df[df["year"] >= 2006]
+# Compare feature distributions across an early vs. late slice of the same
+# dataset, ordered by encounter_id - the closest stand-in for chronological
+# order this dataset has, since it carries no real per-record date column.
+ordered = df.sort_values("encounter_id")
+early = ordered.iloc[:len(ordered) // 2]
+late = ordered.iloc[len(ordered) // 2:]
 
 print(early["payer_code"].value_counts(normalize=True))
 print(late["payer_code"].value_counts(normalize=True))
+# "?" (missing payer code) alone: 64.6% of the early half vs. 14.5% of the
+# late half - a real, large shift, not a rounding artifact.
 ```
 
 The fix for ml-bias-style audits isn't just removing proxies once. It's re-running the proxy analysis whenever the underlying population changes, because a proxy relationship measured on one slice of data can weaken or strengthen on another.

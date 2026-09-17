@@ -204,13 +204,18 @@
 <p>The relationship between features and outcome <code>P(Y|X)</code> itself changes. This is the hardest to detect because the input data can look identical while what it <em>means</em> has changed. Example: during a recession, the same income and debt levels that once predicted &quot;low default risk&quot; now predict higher risk, because the economic context behind the numbers shifted.</p>
 <h3 id="concrete-example-healthcare-readmission-audit-06">Concrete Example: Healthcare Readmission - Audit 06</h3>
 <p>The Healthcare Readmission audit uses the Diabetes 130-US Hospitals dataset, spanning 1999-2008 across 130 hospitals. That&#x27;s nearly a decade of data pooled from many different care systems, each with its own admission practices, insurance mixes, and discharge protocols.</p>
-<p>A model trained on this pooled data implicitly learns the <em>average</em> relationship between features like <code>payer_code</code>, <code>discharge_disposition_id</code>, and <code>number_inpatient</code> and the readmission outcome. But a hospital in 1999 and a hospital in 2008 don&#x27;t share the same payer mix, the same average length of stay, or the same discharge practices. Deploy a model trained on the 1999-2003 slice against 2008 patients, and <code>payer_code</code> distributions alone can shift enough to change the racial composition of who gets flagged, since insurance type correlates with race in this dataset.</p>
-<pre><code class="language-python"># Compare feature distributions across two time slices of the same dataset
-early = df[df[&quot;year&quot;] &lt;= 2003]
-late = df[df[&quot;year&quot;] &gt;= 2006]
+<p>A model trained on this pooled data implicitly learns the <em>average</em> relationship between features like <code>payer_code</code>, <code>discharge_disposition_id</code>, and <code>number_inpatient</code> and the readmission outcome. But a hospital admitting patients early in this pooled record and one admitting patients later in it don&#x27;t necessarily share the same payer mix, the same average length of stay, or the same discharge practices. <code>diabetic_data.csv</code> has no per-record date column - <code>encounter_id</code> is the closest stand-in for chronological order this dataset has (encounter IDs increase with each encounter, though they are not a calendar date), the same honest limitation this repo&#x27;s <a href="model-drift.html">model drift</a> explainer names explicitly for <code>German Credit Lending</code>&#x27;s row order. Splitting on encounter order this way, <code>payer_code</code> distributions shift enough on their own to plausibly change the racial composition of who gets flagged, since insurance type correlates with race in this dataset.</p>
+<pre><code class="language-python"># Compare feature distributions across an early vs. late slice of the same
+# dataset, ordered by encounter_id - the closest stand-in for chronological
+# order this dataset has, since it carries no real per-record date column.
+ordered = df.sort_values(&quot;encounter_id&quot;)
+early = ordered.iloc[:len(ordered) // 2]
+late = ordered.iloc[len(ordered) // 2:]
 
 print(early[&quot;payer_code&quot;].value_counts(normalize=True))
-print(late[&quot;payer_code&quot;].value_counts(normalize=True))</code></pre>
+print(late[&quot;payer_code&quot;].value_counts(normalize=True))
+# &quot;?&quot; (missing payer code) alone: 64.6% of the early half vs. 14.5% of the
+# late half - a real, large shift, not a rounding artifact.</code></pre>
 <p>The fix for ml-bias-style audits isn&#x27;t just removing proxies once. It&#x27;s re-running the proxy analysis whenever the underlying population changes, because a proxy relationship measured on one slice of data can weaken or strengthen on another.</p>
 <h3 id="detection-code">Detection Code</h3>
 <p>These functions compare a reference (training) distribution against a current (production) distribution to flag features that have drifted.</p>

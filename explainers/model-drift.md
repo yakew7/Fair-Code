@@ -179,7 +179,7 @@ With only 200 rows per window here, and a youth subgroup that is a minority of t
 ## Related Projects in This Repo
 
 * [`German Credit Lending/`](../German%20Credit%20Lending/) - the anchor for this explainer: its `unfair.py` age/employment fairness gap re-measured across five sequential windows instead of one snapshot, and checked with PSI on three features.
-* [`Healthcare Readmission/`](../Healthcare%20Readmission/) - already used by distribution-shift.md as a decade-spanning, multi-hospital dataset; the same year field there is a candidate for a genuinely time-ordered (rather than row-order-proxy) rolling drift check.
+* [`Healthcare Readmission/`](../Healthcare%20Readmission/) - already used by distribution-shift.md as a decade-spanning, multi-hospital dataset; like German Credit Lending above, `diabetic_data.csv` carries no per-record date, so distribution-shift.md's early/late split there is also a row-order (`encounter_id`) proxy for chronological order, not a genuine calendar-based rolling drift check.
 
 ## Further Reading
 
