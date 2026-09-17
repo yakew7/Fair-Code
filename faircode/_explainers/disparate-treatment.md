@@ -51,8 +51,11 @@ Every biased model in this repo is a disparate treatment example. The protected 
 
 ```python
 # DISPARATE TREATMENT: Race is a direct model feature
+# (compas-scores-raw.csv has no raw `race` column - `race_binary` is
+# derived from the real `Ethnic_Code_Text` column, exactly as unfair.py does)
+df['race_binary'] = df['Ethnic_Code_Text'].map({'African-American': 1, 'Caucasian': 0})
 X = pd.get_dummies(df[[
-    'race',            # ← protected attribute, fed directly to the classifier
+    'race_binary',     # ← protected attribute, fed directly to the classifier
     'Sex_Code_Text',
     'CustodyStatus',
     'MaritalStatus'
@@ -65,8 +68,7 @@ Race is an explicit input. The model is permitted to use race as a predictive si
 
 ```python
 # DISPARATE TREATMENT: Gender and Age are direct model features
-features = ['Gender', 'Age', 'Experience_Years', 'Technical_Test_Score',
-            'Education_Level', 'Previous_Companies', 'Distance_from_Company']
+features = ['Gender', 'Age', 'Experience_Years', 'Technical_Test_Score']
 ```
 
 `Gender` is a direct input. `Age` is both an input and a proxy for gender (women in the dataset more often have career gaps, so age encodes gender signal twice over - once directly, once through correlation). The model was *designed* to see these attributes. The 4.51pp hire rate gap (21.62% vs 17.10%) is the disparate impact.
@@ -129,8 +131,7 @@ def disparate_treatment_audit(feature_columns, protected=PROTECTED_ATTRIBUTES):
 
 
 # Example - AI Fair Recruitment biased model
-features_unfair = ['Gender', 'Age', 'Experience_Years', 'Technical_Test_Score',
-                   'Education_Level', 'Previous_Companies', 'Distance_from_Company']
+features_unfair = ['Gender', 'Age', 'Experience_Years', 'Technical_Test_Score']
 
 disparate_treatment_audit(features_unfair)
 # ⚠ Disparate treatment risk - protected attributes in feature set:
@@ -172,7 +173,7 @@ from sklearn.model_selection import train_test_split
 df = pd.read_csv('AI_Fair_Recruitment_Dataset.csv')
 feature_cols = ['Gender', 'Age', 'Experience_Years', 'Technical_Test_Score']
 X = pd.get_dummies(df[feature_cols])
-y = (df['HiringDecision'] == 1).astype(int)
+y = (df['Hiring_Decision'] == 1).astype(int)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 model = RandomForestClassifier(n_estimators=100, random_state=42)
@@ -236,7 +237,10 @@ def proxy_treatment_check(df, feature_col, protected_col, threshold=0.05):
     return flag
 
 # Example - German Credit Lending: employment tenure as age proxy
-proxy_treatment_check(df, feature_col='employment', protected_col='age_class')
+# (German Credit Lending/credit_customers.csv has no `age_class` column -
+# `is_young` is derived from the real `age` column, exactly as fair.py/unfair.py do)
+df['is_young'] = (df['age'] < 30).astype(int)
+proxy_treatment_check(df, feature_col='employment', protected_col='is_young')
 ```
 
 If a feature is significantly correlated with the protected attribute *and* you knowingly include it in the model, the case for indirect disparate treatment strengthens. The safest position is to document the decision either way. See [`proxy-variables.md`](proxy-variables.md) for the full proxy detection methodology.

@@ -210,8 +210,11 @@
 <p>Every biased model in this repo is a disparate treatment example. The protected attribute is a direct model input. The outcome gap is the downstream disparate impact. They are the same model - looked at through two different legal lenses.</p>
 <h4 id="compas-unfair-py">COMPAS - <code>unfair.py</code></h4>
 <pre><code class="language-python"># DISPARATE TREATMENT: Race is a direct model feature
+# (compas-scores-raw.csv has no raw `race` column - `race_binary` is
+# derived from the real `Ethnic_Code_Text` column, exactly as unfair.py does)
+df[&#x27;race_binary&#x27;] = df[&#x27;Ethnic_Code_Text&#x27;].map({&#x27;African-American&#x27;: 1, &#x27;Caucasian&#x27;: 0})
 X = pd.get_dummies(df[[
-    &#x27;race&#x27;,            # ← protected attribute, fed directly to the classifier
+    &#x27;race_binary&#x27;,     # ← protected attribute, fed directly to the classifier
     &#x27;Sex_Code_Text&#x27;,
     &#x27;CustodyStatus&#x27;,
     &#x27;MaritalStatus&#x27;
@@ -219,8 +222,7 @@ X = pd.get_dummies(df[[
 <p>Race is an explicit input. The model is permitted to use race as a predictive signal. That is disparate treatment. The resulting 86.77pp gap between Black and White defendants is the disparate impact it produces.</p>
 <h4 id="ai-fair-recruitment-unfair-py">AI Fair Recruitment - <code>unfair.py</code></h4>
 <pre><code class="language-python"># DISPARATE TREATMENT: Gender and Age are direct model features
-features = [&#x27;Gender&#x27;, &#x27;Age&#x27;, &#x27;Experience_Years&#x27;, &#x27;Technical_Test_Score&#x27;,
-            &#x27;Education_Level&#x27;, &#x27;Previous_Companies&#x27;, &#x27;Distance_from_Company&#x27;]</code></pre>
+features = [&#x27;Gender&#x27;, &#x27;Age&#x27;, &#x27;Experience_Years&#x27;, &#x27;Technical_Test_Score&#x27;]</code></pre>
 <p><code>Gender</code> is a direct input. <code>Age</code> is both an input and a proxy for gender (women in the dataset more often have career gaps, so age encodes gender signal twice over - once directly, once through correlation). The model was <em>designed</em> to see these attributes. The 4.51pp hire rate gap (21.62% vs 17.10%) is the disparate impact.</p>
 <h4 id="the-fix-what-removing-disparate-treatment-looks-like">The Fix - What Removing Disparate Treatment Looks Like</h4>
 <pre><code class="language-python"># fair.py: protected attribute and its proxy removed
@@ -271,8 +273,7 @@ def disparate_treatment_audit(feature_columns, protected=PROTECTED_ATTRIBUTES):
 
 
 # Example - AI Fair Recruitment biased model
-features_unfair = [&#x27;Gender&#x27;, &#x27;Age&#x27;, &#x27;Experience_Years&#x27;, &#x27;Technical_Test_Score&#x27;,
-                   &#x27;Education_Level&#x27;, &#x27;Previous_Companies&#x27;, &#x27;Distance_from_Company&#x27;]
+features_unfair = [&#x27;Gender&#x27;, &#x27;Age&#x27;, &#x27;Experience_Years&#x27;, &#x27;Technical_Test_Score&#x27;]
 
 disparate_treatment_audit(features_unfair)
 # ⚠ Disparate treatment risk - protected attributes in feature set:
@@ -310,7 +311,7 @@ from sklearn.model_selection import train_test_split
 df = pd.read_csv(&#x27;AI_Fair_Recruitment_Dataset.csv&#x27;)
 feature_cols = [&#x27;Gender&#x27;, &#x27;Age&#x27;, &#x27;Experience_Years&#x27;, &#x27;Technical_Test_Score&#x27;]
 X = pd.get_dummies(df[feature_cols])
-y = (df[&#x27;HiringDecision&#x27;] == 1).astype(int)
+y = (df[&#x27;Hiring_Decision&#x27;] == 1).astype(int)
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 model = RandomForestClassifier(n_estimators=100, random_state=42)
@@ -362,7 +363,10 @@ def proxy_treatment_check(df, feature_col, protected_col, threshold=0.05):
     return flag
 
 # Example - German Credit Lending: employment tenure as age proxy
-proxy_treatment_check(df, feature_col=&#x27;employment&#x27;, protected_col=&#x27;age_class&#x27;)</code></pre>
+# (German Credit Lending/credit_customers.csv has no `age_class` column -
+# `is_young` is derived from the real `age` column, exactly as fair.py/unfair.py do)
+df[&#x27;is_young&#x27;] = (df[&#x27;age&#x27;] &lt; 30).astype(int)
+proxy_treatment_check(df, feature_col=&#x27;employment&#x27;, protected_col=&#x27;is_young&#x27;)</code></pre>
 <p>If a feature is significantly correlated with the protected attribute <em>and</em> you knowingly include it in the model, the case for indirect disparate treatment strengthens. The safest position is to document the decision either way. See <a href="proxy-variables.html"><code>proxy-variables.md</code></a> for the full proxy detection methodology.</p>
 <hr>
 <h3 id="limitations">Limitations</h3>
