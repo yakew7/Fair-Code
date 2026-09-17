@@ -147,26 +147,32 @@ def check_confounding(df, feature_col, outcome_col, confounder_col, protected_co
 
 ```python
 # Load the COMPAS dataset and generate predictions from unfair.py
+# (compas-scores-raw.csv has no raw `race` column - race_binary is derived
+# from Ethnic_Code_Text, exactly as unfair.py does)
 result = check_confounding(
     df=df,
-    feature_col="CustodyStatus",
-    outcome_col="prediction",      # model's high-risk flag
-    confounder_col="race",
-    protected_col="race",
+    feature_col="race_binary",       # the raw racial disparity in predictions
+    outcome_col="prediction",        # model's high-risk flag
+    confounder_col="CustodyStatus",  # suspected confounder
+    protected_col="race_binary",     # confirms CustodyStatus itself correlates with race
 )
 
 print(result["marginal"])
-# {'chi2': 412.7, 'p_value': 0.0, 'associated': True}
-# Strong marginal association - CustodyStatus predicts the model output.
+# {'chi2': 2439.482, 'p_value': 0.0, 'associated': True}
+# Strong marginal association - race predicts the model's high-risk flag.
 
 print(result["confounder_vs_protected"])
-# {'chi2': 389.2, 'p_value': 0.0, 'associated': True}
+# {'chi2': 67.491, 'p_value': 0.0, 'associated': True}
 # CustodyStatus is also strongly associated with race.
 # Both arms of the confounding path are confirmed.
 
-# Within racial strata, the CustodyStatus → prediction association weakens -
-# confirming that part of the marginal association runs through race, not through
-# individual risk.
+# Within every CustodyStatus stratum (Jail Inmate, Pretrial Defendant,
+# Probation), the race -> prediction association is still large and
+# significant (chi2 ranging ~328-1308, vs. 2439 marginally) - attenuated,
+# but not eliminated. CustodyStatus explains part of the marginal
+# association, not all of it, which is exactly why dropping race and
+# CustodyStatus together still leaves a residual 15.69% gap rather than
+# closing it to zero.
 ```
 
 For continuous features, replace `chi2_contingency` with a Pearson correlation or partial correlation controlling for the confounder.

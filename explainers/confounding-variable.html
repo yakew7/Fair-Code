@@ -289,26 +289,32 @@ def check_confounding(df, feature_col, outcome_col, confounder_col, protected_co
     return results</code></pre>
 <h4 id="applying-it-to-the-compas-audit">Applying it to the COMPAS audit</h4>
 <pre><code class="language-python"># Load the COMPAS dataset and generate predictions from unfair.py
+# (compas-scores-raw.csv has no raw `race` column - race_binary is derived
+# from Ethnic_Code_Text, exactly as unfair.py does)
 result = check_confounding(
     df=df,
-    feature_col=&quot;CustodyStatus&quot;,
-    outcome_col=&quot;prediction&quot;,      # model&#x27;s high-risk flag
-    confounder_col=&quot;race&quot;,
-    protected_col=&quot;race&quot;,
+    feature_col=&quot;race_binary&quot;,       # the raw racial disparity in predictions
+    outcome_col=&quot;prediction&quot;,        # model&#x27;s high-risk flag
+    confounder_col=&quot;CustodyStatus&quot;,  # suspected confounder
+    protected_col=&quot;race_binary&quot;,     # confirms CustodyStatus itself correlates with race
 )
 
 print(result[&quot;marginal&quot;])
-# {&#x27;chi2&#x27;: 412.7, &#x27;p_value&#x27;: 0.0, &#x27;associated&#x27;: True}
-# Strong marginal association - CustodyStatus predicts the model output.
+# {&#x27;chi2&#x27;: 2439.482, &#x27;p_value&#x27;: 0.0, &#x27;associated&#x27;: True}
+# Strong marginal association - race predicts the model&#x27;s high-risk flag.
 
 print(result[&quot;confounder_vs_protected&quot;])
-# {&#x27;chi2&#x27;: 389.2, &#x27;p_value&#x27;: 0.0, &#x27;associated&#x27;: True}
+# {&#x27;chi2&#x27;: 67.491, &#x27;p_value&#x27;: 0.0, &#x27;associated&#x27;: True}
 # CustodyStatus is also strongly associated with race.
 # Both arms of the confounding path are confirmed.
 
-# Within racial strata, the CustodyStatus → prediction association weakens -
-# confirming that part of the marginal association runs through race, not through
-# individual risk.</code></pre>
+# Within every CustodyStatus stratum (Jail Inmate, Pretrial Defendant,
+# Probation), the race -&gt; prediction association is still large and
+# significant (chi2 ranging ~328-1308, vs. 2439 marginally) - attenuated,
+# but not eliminated. CustodyStatus explains part of the marginal
+# association, not all of it, which is exactly why dropping race and
+# CustodyStatus together still leaves a residual 15.69% gap rather than
+# closing it to zero.</code></pre>
 <p>For continuous features, replace <code>chi2_contingency</code> with a Pearson correlation or partial correlation controlling for the confounder.</p>
 <hr>
 <h3 id="limitations">Limitations</h3>
