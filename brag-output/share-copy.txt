@@ -1,0 +1,1 @@
+A real courtroom algorithm flags Black defendants as high-risk at 87%, white defendants at 0.4%. We found the proxy variable hiding the bias, removed it, and cut the gap by 82% — in the open, with the receipts. thefaircode.xyz

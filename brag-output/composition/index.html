@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>Fair Code — The bias is real. So is the fix.</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      /* ============================================================
+         FAIR CODE — brag video — "The Audit Ledger" recreated
+         ============================================================ */
+
+      @font-face {
+        font-family: "Instrument Serif";
+        font-style: normal;
+        font-weight: 400;
+        src: url("assets/fonts/instrumentserif-400.woff2") format("woff2");
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Instrument Serif";
+        font-style: italic;
+        font-weight: 400;
+        src: url("assets/fonts/instrumentserif-400italic.woff2") format("woff2");
+        font-display: block;
+      }
+      @font-face {
+        font-family: "Archivo";
+        font-style: normal;
+        font-weight: 100 900;
+        src: url("assets/fonts/archivo-variable.woff2") format("woff2-variations");
+        font-display: block;
+      }
+
+      :root {
+        --bg: #f4f1e8;
+        --surface: #ebe7d9;
+        --border: #d9d3c0;
+        --border2: #bdb59c;
+        --accent: #a63a22;
+        --accent2: #8c2f1b;
+        --accent3: #2f6b4f;
+        --text: #36321f;
+        --muted: #7d7459;
+        --ink: #1d1910;
+        --terminal-bg: #191610;
+        --terminal-bar-bg: #211d14;
+        --terminal-label: #988d6f;
+        --terminal-text: #d6d0bd;
+        --code-comment: #a99f80;
+        --bias-track-bg: #e2dcc9;
+        --t-bad: #e07856;
+        --t-good: #8fc3a4;
+
+        --serif: "Instrument Serif", Georgia, serif;
+        --sans: "Archivo", "Helvetica Neue", sans-serif;
+        --mono: "IBM Plex Mono", "SF Mono", monospace;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        background: var(--bg);
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: var(--bg);
+      }
+
+      .clip {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      .stage {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .mono-label {
+        font-family: var(--mono);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      /* ---------- Scene 1 : Hook ---------- */
+
+      #scene-hook .stage {
+        padding: 0 200px;
+        align-items: flex-start;
+        gap: 46px;
+      }
+
+      .hook-eyebrow-row {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        width: 100%;
+      }
+      .hook-eyebrow {
+        font-size: 27px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .hook-eyebrow-line {
+        flex: 1;
+        height: 1px;
+        background: var(--border2);
+      }
+
+      .hook-title {
+        font-family: var(--serif);
+        font-weight: 400;
+        font-size: 122px;
+        line-height: 1.04;
+        letter-spacing: -0.01em;
+        color: var(--ink);
+        max-width: 1500px;
+      }
+      .hook-title div {
+        white-space: nowrap;
+      }
+      .hl {
+        font-style: italic;
+      }
+      .hl.bad {
+        color: var(--accent);
+      }
+      .hl.good {
+        color: var(--accent3);
+      }
+
+      /* ---------- shared terminal chrome (Scenes 2 + 3) ---------- */
+
+      .terminal {
+        width: 100%;
+        max-width: 1240px;
+        border: 1px solid var(--border2);
+        background: var(--terminal-bg);
+        box-shadow: 0 30px 70px rgba(20, 16, 8, 0.22);
+      }
+      .terminal-bar {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 26px;
+        background: var(--terminal-bar-bg);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+      }
+      .terminal-dots {
+        display: flex;
+        gap: 9px;
+        flex-shrink: 0;
+      }
+      .terminal-dots span {
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        display: block;
+      }
+      .terminal-dots span:nth-child(1) {
+        background: #e0665a;
+      }
+      .terminal-dots span:nth-child(2) {
+        background: #e0b34f;
+      }
+      .terminal-dots span:nth-child(3) {
+        background: #6fae7d;
+      }
+      .terminal-label {
+        font-size: 20px;
+        letter-spacing: 0.13em;
+        text-transform: uppercase;
+        color: var(--terminal-label);
+      }
+      .terminal-body {
+        padding: 36px 42px;
+        font-family: var(--mono);
+        font-size: 33px;
+        line-height: 2.05;
+      }
+      .terminal-body div {
+        white-space: pre;
+        opacity: 0;
+      }
+      .t-normal {
+        color: var(--terminal-text);
+      }
+      .t-bad {
+        color: var(--t-bad);
+      }
+      .t-good {
+        color: var(--t-good);
+      }
+
+      /* ---------- Scene 2 : the problem terminal ---------- */
+
+      #scene-terminal-bad .stage {
+        gap: 56px;
+      }
+      #scene-terminal-bad .terminal-body div {
+        font-size: 33px;
+      }
+      #scene-terminal-bad .terminal-body .gap-line {
+        font-size: 40px;
+        font-weight: 700;
+      }
+
+      .stat-big {
+        font-family: var(--serif);
+        font-size: 250px;
+        line-height: 1;
+        color: var(--accent);
+        letter-spacing: -0.02em;
+        opacity: 0;
+      }
+
+      /* ---------- Scene 3 : the fix, live ---------- */
+
+      #scene-fix .stage {
+        gap: 26px;
+        padding: 54px 0;
+      }
+
+      .code-strip {
+        width: 100%;
+        max-width: 1240px;
+        background: var(--terminal-bg);
+        border: 1px solid var(--border2);
+        padding: 24px 42px;
+        font-family: var(--mono);
+        font-size: 27px;
+        line-height: 1.85;
+      }
+      .code-line {
+        display: block;
+      }
+      .code-reveal {
+        display: inline-block;
+        color: var(--code-comment);
+      }
+
+      #scene-fix .terminal {
+        max-width: 1240px;
+      }
+      #scene-fix .terminal-body div {
+        font-size: 30px;
+      }
+      #scene-fix .terminal-body .gap-line {
+        font-size: 36px;
+        font-weight: 700;
+      }
+
+      .bias-bar-wrap {
+        width: 100%;
+        max-width: 1240px;
+        display: flex;
+        align-items: center;
+        gap: 26px;
+      }
+      .bias-label {
+        font-family: var(--mono);
+        font-size: 21px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #5d5742;
+        white-space: nowrap;
+      }
+      .bias-track {
+        flex: 1;
+        height: 30px;
+        background: var(--bias-track-bg);
+        overflow: hidden;
+        position: relative;
+      }
+      .bias-fill {
+        position: absolute;
+        inset: 0;
+        background: var(--accent);
+        transform-origin: left center;
+      }
+      .bias-val {
+        font-family: var(--mono);
+        font-variant-numeric: tabular-nums;
+        font-size: 32px;
+        color: var(--accent);
+        width: 150px;
+        flex-shrink: 0;
+        text-align: right;
+      }
+
+      .reduction-badge {
+        margin-top: 4px;
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 34px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--accent3);
+        border: 3px solid var(--accent3);
+        border-radius: 999px;
+        padding: 14px 40px;
+        opacity: 0;
+      }
+
+      /* ---------- Scene 4 : pattern proof (ticker) ---------- */
+
+      #scene-ticker .stage {
+        justify-content: center;
+      }
+      .ticker-strip {
+        width: 100%;
+        border-top: 1px solid var(--border2);
+        border-bottom: 1px solid var(--border2);
+        background: var(--surface);
+        padding: 64px 220px;
+        display: flex;
+        flex-direction: column;
+        gap: 34px;
+      }
+      .ticker-row {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        opacity: 0;
+      }
+      .ticker-dot {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--accent3);
+        flex-shrink: 0;
+      }
+      .ticker-text {
+        font-family: var(--mono);
+        font-size: 34px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text);
+      }
+      .ticker-text b {
+        color: var(--accent3);
+        font-weight: 700;
+      }
+
+      /* ---------- Scene 5 : outro ---------- */
+
+      #scene-outro .stage {
+        gap: 40px;
+      }
+      .outro-wordmark {
+        font-family: var(--serif);
+        font-size: 196px;
+        line-height: 1;
+        color: var(--ink);
+        letter-spacing: -0.01em;
+        opacity: 0;
+      }
+      .outro-tagline {
+        font-family: var(--sans);
+        font-size: 36px;
+        color: var(--text);
+        max-width: 1100px;
+        text-align: center;
+        line-height: 1.5;
+        opacity: 0;
+      }
+      .outro-url {
+        font-family: var(--mono);
+        font-size: 27px;
+        letter-spacing: 0.12em;
+        color: var(--muted);
+        opacity: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="faircode-brag"
+      data-start="0"
+      data-width="1920"
+      data-height="1080"
+      data-duration="20.9"
+      data-fps="30"
+    >
+      <!-- ============ SCENE 1 — HOOK (0 - 3.0) ============ -->
+      <section id="scene-hook" class="clip" data-start="0" data-duration="3.0" data-track-index="1">
+        <div class="stage">
+          <div class="hook-eyebrow-row">
+            <div class="hook-eyebrow" id="hookEyebrow">Algorithmic bias research · Open source</div>
+            <div class="hook-eyebrow-line"></div>
+          </div>
+          <div class="hook-title">
+            <div class="hook-line1">
+              <span id="line1a">The bias is</span>
+              <span id="line1b" class="hl bad">real.</span>
+            </div>
+            <div class="hook-line2" id="line2">
+              So is <span class="hl good">the fix.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCENE 2 — THE PROBLEM TERMINAL (3.0 - 7.0) ============ -->
+      <section id="scene-terminal-bad" class="clip" data-start="3.0" data-duration="4.0" data-track-index="2">
+        <div class="stage">
+          <div class="terminal" id="badTerminal">
+            <div class="terminal-bar">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-label">unfair.py — BIASED MODEL</div>
+            </div>
+            <div class="terminal-body">
+              <div id="bad-line1"><span class="t-normal">Black Defendant High-Risk Rate: </span><span class="t-bad">87.16%</span></div>
+              <div id="bad-line2"><span class="t-normal">White Defendant High-Risk Rate: </span><span class="t-normal">0.40%</span></div>
+              <div id="bad-line3" class="gap-line"><span class="t-normal">Fairness Gap: </span><span class="t-bad">86.77%</span></div>
+            </div>
+          </div>
+          <div class="stat-big" id="bigStat">86.77<span style="font-size:0.4em;font-style:italic">%</span></div>
+        </div>
+      </section>
+
+      <!-- ============ SCENE 3 — THE FIX, LIVE (7.0 - 12.9, tail to 13.3) ============ -->
+      <section id="scene-fix" class="clip" data-start="7.0" data-duration="6.3" data-track-index="3">
+        <div class="stage" id="fixStage">
+          <div class="code-strip">
+            <span class="code-line"><span class="code-reveal" id="comment1"># Race removed ✓</span></span>
+            <span class="code-line"><span class="code-reveal" id="comment2"># CustodyStatus removed ✓ (proxy for race)</span></span>
+          </div>
+
+          <div class="terminal">
+            <div class="terminal-bar">
+              <div class="terminal-dots"><span></span><span></span><span></span></div>
+              <div class="terminal-label">fair.py — MITIGATED MODEL</div>
+            </div>
+            <div class="terminal-body">
+              <div id="good-line1"><span class="t-normal">Black Defendant High-Risk Rate: </span><span class="t-normal">84.71%</span></div>
+              <div id="good-line2"><span class="t-normal">White Defendant High-Risk Rate: </span><span class="t-good">69.02%</span></div>
+              <div id="good-line3" class="gap-line"><span class="t-normal">New Fairness Gap: </span><span class="t-good">15.69%</span></div>
+            </div>
+          </div>
+
+          <div class="bias-bar-wrap">
+            <div class="bias-label">Fairness Gap</div>
+            <div class="bias-track">
+              <div class="bias-fill" id="biasFill"></div>
+            </div>
+            <div class="bias-val" id="biasVal">86.77%</div>
+          </div>
+
+          <div class="reduction-badge" id="reductionBadge">82% reduction</div>
+        </div>
+      </section>
+
+      <!-- ============ SCENE 4 — PATTERN PROOF (12.9 - 16.4, tail to 16.75) ============ -->
+      <section id="scene-ticker" class="clip" data-start="12.9" data-duration="3.85" data-track-index="4">
+        <div class="stage" id="tickerStage">
+          <div class="ticker-strip">
+            <div class="ticker-row" id="tickItem1">
+              <div class="ticker-dot"></div>
+              <div class="ticker-text">AI HIRING · <b>97.3% REDUCTION</b></div>
+            </div>
+            <div class="ticker-row" id="tickItem2">
+              <div class="ticker-dot"></div>
+              <div class="ticker-text">LENDING · <b>73.6% REDUCTION</b></div>
+            </div>
+            <div class="ticker-row" id="tickItem3">
+              <div class="ticker-dot"></div>
+              <div class="ticker-text">HEALTHCARE · <b>60% REDUCTION</b></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SCENE 5 — OUTRO (16.4 - 20.9) ============ -->
+      <section id="scene-outro" class="clip" data-start="16.4" data-duration="4.5" data-track-index="5">
+        <div class="stage">
+          <div class="outro-wordmark" id="wordmark">Fair Code</div>
+          <div class="outro-tagline" id="tagline">7 audits. Every fairness gap measured, then closed. Open source.</div>
+          <div class="outro-url" id="outroUrl">thefaircode.xyz</div>
+        </div>
+      </section>
+
+      <!-- ============ AUDIO ============ -->
+
+      <!-- music bed -->
+      <audio id="music" src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3" data-start="0" data-duration="20.9" data-volume="1" data-track-index="20"></audio>
+
+      <!-- print-line ticks (hook phrases, terminal rows, ticker items) -->
+      <audio id="tick-01" src="assets/sfx/interface/click_002.ogg" data-start="0.0" data-volume="0.5" data-track-index="21"></audio>
+      <audio id="tick-02" src="assets/sfx/interface/click_002.ogg" data-start="0.4" data-volume="0.5" data-track-index="22"></audio>
+      <audio id="tick-03" src="assets/sfx/interface/click_002.ogg" data-start="1.0" data-volume="0.5" data-track-index="23"></audio>
+      <audio id="tick-04" src="assets/sfx/interface/click_002.ogg" data-start="1.5" data-volume="0.5" data-track-index="24"></audio>
+
+      <audio id="tick-05" src="assets/sfx/interface/click_002.ogg" data-start="3.35" data-volume="0.5" data-track-index="25"></audio>
+      <audio id="tick-06" src="assets/sfx/interface/click_002.ogg" data-start="4.35" data-volume="0.5" data-track-index="26"></audio>
+      <audio id="tick-07" src="assets/sfx/interface/click_002.ogg" data-start="5.35" data-volume="0.55" data-track-index="27"></audio>
+      <audio id="tick-08" src="assets/sfx/interface/click_002.ogg" data-start="6.0" data-volume="0.55" data-track-index="28"></audio>
+
+      <audio id="tick-09" src="assets/sfx/interface/click_002.ogg" data-start="9.29" data-volume="0.5" data-track-index="29"></audio>
+      <audio id="tick-10" src="assets/sfx/interface/click_002.ogg" data-start="9.99" data-volume="0.5" data-track-index="30"></audio>
+      <audio id="tick-11" src="assets/sfx/interface/click_002.ogg" data-start="10.69" data-volume="0.55" data-track-index="31"></audio>
+
+      <audio id="tick-12" src="assets/sfx/interface/click_002.ogg" data-start="13.0" data-volume="0.45" data-track-index="32"></audio>
+      <audio id="tick-13" src="assets/sfx/interface/click_002.ogg" data-start="13.9" data-volume="0.45" data-track-index="33"></audio>
+      <audio id="tick-14" src="assets/sfx/interface/click_002.ogg" data-start="14.8" data-volume="0.45" data-track-index="34"></audio>
+
+      <audio id="tick-15" src="assets/sfx/interface/click_002.ogg" data-start="18.56" data-volume="0.5" data-track-index="35"></audio>
+
+      <!-- code-comment keypress ticks -->
+      <audio id="key-01" src="assets/sfx/keyboard/keypress-004.wav" data-start="7.25" data-volume="0.4" data-track-index="36"></audio>
+      <audio id="key-02" src="assets/sfx/keyboard/keypress-011.wav" data-start="7.45" data-volume="0.4" data-track-index="37"></audio>
+      <audio id="key-03" src="assets/sfx/keyboard/keypress-006.wav" data-start="7.65" data-volume="0.4" data-track-index="38"></audio>
+      <audio id="key-04" src="assets/sfx/keyboard/keypress-006.wav" data-start="7.95" data-volume="0.4" data-track-index="39"></audio>
+      <audio id="key-05" src="assets/sfx/keyboard/keypress-004.wav" data-start="8.15" data-volume="0.4" data-track-index="40"></audio>
+      <audio id="key-06" src="assets/sfx/keyboard/keypress-011.wav" data-start="8.35" data-volume="0.4" data-track-index="41"></audio>
+
+      <!-- stamp / impact hits — the two emotional peaks -->
+      <audio id="impact-badge" src="assets/sfx/impact/impactBell_heavy_000.ogg" data-start="12.19" data-volume="0.9" data-track-index="42"></audio>
+      <audio id="impact-wordmark" src="assets/sfx/impact/impactBell_heavy_000.ogg" data-start="16.8" data-volume="0.9" data-track-index="43"></audio>
+    </div>
+
+    <script>
+      document.fonts.ready.then(function () {
+        var tl = gsap.timeline({ paused: true });
+
+        /* ---------------- Scene 1 : Hook ---------------- */
+        tl.fromTo("#hookEyebrow", { y: 14, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 0.0);
+        tl.fromTo("#line1a", { y: 26, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power4.out" }, 0.4);
+        tl.fromTo("#line1b", { scale: 0.88, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.25, ease: "power3.out" }, 1.0);
+        tl.fromTo("#line2", { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, ease: "power4.out" }, 1.5);
+
+        /* ---------------- Scene 2 : Problem terminal ---------------- */
+        tl.fromTo("#badTerminal", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3, ease: "power3.out" }, 3.0);
+        tl.fromTo("#bad-line1", { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.25, ease: "power2.out" }, 3.35);
+        tl.fromTo("#bad-line2", { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.25, ease: "power2.out" }, 4.35);
+        tl.fromTo("#bad-line3", { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.25, ease: "power2.out" }, 5.35);
+        tl.fromTo("#bigStat", { scale: 0.82, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.45, ease: "power4.out" }, 6.0);
+
+        /* ---------------- Scene 3 : The fix, live ---------------- */
+        tl.fromTo("#comment1", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.6, ease: "none" }, 7.15);
+        tl.fromTo("#comment2", { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.6, ease: "none" }, 7.85);
+
+        tl.fromTo("#scene-fix .terminal", { y: 24, opacity: 0 }, { y: 0, opacity: 1, duration: 0.25, ease: "power3.out" }, 8.74);
+        tl.fromTo("#good-line1", { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.25, ease: "power2.out" }, 9.29);
+        tl.fromTo("#good-line2", { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.25, ease: "power2.out" }, 9.99);
+        tl.fromTo("#good-line3", { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.25, ease: "power2.out" }, 10.69);
+
+        // bias bar: fill shrinks from the biased gap to the mitigated gap, red -> green
+        var biasCounter = { v: 86.77 };
+        var biasVal = document.getElementById("biasVal");
+        tl.fromTo(
+          "#biasFill",
+          { scaleX: 0.8677, backgroundColor: "#a63a22" },
+          { scaleX: 0.1569, backgroundColor: "#2f6b4f", duration: 0.8, ease: "power2.inOut" },
+          11.39,
+        );
+        tl.to(
+          biasCounter,
+          {
+            v: 15.69,
+            duration: 0.8,
+            ease: "power2.inOut",
+            onUpdate: function () {
+              biasVal.textContent = biasCounter.v.toFixed(2) + "%";
+            },
+          },
+          11.39,
+        );
+        tl.to("#biasVal", { color: "#2f6b4f", duration: 0.8, ease: "power2.inOut" }, 11.39);
+
+        // reduction badge — the stamp / emotional peak, with a brief RMS-scaled glow
+        tl.fromTo(
+          "#reductionBadge",
+          { scale: 1.7, rotation: -9, opacity: 0 },
+          { scale: 1, rotation: -3, opacity: 1, duration: 0.35, ease: "power4.out" },
+          12.19,
+        );
+        tl.fromTo(
+          "#reductionBadge",
+          { boxShadow: "0 0 0px 0px rgba(47,107,79,0)" },
+          { boxShadow: "0 0 44px 6px rgba(47,107,79,0.58)", duration: 0.22, ease: "power2.out", immediateRender: false },
+          12.19,
+        );
+        tl.to("#reductionBadge", { boxShadow: "0 0 0px 0px rgba(47,107,79,0)", duration: 0.55, ease: "power2.in" }, 12.41);
+
+        // crossfade Scene 3 -> Scene 4
+        tl.to("#fixStage", { opacity: 0, duration: 0.4, ease: "power2.inOut" }, 12.9);
+        tl.fromTo("#tickerStage", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.inOut" }, 12.9);
+
+        /* ---------------- Scene 4 : Pattern proof ---------------- */
+        tl.fromTo("#tickItem1", { x: 34, opacity: 0 }, { x: 0, opacity: 1, duration: 0.2, ease: "power3.out" }, 13.0);
+        tl.fromTo("#tickItem2", { x: 34, opacity: 0 }, { x: 0, opacity: 1, duration: 0.2, ease: "power3.out" }, 13.9);
+        tl.fromTo("#tickItem3", { x: 34, opacity: 0 }, { x: 0, opacity: 1, duration: 0.2, ease: "power3.out" }, 14.8);
+
+        // crossfade Scene 4 -> Scene 5 (short/clean so the outgoing ticker text is
+        // fully gone before the wordmark stamps in — no text-over-text overlap)
+        tl.to("#tickerStage", { opacity: 0, duration: 0.35, ease: "power1.inOut" }, 16.4);
+        // (Scene 5's own elements fade in individually below; the outro stage itself is visible by default)
+
+        /* ---------------- Scene 5 : Outro ---------------- */
+        tl.fromTo(
+          "#wordmark",
+          { scale: 1.6, rotation: -6, opacity: 0 },
+          { scale: 1, rotation: 0, opacity: 1, duration: 0.4, ease: "power4.out" },
+          16.8,
+        );
+        tl.fromTo(
+          "#wordmark",
+          { textShadow: "0 0 0px rgba(29,25,16,0)" },
+          { textShadow: "0 0 42px rgba(29,25,16,0.55)", duration: 0.2, ease: "power2.out", immediateRender: false },
+          16.8,
+        );
+        tl.to("#wordmark", { textShadow: "0 0 0px rgba(29,25,16,0)", duration: 0.5, ease: "power2.in" }, 17.0);
+
+        tl.fromTo("#tagline", { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" }, 17.26);
+        tl.fromTo(
+          "#outroUrl",
+          { scale: 1.5, opacity: 0 },
+          { scale: 1, opacity: 1, duration: 0.3, ease: "power4.out" },
+          18.56,
+        );
+
+        // clean fade-out on the music bed under the final hold
+        tl.fromTo("#music", { volume: 0.28 }, { volume: 0, duration: 1.5, ease: "power1.in" }, 19.4);
+
+        window.__timelines["faircode-brag"] = tl;
+      });
+    </script>
+  </body>
+</html>
