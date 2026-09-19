@@ -98,10 +98,9 @@ def demographic_parity_audit(df, prediction_col, group_col, positive_label=1):
     return rates, gap, ratio
 
 # Example - using the AI Fair Recruitment dataset
-df = pd.read_csv('AI_Fair_Recruitment_Dataset.csv')
-df['predicted_hire'] = model.predict(X_test)  # substitute your model
-
-demographic_parity_audit(df_test, prediction_col='predicted_hire', group_col='Gender')
+# df = pd.read_csv('AI Fair Recruitment/AI_Fair_Recruitment_Dataset.csv')
+# df['predicted_hire'] = model.predict(X_test)  # substitute your trained model and its X_test
+# demographic_parity_audit(df, prediction_col='predicted_hire', group_col='Gender')
 ```
 
 ### Compute across multiple protected attributes at once
@@ -129,11 +128,11 @@ def multi_group_parity_audit(y_pred, groups_df, positive_label=1):
     return results
 
 # Example
-protected = test_df[['Gender', 'Race', 'AgeGroup']]
-audit = multi_group_parity_audit(y_pred, protected)
-for attr, result in audit.items():
-    status = '✓' if result['passes_eeoc'] else '✗'
-    print(f"{attr}: gap={result['gap']:.4f}, 4/5 ratio={result['four_fifths_ratio']:.4f} {status}")
+# protected = df[['Gender', 'Race', 'AgeGroup']]
+# audit = multi_group_parity_audit(y_pred, protected)  # y_pred = your model's predictions
+# for attr, result in audit.items():
+#     status = '✓' if result['passes_eeoc'] else '✗'
+#     print(f"{attr}: gap={result['gap']:.4f}, 4/5 ratio={result['four_fifths_ratio']:.4f} {status}")
 ```
 
 ### Visualise the gap

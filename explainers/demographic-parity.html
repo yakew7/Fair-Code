@@ -249,10 +249,9 @@ def demographic_parity_audit(df, prediction_col, group_col, positive_label=1):
     return rates, gap, ratio
 
 # Example - using the AI Fair Recruitment dataset
-df = pd.read_csv(&#x27;AI_Fair_Recruitment_Dataset.csv&#x27;)
-df[&#x27;predicted_hire&#x27;] = model.predict(X_test)  # substitute your model
-
-demographic_parity_audit(df_test, prediction_col=&#x27;predicted_hire&#x27;, group_col=&#x27;Gender&#x27;)</code></pre>
+# df = pd.read_csv(&#x27;AI Fair Recruitment/AI_Fair_Recruitment_Dataset.csv&#x27;)
+# df[&#x27;predicted_hire&#x27;] = model.predict(X_test)  # substitute your trained model and its X_test
+# demographic_parity_audit(df, prediction_col=&#x27;predicted_hire&#x27;, group_col=&#x27;Gender&#x27;)</code></pre>
 <h4 id="compute-across-multiple-protected-attributes-at-once">Compute across multiple protected attributes at once</h4>
 <pre><code class="language-python">def multi_group_parity_audit(y_pred, groups_df, positive_label=1):
     &quot;&quot;&quot;
@@ -276,11 +275,11 @@ demographic_parity_audit(df_test, prediction_col=&#x27;predicted_hire&#x27;, gro
     return results
 
 # Example
-protected = test_df[[&#x27;Gender&#x27;, &#x27;Race&#x27;, &#x27;AgeGroup&#x27;]]
-audit = multi_group_parity_audit(y_pred, protected)
-for attr, result in audit.items():
-    status = &#x27;✓&#x27; if result[&#x27;passes_eeoc&#x27;] else &#x27;✗&#x27;
-    print(f&quot;{attr}: gap={result[&#x27;gap&#x27;]:.4f}, 4/5 ratio={result[&#x27;four_fifths_ratio&#x27;]:.4f} {status}&quot;)</code></pre>
+# protected = df[[&#x27;Gender&#x27;, &#x27;Race&#x27;, &#x27;AgeGroup&#x27;]]
+# audit = multi_group_parity_audit(y_pred, protected)  # y_pred = your model&#x27;s predictions
+# for attr, result in audit.items():
+#     status = &#x27;✓&#x27; if result[&#x27;passes_eeoc&#x27;] else &#x27;✗&#x27;
+#     print(f&quot;{attr}: gap={result[&#x27;gap&#x27;]:.4f}, 4/5 ratio={result[&#x27;four_fifths_ratio&#x27;]:.4f} {status}&quot;)</code></pre>
 <h4 id="visualise-the-gap">Visualise the gap</h4>
 <pre><code class="language-python">import matplotlib.pyplot as plt
 
