@@ -448,7 +448,7 @@ X = df[['experience_years', 'test_score']]
 
 ### 03 · German Credit Lending - Lending Bias
 
-> *"A credit scoring model rates young applicants as bad credit risks at 6.39 percentage points higher than older applicants with identical financial profiles. It learned age from job tenure."*
+> *"A credit scoring model rates young applicants as bad credit risks at 7.16 percentage points higher than older applicants with identical financial profiles. It learned age from job tenure."*
 
 <details>
 <summary><strong>Show the dataset, before/after code, and results →</strong></summary>
