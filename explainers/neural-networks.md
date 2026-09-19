@@ -136,15 +136,14 @@ We tested this directly using the [AI Fair Recruitment dataset](../AI%20Fair%20R
 
 ### What We Did
 
-**Step 1 - Biased model (gender + proxy `age` included):**
+**Step 1 - Biased model (gender + declared proxy `Age` included):**
 
 ```python
 features = [
-    'gender',
-    'age',            # proxy: women enter/exit workforce differently due to caregiving
-    'experience_years',
-    'technical_score',
-    'communication_score'
+    'Gender',
+    'Age',            # declared proxy in audit.yaml
+    'Experience_Years',
+    'Technical_Test_Score'
 ]
 ```
 
@@ -164,11 +163,10 @@ The network didn't contain a rule that said "prefer men." It learned from histor
 
 ```python
 features = [
-    # gender removed ✓
-    # age removed ✓  (proxy: encodes gender via caregiving gap)
-    'experience_years',
-    'technical_score',
-    'communication_score'
+    # Gender removed ✓
+    # Age removed ✓  (declared proxy in audit.yaml)
+    'Experience_Years',
+    'Technical_Test_Score'
 ]
 ```
 
@@ -179,7 +177,7 @@ features = [
 | Approach | Fairness Gap | Reduction |
 |---|---|---|
 | Biased model | 4.51% | - |
-| Remove gender only | barely moves (age still proxies it) | Minimal |
+| Remove gender only (keep Age) | 0.23% | 95% |
 | Remove gender + proxy | 0.12% | **97.3%** |
 
 **The network's architecture didn't change. The training procedure didn't change. Only the inputs changed - and the bias disappeared.**
