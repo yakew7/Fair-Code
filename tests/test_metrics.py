@@ -132,6 +132,11 @@ def test_insufficient_data_returns_empty_result_not_a_crash():
     assert eq_opp["value"] is None
     assert eq_opp["note"] == "insufficient_data"
     assert eq_opp["significant"] is False
+    # The disadvantaged side really has 0 positive-label rows, but the
+    # advantaged side has 3 - n_advantaged must reflect that real count,
+    # not be fabricated to 0 just because the metric itself is undefined.
+    assert eq_opp["n_disadvantaged"] == 0
+    assert eq_opp["n_advantaged"] == 3
 
 
 def test_disparate_impact_ratio_of_one_for_identical_groups():

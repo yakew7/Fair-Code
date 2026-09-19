@@ -48,10 +48,10 @@ METRICS = (
 _RATIO_EPSILON = 1e-6
 
 
-def _empty_result(note):
+def _empty_result(note, n_disadvantaged=0, n_advantaged=0):
     return {
         "value": None, "ci_low": None, "ci_high": None, "p_value": None,
-        "significant": False, "n_disadvantaged": 0, "n_advantaged": 0,
+        "significant": False, "n_disadvantaged": n_disadvantaged, "n_advantaged": n_advantaged,
         "small_sample_warning": False, "note": note,
     }
 
@@ -105,7 +105,7 @@ def _ratio_report(disadv_pred, adv_pred, n_resamples, n_permutations, confidence
     a = np.asarray(disadv_pred, dtype=float)
     b = np.asarray(adv_pred, dtype=float)
     if len(a) == 0 or len(b) == 0:
-        return _empty_result("insufficient_data")
+        return _empty_result("insufficient_data", len(a), len(b))
     ratio, ci_low, ci_high = _bootstrap_ratio(a, b, n_resamples, confidence, random_state)
     p_value = _permutation_ratio_p(a, b, n_permutations, random_state)
     return {
@@ -121,7 +121,7 @@ def _ratio_report(disadv_pred, adv_pred, n_resamples, n_permutations, confidence
 
 def _diff_report(disadv, adv, n_resamples, n_permutations, confidence, random_state):
     if len(disadv) == 0 or len(adv) == 0:
-        return _empty_result("insufficient_data")
+        return _empty_result("insufficient_data", len(disadv), len(adv))
     sig = significance_report(disadv, adv, n_resamples, n_permutations, confidence, random_state)
     return {
         "value": sig["gap"], "ci_low": sig["ci_low"], "ci_high": sig["ci_high"],
