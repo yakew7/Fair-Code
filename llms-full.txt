@@ -55,9 +55,12 @@ We tested this directly using the [ProPublica COMPAS dataset](https://github.com
 
 **Step 1 - Biased model (includes race + proxies):**
 ```python
+# compas-scores-raw.csv has no raw `race`/`sex` columns - race_binary is
+# derived from Ethnic_Code_Text, exactly as unfair.py does
+df['race_binary'] = df['Ethnic_Code_Text'].map({'African-American': 1, 'Caucasian': 0})
 X = pd.get_dummies(df[[
-    'race',
-    'sex',
+    'race_binary',
+    'Sex_Code_Text',
     'CustodyStatus',        # proxy for race
     'MaritalStatus'
 ]])
@@ -74,9 +77,7 @@ X = pd.get_dummies(df[[
 
 **Step 2 - Remove race only (naive approach):**
 
-Many developers stop here. They drop the `race` column and assume the model is now fair. It isn't.
-
-The `CustodyStatus` feature was still acting as a racial proxy. The gap barely moved.
+Many developers stop here. They drop `race_binary` and assume the model is now fair. Dropping race alone already takes the gap from 86.77% down to 18.38% - most of the signal was riding on race directly. But it isn't fully fixed: `CustodyStatus` is still acting as a racial proxy, and its own marginal contribution beyond race is the remaining ~2.7 points down to 15.69% once it's removed too (see Step 3).
 
 ---
 
@@ -102,7 +103,7 @@ X = pd.get_dummies(df[[
 | Approach | Fairness Gap | Reduction |
 |---|---|---|
 | Biased model | 86.77% | - |
-| Remove race only | ~80%+ | Minimal |
+| Remove race only | 18.38% | 79% |
 | Remove race + proxy | 15.69% | **82%** |
 
 **Removing the protected attribute alone is not enough. You must audit every feature for correlation with protected attributes.**
@@ -131,9 +132,9 @@ def check_proxy(df, feature, protected_attr):
     }
 
 # Example usage
-result = check_proxy(df, 'CustodyStatus', 'race')
+result = check_proxy(df, 'CustodyStatus', 'Ethnic_Code_Text')
 print(result)
-# {'feature': 'CustodyStatus', 'protected_attr': 'race', 'p_value': 0.0001, 'is_proxy': True}
+# {'feature': 'CustodyStatus', 'protected_attr': 'Ethnic_Code_Text', 'p_value': 0.0, 'is_proxy': True}
 ```
 
 Run this on every feature in your dataset before training. Any feature with `is_proxy: True` needs careful consideration - either remove it or apply fairness-aware techniques.
@@ -217,18 +218,18 @@ COMPAS is a risk assessment tool deployed across 46 US states. Judges use its sc
 
 ### What We Measured
 
-After training a classifier on the COMPAS dataset, we measured true positive rate (TPR) and false positive rate (FPR) broken down by race:
+Training a `RandomForestClassifier(random_state=42)` on `Sex_Code_Text`, `CustodyStatus`, and `MaritalStatus` (race already removed, matching this repo's own "remove race only" recipe - see [proxy-variables.md](proxy-variables.md)), we measured true positive rate (TPR) and false positive rate (FPR) against `ScoreText`-derived `is_high_risk`, broken down by race:
 
 | Group | True Positive Rate | False Positive Rate |
 |---|---:|---:|
-| Black Defendants | 0.89 | 0.31 |
-| White Defendants | 0.67 | 0.11 |
-| **Gap** | **0.22** | **0.20** |
+| Black Defendants | 0.73 | 0.61 |
+| White Defendants | 0.64 | 0.43 |
+| **Gap** | **0.08** | **0.18** |
 
 Interpretation:
 
-- Black defendants who *will* reoffend are correctly flagged at a higher rate - but
-- Black defendants who *won't* reoffend are also incorrectly flagged at nearly three times the rate of white defendants
+- Black defendants who *will* reoffend are correctly flagged at a somewhat higher rate - but
+- Black defendants who *won't* reoffend are also incorrectly flagged at a much higher rate than white defendants
 
 The model isn't just wrong more often for Black defendants. It's wrong in a specific *direction* - over-flagging them as high-risk. Equalized Odds catches this because it checks both error types, not just overall accuracy.
 
@@ -262,16 +263,16 @@ print("\nDifferences:")
 print(frame.difference())
 ```
 
-Example output:
+Example output (this exact recipe, this exact seed; a `RandomForestClassifier` with a fixed seed is not guaranteed bit-identical across CPU architectures and BLAS backends, so the last digit can move on other machines - see [reject-inference.md](reject-inference.md) for the same caveat):
 
 ```
                   TPR   FPR
-Black Defendants  0.89  0.31
-White Defendants  0.67  0.11
+Black Defendants  0.73  0.61
+White Defendants  0.64  0.43
 
 Differences:
-TPR    0.22
-FPR    0.20
+TPR    0.08
+FPR    0.18
 ```
 
 Large differences in either metric indicate an Equalized Odds violation. Run this on every protected attribute in your dataset before deployment.
@@ -716,7 +717,7 @@ CustodyStatus_Probation     0.0165   (proxy)
 MaritalStatus_Divorced      0.0126
 ```
 
-**The model's single largest driver was race.** `MaritalStatus_Single` was the second largest; `CustodyStatus_Probation` - a proxy for race - ranks fourth. Race alone accounted for roughly 40% of the top-5 features' combined influence.
+**The model's single largest driver was race.** `MaritalStatus_Single` was the second largest; `CustodyStatus_Probation` - a proxy for race - ranks fourth. Race alone accounted for roughly 48% of the top-5 features' combined influence (and roughly 42% of all features' combined influence).
 
 Without SHAP, you would not know this. The model's accuracy numbers alone tell you nothing about which features drove individual predictions.
 
@@ -1020,10 +1021,14 @@ result = disparate_impact_ratio(
 
 print(result)
 # {
-#   'selection_rates': {'Female': 0.1710, 'Male': 0.2162},
-#   'disparate_impact_ratio': 0.791,
+#   'selection_rates': {'Female': 0.1759, 'Male': 0.2162, 'Other': 0.1340},
+#   'disparate_impact_ratio': 0.62,
 #   'passes_four_fifths_rule': False
 # }
+# Note: this dataset's real Gender column has 3 values (Male/Female/Other),
+# not just 2 - grouping by the raw column pulls in all three, giving a lower
+# ratio (Other's rate vs Male's) than the Male/Female-only figure quoted
+# above, which comes from unfair.py's own two-way "male_col" dummy split.
 ```
 
 Run the same snippet against `fair.py` and the ratio climbs to **0.989** - passing.
@@ -2083,9 +2088,9 @@ A model trained with gender and age as features assigned hire recommendations at
 
 (The disparate-impact ratio here is 17.10 / 21.62 = 0.79, below the 0.80 four-fifths threshold.)
 
-The model was not told to discriminate. It learned to - by treating age as a proxy for gender, because women in the dataset more often had career gaps. Age was correlated with gender, so including it smuggled the gender signal back in even without an explicit gender rule.
+The model was not told to discriminate. It learned to - by treating gender as a direct signal, since it was fed to the model as a feature. `AI Fair Recruitment/audit.yaml` also lists `Age` as a declared proxy feature to remove alongside gender, but in this dataset Age is not actually correlated with Gender (point-biserial r ≈ -0.002, p ≈ 0.42 - not significant, and dropping only Gender while keeping Age already closes the gap to about 0.2 percentage points, nearly as small as the fully-fixed model below). The gap here was overwhelmingly about gender being visible to the model directly, not about a career-gap-driven age proxy.
 
-After dropping gender and age (the protected attribute and its proxy), the gap closes to **0.12 percentage points** - a **97.3% reduction**. The gap wasn't in the underlying merit of candidates - it was in which features the model was permitted to see.
+After dropping gender and age (the protected attribute and the declared proxy), the gap closes to **0.12 percentage points** - a **97.3% reduction**. The gap wasn't in the underlying merit of candidates - it was in which features the model was permitted to see.
 
 ---
 
@@ -2125,10 +2130,9 @@ def demographic_parity_audit(df, prediction_col, group_col, positive_label=1):
     return rates, gap, ratio
 
 # Example - using the AI Fair Recruitment dataset
-df = pd.read_csv('AI_Fair_Recruitment_Dataset.csv')
-df['predicted_hire'] = model.predict(X_test)  # substitute your model
-
-demographic_parity_audit(df_test, prediction_col='predicted_hire', group_col='Gender')
+# df = pd.read_csv('AI Fair Recruitment/AI_Fair_Recruitment_Dataset.csv')
+# df['predicted_hire'] = model.predict(X_test)  # substitute your trained model and its X_test
+# demographic_parity_audit(df, prediction_col='predicted_hire', group_col='Gender')
 ```
 
 ### Compute across multiple protected attributes at once
@@ -2156,11 +2160,11 @@ def multi_group_parity_audit(y_pred, groups_df, positive_label=1):
     return results
 
 # Example
-protected = test_df[['Gender', 'Race', 'AgeGroup']]
-audit = multi_group_parity_audit(y_pred, protected)
-for attr, result in audit.items():
-    status = '✓' if result['passes_eeoc'] else '✗'
-    print(f"{attr}: gap={result['gap']:.4f}, 4/5 ratio={result['four_fifths_ratio']:.4f} {status}")
+# protected = df[['Gender', 'Race', 'AgeGroup']]
+# audit = multi_group_parity_audit(y_pred, protected)  # y_pred = your model's predictions
+# for attr, result in audit.items():
+#     status = '✓' if result['passes_eeoc'] else '✗'
+#     print(f"{attr}: gap={result['gap']:.4f}, 4/5 ratio={result['four_fifths_ratio']:.4f} {status}")
 ```
 
 ### Visualise the gap
@@ -3506,18 +3510,18 @@ for race_group in ['White', 'Black']:
     total = len(cf_df[cf_df['race'] == race_group])
     print(f"  {race_group} applicants whose decision flips: {len(group)}/{total} ({len(group)/total*100:.1f}%)")
 
-# ── Expected output ──────────────────────────────────────────────────────────
+# ── Actual output (this exact seed) ──────────────────────────────────────────
 # ── COUNTERFACTUAL FAIRNESS AUDIT ──
 #
 # Total test records:               600
-# Counterfactual violations:        214
-# Violation rate:                   35.7%
+# Counterfactual violations:        189
+# Violation rate:                   31.5%
 #
-#   White applicants whose decision flips: 87/356 (24.4%)
-#   Black applicants whose decision flips: 127/244 (52.0%)
+#   White applicants whose decision flips: 114/355 (32.1%)
+#   Black applicants whose decision flips: 75/245 (30.6%)
 ```
 
-A 35.7% violation rate means more than one in three applicants would receive a different loan decision if they had been born into the other racial group - with everything causally independent (income, personal behaviour) held constant. This is the operational signature of a model that is, at the causal level, making race-based decisions.
+A 31.5% violation rate means about one in three applicants would receive a different loan decision if they had been born into the other racial group - with everything causally independent (income, personal behaviour) held constant. In this run, White and Black applicants flip at nearly identical rates (32.1% vs. 30.6%), so the violation itself isn't concentrated in one group here - what it shows is that `neighbourhood`/`credit_score` still move the outcome for a large share of applicants purely because of a causally-upstream group label, for either group. That is still the operational signature of a model that is, at the causal level, making race-based decisions - counterfactual fairness flags the causal dependence on race regardless of which direction it currently cuts in a given sample.
 
 ### The fix: use only causally independent features
 
@@ -3535,7 +3539,7 @@ X_train_f, X_test_f, y_train_f, y_test_f = train_test_split(
 model_fair = RandomForestClassifier(n_estimators=100, random_state=42)
 model_fair.fit(X_train_f, y_train_f)
 
-test_df['prediction_fair'] = model_fair.predict(X_test_f)
+cf_df['prediction_fair'] = model_fair.predict(X_test_f)
 
 # Re-run audit - counterfactual flipping race no longer changes income,
 # so predictions are now stable across the counterfactual
@@ -3801,15 +3805,14 @@ We tested this directly using the [AI Fair Recruitment dataset](../AI%20Fair%20R
 
 ### What We Did
 
-**Step 1 - Biased model (gender + proxy `age` included):**
+**Step 1 - Biased model (gender + declared proxy `Age` included):**
 
 ```python
 features = [
-    'gender',
-    'age',            # proxy: women enter/exit workforce differently due to caregiving
-    'experience_years',
-    'technical_score',
-    'communication_score'
+    'Gender',
+    'Age',            # declared proxy in audit.yaml
+    'Experience_Years',
+    'Technical_Test_Score'
 ]
 ```
 
@@ -3829,11 +3832,10 @@ The network didn't contain a rule that said "prefer men." It learned from histor
 
 ```python
 features = [
-    # gender removed ✓
-    # age removed ✓  (proxy: encodes gender via caregiving gap)
-    'experience_years',
-    'technical_score',
-    'communication_score'
+    # Gender removed ✓
+    # Age removed ✓  (declared proxy in audit.yaml)
+    'Experience_Years',
+    'Technical_Test_Score'
 ]
 ```
 
@@ -3844,7 +3846,7 @@ features = [
 | Approach | Fairness Gap | Reduction |
 |---|---|---|
 | Biased model | 4.51% | - |
-| Remove gender only | barely moves (age still proxies it) | Minimal |
+| Remove gender only (keep Age) | 0.23% | 95% |
 | Remove gender + proxy | 0.12% | **97.3%** |
 
 **The network's architecture didn't change. The training procedure didn't change. Only the inputs changed - and the bias disappeared.**
@@ -4496,7 +4498,7 @@ model_fair.fit(X_train_f, y_train_f)
 | Approach | Fairness Gap | Reduction |
 |---|---|---|
 | Biased policy | 86.77% | - |
-| Remove race only | ~60% | Partial |
+| Remove race only (keep custody_status) | 18.38% | 79% |
 | Remove race + custody_status | 15.69% | **82%** |
 
 The policy architecture did not change. The training procedure did not change. Only the state representation changed - and most of the discriminatory behaviour disappeared.
@@ -6116,60 +6118,6 @@ Predictive Parity holds when:  PPV(group a) ≈ PPV(group b)
 
 Chouldechova (2017) proved the mechanism algebraically: if predictive parity holds but the base rate of the outcome differs between two groups, the false positive rate and false negative rate cannot be equal across those same groups. It is not a modeling flaw. It is an identity that follows directly from the definitions once base rates diverge.
 
-## Concrete Example: COMPAS - Audit 01
-
-The [COMPAS](../COMPAS/) audit in this repo uses the same ProPublica recidivism dataset at the center of the 2016 "Machine Bias" investigation, where race is the protected attribute - but this repo's `COMPAS/compas-scores-raw.csv` has no independent two-year re-offense outcome to check predictive parity against (per `COMPAS/audit.yaml`, its target is `ScoreText`, COMPAS's own risk label). The real-world 2016 controversy - which *is* about actual two-year re-offense, from ProPublica's own separate analysis file - unfolded exactly as follows:
-
-ProPublica and Northpointe (COMPAS's vendor) checked different fairness criteria on that dataset and both were internally correct. ProPublica's reading, an error-rate check, found the false positive rate for Black defendants was roughly double that of white defendants: Black defendants who did not reoffend were flagged high-risk far more often. Northpointe's reading, a predictive-parity check, found PPV was close across race: a "high risk" label corresponded to actual reoffending at a similar rate for both groups. Northpointe presented that second result as proof the tool was not biased.
-
-The same mechanism is directly reproducible in this repo on [German Credit Lending](../German%20Credit%20Lending/), where `class` (good/bad credit history) is a real recorded label a model can actually be scored against:
-
-```python
-import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-
-df = pd.read_csv("German Credit Lending/credit_customers.csv")
-df["target"] = (df["class"] == "good").astype(int)
-df["is_young"] = (df["age"] < 30).astype(int)
-
-cat_cols = ["checking_status", "credit_history", "purpose", "savings_status",
-            "employment", "personal_status", "other_parties", "property_magnitude",
-            "other_payment_plans", "housing", "job", "own_telephone", "foreign_worker"]
-for col in cat_cols:
-    df[col] = LabelEncoder().fit_transform(df[col])
-
-features = ["checking_status", "duration", "credit_history", "purpose", "credit_amount",
-            "savings_status", "employment", "installment_commitment", "personal_status",
-            "other_parties", "residence_since", "property_magnitude", "age",
-            "other_payment_plans", "housing", "existing_credits", "job",
-            "num_dependents", "own_telephone", "foreign_worker"]
-
-X_train, X_test, y_train, y_test, g_train, g_test = train_test_split(
-    df[features], df["target"], df["is_young"], test_size=0.2, random_state=42, stratify=df["target"])
-model = RandomForestClassifier(random_state=42)
-model.fit(X_train, y_train)
-
-predictions = pd.DataFrame({"target": y_test.values, "is_good_credit_pred": model.predict(X_test),
-                            "is_young": g_test.values})
-
-ppv_by_age, gap = predictive_parity_gap(
-    predictions, y_true="target", y_pred="is_good_credit_pred", group_col="is_young"
-)
-```
-
-**Actual output** (`is_young`: 1 = under 30, 0 = 30+):
-
-```
-PPV by group:
-  0: 78.76%
-  1: 73.08%
-Predictive Parity Gap: 5.68%
-```
-
-A real, if modest, predictive-parity gap - a "good credit" flag is a little more trustworthy for older applicants than younger ones. The COMPAS case above is the more dramatic historical illustration of the same trade-off (PPV close, FPR far apart), just not one this repo's own file can recompute end to end.
-
 ## Detection Code
 
 Compute Positive Predictive Value per group, then pair it with a base-rate check, since a small PPV gap next to a large base-rate gap is the signature Chouldechova identified.
@@ -6228,6 +6176,60 @@ def base_rate_gap(df: pd.DataFrame, y_true: str, group_col: str):
 # predictive_parity_gap(compas_df, y_true="two_year_recid", y_pred="flagged_high_risk", group_col="race")
 # base_rate_gap(compas_df, y_true="two_year_recid", group_col="race")
 ```
+
+## Concrete Example: COMPAS - Audit 01
+
+The [COMPAS](../COMPAS/) audit in this repo uses the same ProPublica recidivism dataset at the center of the 2016 "Machine Bias" investigation, where race is the protected attribute - but this repo's `COMPAS/compas-scores-raw.csv` has no independent two-year re-offense outcome to check predictive parity against (per `COMPAS/audit.yaml`, its target is `ScoreText`, COMPAS's own risk label). The real-world 2016 controversy - which *is* about actual two-year re-offense, from ProPublica's own separate analysis file - unfolded exactly as follows:
+
+ProPublica and Northpointe (COMPAS's vendor) checked different fairness criteria on that dataset and both were internally correct. ProPublica's reading, an error-rate check, found the false positive rate for Black defendants was roughly double that of white defendants: Black defendants who did not reoffend were flagged high-risk far more often. Northpointe's reading, a predictive-parity check, found PPV was close across race: a "high risk" label corresponded to actual reoffending at a similar rate for both groups. Northpointe presented that second result as proof the tool was not biased.
+
+The same mechanism is directly reproducible in this repo on [German Credit Lending](../German%20Credit%20Lending/), where `class` (good/bad credit history) is a real recorded label a model can actually be scored against:
+
+```python
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+
+df = pd.read_csv("German Credit Lending/credit_customers.csv")
+df["target"] = (df["class"] == "good").astype(int)
+df["is_young"] = (df["age"] < 30).astype(int)
+
+cat_cols = ["checking_status", "credit_history", "purpose", "savings_status",
+            "employment", "personal_status", "other_parties", "property_magnitude",
+            "other_payment_plans", "housing", "job", "own_telephone", "foreign_worker"]
+for col in cat_cols:
+    df[col] = LabelEncoder().fit_transform(df[col])
+
+features = ["checking_status", "duration", "credit_history", "purpose", "credit_amount",
+            "savings_status", "employment", "installment_commitment", "personal_status",
+            "other_parties", "residence_since", "property_magnitude", "age",
+            "other_payment_plans", "housing", "existing_credits", "job",
+            "num_dependents", "own_telephone", "foreign_worker"]
+
+X_train, X_test, y_train, y_test, g_train, g_test = train_test_split(
+    df[features], df["target"], df["is_young"], test_size=0.2, random_state=42, stratify=df["target"])
+model = RandomForestClassifier(random_state=42)
+model.fit(X_train, y_train)
+
+predictions = pd.DataFrame({"target": y_test.values, "is_good_credit_pred": model.predict(X_test),
+                            "is_young": g_test.values})
+
+ppv_by_age, gap = predictive_parity_gap(
+    predictions, y_true="target", y_pred="is_good_credit_pred", group_col="is_young"
+)
+```
+
+**Actual output** (`is_young`: 1 = under 30, 0 = 30+):
+
+```
+PPV by group:
+  0: 78.76%
+  1: 73.08%
+Predictive Parity Gap: 5.68%
+```
+
+A real, if modest, predictive-parity gap - a "good credit" flag is a little more trustworthy for older applicants than younger ones. The COMPAS case above is the more dramatic historical illustration of the same trade-off (PPV close, FPR far apart), just not one this repo's own file can recompute end to end.
 
 ## Limitations and Trade-offs
 
@@ -6303,7 +6305,7 @@ The fairness problem sits one layer beneath this. A single global threshold, cho
 
 Audit 06 in this repo predicts 30-day hospital readmission risk from the Diabetes 130-US Hospitals dataset (101,766 records), with race and age as protected attributes and `payer_code`, `discharge_disposition_id`, and `number_inpatient` as identified proxies.
 
-Dropping the protected attributes and their proxies closed the audit's demographic parity gaps: race fell from 0.08% to 0.06% (a 25% reduction) and age fell from 0.28% to 0.09% (a 68% reduction). Those numbers describe how often each group was flagged as high risk overall. They say nothing about whether the model's mistakes, when it made them, fell more heavily on one group's missed cases than the other's. That second question needs a group-by-group breakdown of false positive and false negative rates, not just the flag rate:
+Dropping the protected attributes and their proxies moved the audit's demographic parity gaps in different directions per attribute: race actually widened from 0.01% to 0.06%, while age fell from 0.31% to 0.06% (an ~80% reduction). Those numbers describe how often each group was flagged as high risk overall. They say nothing about whether the model's mistakes, when it made them, fell more heavily on one group's missed cases than the other's. That second question needs a group-by-group breakdown of false positive and false negative rates, not just the flag rate:
 
 ```python
 gaps = error_rate_gaps(
@@ -6453,7 +6455,7 @@ The non-obvious part is that this is not a malfunction. Supervised learning is n
 
 ### From Examples to a Mapping
 
-A supervised learning problem has three parts: a set of input features (`gender`, `age`, `experience_years`, `test_score`), a label that represents the "correct" answer for each historical example (`hired`), and a model whose job is to find a function from the first to the second. Training does not mean the model is told any rules. It means the model is shown thousands of `(features, label)` pairs and adjusts itself until its own outputs match those labels as closely as possible. Once that mapping is fixed, it gets applied to people the model has never seen, on the assumption that whatever relationship held in the training examples will hold for them too.
+A supervised learning problem has three parts: a set of input features (`Gender`, `Age`, `Experience_Years`, `Technical_Test_Score`), a label that represents the "correct" answer for each historical example (`Hiring_Decision`), and a model whose job is to find a function from the first to the second. Training does not mean the model is told any rules. It means the model is shown thousands of `(features, label)` pairs and adjusts itself until its own outputs match those labels as closely as possible. Once that mapping is fixed, it gets applied to people the model has never seen, on the assumption that whatever relationship held in the training examples will hold for them too.
 
 ### Walking Through `unfair.py`
 
@@ -6463,8 +6465,8 @@ The AI Fair Recruitment audit's biased model is a clean example of the mechanism
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
-X = pd.get_dummies(df[['gender', 'age', 'experience_years', 'test_score']])
-y = df['hired']
+X = pd.get_dummies(df[['Gender', 'Age', 'Experience_Years', 'Technical_Test_Score']])
+y = df['Hiring_Decision']
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
@@ -6475,15 +6477,15 @@ model.fit(X_train, y_train)
 predictions = model.predict(X_test)
 ```
 
-`train_test_split` sets aside 20% of the historical examples so the model's generalization can be checked on rows it never trained on. `model.fit(X_train, y_train)` is the entire learning step - the Random Forest searches for splits across `gender`, `age`, `experience_years`, and `test_score` that best separate hired from not-hired in the training labels. `model.predict(X_test)` applies that learned mapping to the held-out rows. Nothing in this code path checks whether the mapping it found leans on `gender` for a legitimate reason or an illegitimate one - the fit step optimises for one thing only: matching the labels it was shown.
+`train_test_split` sets aside 20% of the historical examples so the model's generalization can be checked on rows it never trained on. `model.fit(X_train, y_train)` is the entire learning step - the Random Forest searches for splits across `Gender`, `Age`, `Experience_Years`, and `Technical_Test_Score` that best separate hired from not-hired in the training labels. `model.predict(X_test)` applies that learned mapping to the held-out rows. Nothing in this code path checks whether the mapping it found leans on `Gender` for a legitimate reason or an illegitimate one - the fit step optimises for one thing only: matching the labels it was shown.
 
 ### Two Different Kinds of Labels
 
-The German Credit Lending audit is a useful second example because its label is a different kind of "ground truth." Where `hired` in the recruitment dataset is a direct historical human decision, the credit dataset's `good_credit` / `bad_credit` label is closer to an observed outcome. Both are still supervised learning in exactly the same structural sense - features in, label out, mapping learned - and both still let a protected attribute back in through a correlated feature. In lending it is `employment` tenure standing in for `age`; in hiring, historical hiring patterns stand in for gender. The mechanism does not care what kind of label it is given. It treats a human decision and an observed outcome identically: as ground truth to be reproduced.
+The German Credit Lending audit is a useful second example because its label is a different kind of "ground truth." Where `Hiring_Decision` in the recruitment dataset is a direct historical human decision, the credit dataset's `class` (good/bad credit) label is closer to an observed outcome. Both are still supervised learning in exactly the same structural sense - features in, label out, mapping learned - and both still let a protected attribute back in through a correlated feature. In lending it is `employment` tenure standing in for `age`; in hiring, historical hiring patterns stand in for gender. The mechanism does not care what kind of label it is given. It treats a human decision and an observed outcome identically: as ground truth to be reproduced.
 
 ## Concrete Example: AI Fair Recruitment - Audit 02
 
-The AI Fair Recruitment dataset pairs applicant features (gender, age, years of experience, technical test score) with a historical `hired` label. Trained on all four features, the model reproduced a hiring gap that closely tracked gender rather than the merit-based inputs alone.
+The AI Fair Recruitment dataset pairs applicant features (gender, age, years of experience, technical test score) with a historical `Hiring_Decision` label. Trained on all four features, the model reproduced a hiring gap that closely tracked gender rather than the merit-based inputs alone.
 
 | Group | Hire Rate |
 |-------|:---------:|
@@ -6495,7 +6497,7 @@ The model was never given a rule about gender. It inferred the gap because a gap
 
 ```python
 # THE FIX: Merit only
-X = df[['experience_years', 'test_score']]
+X = df[['Experience_Years', 'Technical_Test_Score']]
 # gender removed ✓
 # age removed ✓
 ```
@@ -6584,9 +6586,9 @@ def compare_label_vs_prediction_gap(df, protected_col, label_col, test_index, pr
 
 # Usage example
 # model, X_test, y_test, preds = train_supervised_classifier(
-#     df, ['gender', 'age', 'experience_years', 'test_score'], 'hired'
+#     df, ['Gender', 'Age', 'Experience_Years', 'Technical_Test_Score'], 'Hiring_Decision'
 # )
-# compare_label_vs_prediction_gap(df, 'gender', 'hired', X_test.index, preds)
+# compare_label_vs_prediction_gap(df, 'Gender', 'Hiring_Decision', X_test.index, preds)
 ```
 
 ## Limitations and Trade-offs
@@ -8073,7 +8075,7 @@ The "predict nothing" model wins on accuracy and loses on the only thing that ma
 
 Audit 06 in this repo predicts 30-day hospital readmission from the Diabetes 130-US Hospitals dataset (101,766 records), with race and age as protected attributes. Readmission is a **rare, imbalanced** outcome - the baseline models flag only a tiny fraction of patients as high risk - so accuracy on this task is high almost by construction, and it is exactly the wrong number to trust.
 
-Dropping the protected attributes and their proxies moved the audit's demographic-parity gaps only slightly (race 0.08% → 0.06%, age 0.28% → 0.09%) - those describe how *often* each group is flagged. They say nothing about whether the model's *misses* fall evenly. A model can post identical accuracy for two groups and still miss the sicker patients in one of them - which is precisely what a group-by-group accuracy-vs-recall breakdown, not the headline score, is built to reveal:
+Dropping the protected attributes and their proxies moved the audit's demographic-parity gaps in different directions per attribute (race 0.01% → 0.06%, actually widening; age 0.31% → 0.06%, an ~80% reduction) - those describe how *often* each group is flagged. They say nothing about whether the model's *misses* fall evenly. A model can post identical accuracy for two groups and still miss the sicker patients in one of them - which is precisely what a group-by-group accuracy-vs-recall breakdown, not the headline score, is built to reveal:
 
 ```python
 group_accuracy_vs_recall(readmission_df, y_true_col="readmitted",
@@ -10475,9 +10477,9 @@ That question matters most exactly where fairness audits are weakest: small subg
 
 Both methods are non-parametric - they assume nothing about the shape of the underlying distribution, which matters because fairness metrics here are built on binary prediction rates, not smooth continuous measurements.
 
-**Bootstrap confidence interval.** Resample each group independently, with replacement, back up to its own original size, and recompute the gap. Do this thousands of times (`faircode/significance.py` defaults to 2,000 resamples, matching the paper's frozen run), and take the 2.5th and 97.5th percentile of the resulting distribution of gaps - that range is the 95% confidence interval. It answers: "given only the data I have, how much would this gap plausibly move around if I could resample from the same population again?"
+**Bootstrap confidence interval.** Resample each group independently, with replacement, back up to its own original size, and recompute the gap. Do this thousands of times (`faircode/significance.py` defaults to 10,000 resamples), and take the 2.5th and 97.5th percentile of the resulting distribution of gaps - that range is the 95% confidence interval. It answers: "given only the data I have, how much would this gap plausibly move around if I could resample from the same population again?"
 
-**Permutation-test p-value.** Under the null hypothesis, group membership carries no real information about the outcome - so pool both groups together, reshuffle which rows are labeled which group, and recompute the gap. Repeat thousands of times (2,000, matching the CI resample count). The p-value is the fraction of those reshuffled gaps that are at least as extreme as the one actually observed. It answers a different question than the CI: "if there were truly no difference between groups, how often would random chance alone produce a gap this large?"
+**Permutation-test p-value.** Under the null hypothesis, group membership carries no real information about the outcome - so pool both groups together, reshuffle which rows are labeled which group, and recompute the gap. Repeat thousands of times (10,000, matching the CI resample count). The p-value is the fraction of those reshuffled gaps that are at least as extreme as the one actually observed. It answers a different question than the CI: "if there were truly no difference between groups, how often would random chance alone produce a gap this large?"
 
 Neither method assumes normality, a minimum sample size, or a particular metric - the same two functions apply identically whether the metric is a proportion, a rate difference, or a ratio.
 
@@ -10502,8 +10504,8 @@ A minimal, from-scratch implementation of both methods, so the mechanics are vis
 import numpy as np
 
 
-def bootstrap_ci_and_permutation_p(group_a, group_b, n_resamples=2000,
-                                   n_permutations=2000, confidence=0.95,
+def bootstrap_ci_and_permutation_p(group_a, group_b, n_resamples=10000,
+                                   n_permutations=10000, confidence=0.95,
                                    random_state=42):
     """
     Computes a bootstrap confidence interval and a permutation-test p-value
