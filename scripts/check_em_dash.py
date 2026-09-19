@@ -35,6 +35,7 @@ ALLOWLIST = {
 ALLOW_PREFIXES = (
     "paper/results-frozen/",  # frozen evidence, never modified
     "faircode/_explainers/",  # generated mirror of explainers/*.md, checking the source already covers it
+    "brag-output/",  # generated /brag video-composition output, not project documentation prose
 )
 
 
