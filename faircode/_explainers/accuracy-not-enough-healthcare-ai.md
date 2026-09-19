@@ -27,7 +27,7 @@ The "predict nothing" model wins on accuracy and loses on the only thing that ma
 
 Audit 06 in this repo predicts 30-day hospital readmission from the Diabetes 130-US Hospitals dataset (101,766 records), with race and age as protected attributes. Readmission is a **rare, imbalanced** outcome - the baseline models flag only a tiny fraction of patients as high risk - so accuracy on this task is high almost by construction, and it is exactly the wrong number to trust.
 
-Dropping the protected attributes and their proxies moved the audit's demographic-parity gaps only slightly (race 0.08% → 0.06%, age 0.28% → 0.09%) - those describe how *often* each group is flagged. They say nothing about whether the model's *misses* fall evenly. A model can post identical accuracy for two groups and still miss the sicker patients in one of them - which is precisely what a group-by-group accuracy-vs-recall breakdown, not the headline score, is built to reveal:
+Dropping the protected attributes and their proxies moved the audit's demographic-parity gaps in different directions per attribute (race 0.01% → 0.06%, actually widening; age 0.31% → 0.06%, an ~80% reduction) - those describe how *often* each group is flagged. They say nothing about whether the model's *misses* fall evenly. A model can post identical accuracy for two groups and still miss the sicker patients in one of them - which is precisely what a group-by-group accuracy-vs-recall breakdown, not the headline score, is built to reveal:
 
 ```python
 group_accuracy_vs_recall(readmission_df, y_true_col="readmitted",

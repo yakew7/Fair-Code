@@ -27,7 +27,7 @@ The fairness problem sits one layer beneath this. A single global threshold, cho
 
 Audit 06 in this repo predicts 30-day hospital readmission risk from the Diabetes 130-US Hospitals dataset (101,766 records), with race and age as protected attributes and `payer_code`, `discharge_disposition_id`, and `number_inpatient` as identified proxies.
 
-Dropping the protected attributes and their proxies closed the audit's demographic parity gaps: race fell from 0.08% to 0.06% (a 25% reduction) and age fell from 0.28% to 0.09% (a 68% reduction). Those numbers describe how often each group was flagged as high risk overall. They say nothing about whether the model's mistakes, when it made them, fell more heavily on one group's missed cases than the other's. That second question needs a group-by-group breakdown of false positive and false negative rates, not just the flag rate:
+Dropping the protected attributes and their proxies moved the audit's demographic parity gaps in different directions per attribute: race actually widened from 0.01% to 0.06%, while age fell from 0.31% to 0.06% (an ~80% reduction). Those numbers describe how often each group was flagged as high risk overall. They say nothing about whether the model's mistakes, when it made them, fell more heavily on one group's missed cases than the other's. That second question needs a group-by-group breakdown of false positive and false negative rates, not just the flag rate:
 
 ```python
 gaps = error_rate_gaps(
