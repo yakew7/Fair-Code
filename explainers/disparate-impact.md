@@ -113,10 +113,14 @@ result = disparate_impact_ratio(
 
 print(result)
 # {
-#   'selection_rates': {'Female': 0.1710, 'Male': 0.2162},
-#   'disparate_impact_ratio': 0.791,
+#   'selection_rates': {'Female': 0.1759, 'Male': 0.2162, 'Other': 0.1340},
+#   'disparate_impact_ratio': 0.62,
 #   'passes_four_fifths_rule': False
 # }
+# Note: this dataset's real Gender column has 3 values (Male/Female/Other),
+# not just 2 - grouping by the raw column pulls in all three, giving a lower
+# ratio (Other's rate vs Male's) than the Male/Female-only figure quoted
+# above, which comes from unfair.py's own two-way "male_col" dummy split.
 ```
 
 Run the same snippet against `fair.py` and the ratio climbs to **0.989** - passing.

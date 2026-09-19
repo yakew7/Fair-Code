@@ -259,10 +259,14 @@ result = disparate_impact_ratio(
 
 print(result)
 # {
-#   &#x27;selection_rates&#x27;: {&#x27;Female&#x27;: 0.1710, &#x27;Male&#x27;: 0.2162},
-#   &#x27;disparate_impact_ratio&#x27;: 0.791,
+#   &#x27;selection_rates&#x27;: {&#x27;Female&#x27;: 0.1759, &#x27;Male&#x27;: 0.2162, &#x27;Other&#x27;: 0.1340},
+#   &#x27;disparate_impact_ratio&#x27;: 0.62,
 #   &#x27;passes_four_fifths_rule&#x27;: False
-# }</code></pre>
+# }
+# Note: this dataset&#x27;s real Gender column has 3 values (Male/Female/Other),
+# not just 2 - grouping by the raw column pulls in all three, giving a lower
+# ratio (Other&#x27;s rate vs Male&#x27;s) than the Male/Female-only figure quoted
+# above, which comes from unfair.py&#x27;s own two-way &quot;male_col&quot; dummy split.</code></pre>
 <p>Run the same snippet against <code>fair.py</code> and the ratio climbs to <strong>0.989</strong> - passing.</p>
 <h4 id="using-fairlearn">Using Fairlearn</h4>
 <p>The same metric is available out-of-the-box in <a href="https://fairlearn.org/" target="_blank" rel="noreferrer noopener">Fairlearn</a>:</p>
