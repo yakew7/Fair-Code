@@ -197,14 +197,14 @@
 <p>The non-obvious part is that this is not a malfunction. Supervised learning is not designed to check whether a pattern is legitimate signal or historical prejudice - it is designed to find <em>any</em> pattern that predicts the label, and it has no way to tell the two apart. A model that &quot;learned to discriminate&quot; did exactly what it was built to do: it found the mapping that best explains the labels it was shown. If that mapping includes a gender penalty, the model did not invent one. It found one that was already there.</p>
 <h3 id="how-it-works">How It Works</h3>
 <h4 id="from-examples-to-a-mapping">From Examples to a Mapping</h4>
-<p>A supervised learning problem has three parts: a set of input features (<code>gender</code>, <code>age</code>, <code>experience_years</code>, <code>test_score</code>), a label that represents the &quot;correct&quot; answer for each historical example (<code>hired</code>), and a model whose job is to find a function from the first to the second. Training does not mean the model is told any rules. It means the model is shown thousands of <code>(features, label)</code> pairs and adjusts itself until its own outputs match those labels as closely as possible. Once that mapping is fixed, it gets applied to people the model has never seen, on the assumption that whatever relationship held in the training examples will hold for them too.</p>
+<p>A supervised learning problem has three parts: a set of input features (<code>Gender</code>, <code>Age</code>, <code>Experience_Years</code>, <code>Technical_Test_Score</code>), a label that represents the &quot;correct&quot; answer for each historical example (<code>Hiring_Decision</code>), and a model whose job is to find a function from the first to the second. Training does not mean the model is told any rules. It means the model is shown thousands of <code>(features, label)</code> pairs and adjusts itself until its own outputs match those labels as closely as possible. Once that mapping is fixed, it gets applied to people the model has never seen, on the assumption that whatever relationship held in the training examples will hold for them too.</p>
 <h4 id="walking-through-unfair-py">Walking Through <code>unfair.py</code></h4>
 <p>The AI Fair Recruitment audit&#x27;s biased model is a clean example of the mechanism with nothing hidden:</p>
 <pre><code class="language-python">from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
-X = pd.get_dummies(df[[&#x27;gender&#x27;, &#x27;age&#x27;, &#x27;experience_years&#x27;, &#x27;test_score&#x27;]])
-y = df[&#x27;hired&#x27;]
+X = pd.get_dummies(df[[&#x27;Gender&#x27;, &#x27;Age&#x27;, &#x27;Experience_Years&#x27;, &#x27;Technical_Test_Score&#x27;]])
+y = df[&#x27;Hiring_Decision&#x27;]
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
@@ -213,15 +213,15 @@ X_train, X_test, y_train, y_test = train_test_split(
 model = RandomForestClassifier(random_state=42)
 model.fit(X_train, y_train)
 predictions = model.predict(X_test)</code></pre>
-<p><code>train_test_split</code> sets aside 20% of the historical examples so the model&#x27;s generalization can be checked on rows it never trained on. <code>model.fit(X_train, y_train)</code> is the entire learning step - the Random Forest searches for splits across <code>gender</code>, <code>age</code>, <code>experience_years</code>, and <code>test_score</code> that best separate hired from not-hired in the training labels. <code>model.predict(X_test)</code> applies that learned mapping to the held-out rows. Nothing in this code path checks whether the mapping it found leans on <code>gender</code> for a legitimate reason or an illegitimate one - the fit step optimises for one thing only: matching the labels it was shown.</p>
+<p><code>train_test_split</code> sets aside 20% of the historical examples so the model&#x27;s generalization can be checked on rows it never trained on. <code>model.fit(X_train, y_train)</code> is the entire learning step - the Random Forest searches for splits across <code>Gender</code>, <code>Age</code>, <code>Experience_Years</code>, and <code>Technical_Test_Score</code> that best separate hired from not-hired in the training labels. <code>model.predict(X_test)</code> applies that learned mapping to the held-out rows. Nothing in this code path checks whether the mapping it found leans on <code>Gender</code> for a legitimate reason or an illegitimate one - the fit step optimises for one thing only: matching the labels it was shown.</p>
 <h4 id="two-different-kinds-of-labels">Two Different Kinds of Labels</h4>
-<p>The German Credit Lending audit is a useful second example because its label is a different kind of &quot;ground truth.&quot; Where <code>hired</code> in the recruitment dataset is a direct historical human decision, the credit dataset&#x27;s <code>good_credit</code> / <code>bad_credit</code> label is closer to an observed outcome. Both are still supervised learning in exactly the same structural sense - features in, label out, mapping learned - and both still let a protected attribute back in through a correlated feature. In lending it is <code>employment</code> tenure standing in for <code>age</code>; in hiring, historical hiring patterns stand in for gender. The mechanism does not care what kind of label it is given. It treats a human decision and an observed outcome identically: as ground truth to be reproduced.</p>
+<p>The German Credit Lending audit is a useful second example because its label is a different kind of &quot;ground truth.&quot; Where <code>Hiring_Decision</code> in the recruitment dataset is a direct historical human decision, the credit dataset&#x27;s <code>class</code> (good/bad credit) label is closer to an observed outcome. Both are still supervised learning in exactly the same structural sense - features in, label out, mapping learned - and both still let a protected attribute back in through a correlated feature. In lending it is <code>employment</code> tenure standing in for <code>age</code>; in hiring, historical hiring patterns stand in for gender. The mechanism does not care what kind of label it is given. It treats a human decision and an observed outcome identically: as ground truth to be reproduced.</p>
 <h3 id="concrete-example-ai-fair-recruitment-audit-02">Concrete Example: AI Fair Recruitment - Audit 02</h3>
-<p>The AI Fair Recruitment dataset pairs applicant features (gender, age, years of experience, technical test score) with a historical <code>hired</code> label. Trained on all four features, the model reproduced a hiring gap that closely tracked gender rather than the merit-based inputs alone.</p>
+<p>The AI Fair Recruitment dataset pairs applicant features (gender, age, years of experience, technical test score) with a historical <code>Hiring_Decision</code> label. Trained on all four features, the model reproduced a hiring gap that closely tracked gender rather than the merit-based inputs alone.</p>
 <div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Group</th><th>Hire Rate</th></tr></thead><tbody><tr><td>Men</td><td>21.62%</td></tr><tr><td>Women</td><td>17.10%</td></tr><tr><td><strong>Fairness Gap</strong></td><td><strong>4.51%</strong></td></tr></tbody></table></div>
 <p>The model was never given a rule about gender. It inferred the gap because a gap already existed in the training labels, and inferring existing patterns is exactly what <code>model.fit()</code> does.</p>
 <pre><code class="language-python"># THE FIX: Merit only
-X = df[[&#x27;experience_years&#x27;, &#x27;test_score&#x27;]]
+X = df[[&#x27;Experience_Years&#x27;, &#x27;Technical_Test_Score&#x27;]]
 # gender removed ✓
 # age removed ✓</code></pre>
 <p>Retraining on experience and test score alone - the two features that plausibly measure job-relevant merit - collapsed the gap:</p>
@@ -298,9 +298,9 @@ def compare_label_vs_prediction_gap(df, protected_col, label_col, test_index, pr
 
 # Usage example
 # model, X_test, y_test, preds = train_supervised_classifier(
-#     df, [&#x27;gender&#x27;, &#x27;age&#x27;, &#x27;experience_years&#x27;, &#x27;test_score&#x27;], &#x27;hired&#x27;
+#     df, [&#x27;Gender&#x27;, &#x27;Age&#x27;, &#x27;Experience_Years&#x27;, &#x27;Technical_Test_Score&#x27;], &#x27;Hiring_Decision&#x27;
 # )
-# compare_label_vs_prediction_gap(df, &#x27;gender&#x27;, &#x27;hired&#x27;, X_test.index, preds)</code></pre>
+# compare_label_vs_prediction_gap(df, &#x27;Gender&#x27;, &#x27;Hiring_Decision&#x27;, X_test.index, preds)</code></pre>
 <h3 id="limitations-and-trade-offs">Limitations and Trade-offs</h3>
 <h4 id="1-the-label-is-always-a-proxy-for-the-real-target">1. The Label Is Always a Proxy for the Real Target</h4>
 <p>&quot;Hired&quot; is not the same thing as &quot;best candidate.&quot; It is what a human decision-maker did, filtered through whatever biases that person carried. Supervised learning cannot distinguish a label that reflects the true target from a label that reflects a flawed historical process, because it is only ever shown the label. Choosing what counts as ground truth is a judgment call made before any code runs, not something the training step can correct for. See <a href="label-bias.html">What Is Label Bias?</a> for how far this problem extends.</p>

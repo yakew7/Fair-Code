@@ -14,7 +14,7 @@ The non-obvious part is that this is not a malfunction. Supervised learning is n
 
 ### From Examples to a Mapping
 
-A supervised learning problem has three parts: a set of input features (`gender`, `age`, `experience_years`, `test_score`), a label that represents the "correct" answer for each historical example (`hired`), and a model whose job is to find a function from the first to the second. Training does not mean the model is told any rules. It means the model is shown thousands of `(features, label)` pairs and adjusts itself until its own outputs match those labels as closely as possible. Once that mapping is fixed, it gets applied to people the model has never seen, on the assumption that whatever relationship held in the training examples will hold for them too.
+A supervised learning problem has three parts: a set of input features (`Gender`, `Age`, `Experience_Years`, `Technical_Test_Score`), a label that represents the "correct" answer for each historical example (`Hiring_Decision`), and a model whose job is to find a function from the first to the second. Training does not mean the model is told any rules. It means the model is shown thousands of `(features, label)` pairs and adjusts itself until its own outputs match those labels as closely as possible. Once that mapping is fixed, it gets applied to people the model has never seen, on the assumption that whatever relationship held in the training examples will hold for them too.
 
 ### Walking Through `unfair.py`
 
@@ -24,8 +24,8 @@ The AI Fair Recruitment audit's biased model is a clean example of the mechanism
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
-X = pd.get_dummies(df[['gender', 'age', 'experience_years', 'test_score']])
-y = df['hired']
+X = pd.get_dummies(df[['Gender', 'Age', 'Experience_Years', 'Technical_Test_Score']])
+y = df['Hiring_Decision']
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42
@@ -36,15 +36,15 @@ model.fit(X_train, y_train)
 predictions = model.predict(X_test)
 ```
 
-`train_test_split` sets aside 20% of the historical examples so the model's generalization can be checked on rows it never trained on. `model.fit(X_train, y_train)` is the entire learning step - the Random Forest searches for splits across `gender`, `age`, `experience_years`, and `test_score` that best separate hired from not-hired in the training labels. `model.predict(X_test)` applies that learned mapping to the held-out rows. Nothing in this code path checks whether the mapping it found leans on `gender` for a legitimate reason or an illegitimate one - the fit step optimises for one thing only: matching the labels it was shown.
+`train_test_split` sets aside 20% of the historical examples so the model's generalization can be checked on rows it never trained on. `model.fit(X_train, y_train)` is the entire learning step - the Random Forest searches for splits across `Gender`, `Age`, `Experience_Years`, and `Technical_Test_Score` that best separate hired from not-hired in the training labels. `model.predict(X_test)` applies that learned mapping to the held-out rows. Nothing in this code path checks whether the mapping it found leans on `Gender` for a legitimate reason or an illegitimate one - the fit step optimises for one thing only: matching the labels it was shown.
 
 ### Two Different Kinds of Labels
 
-The German Credit Lending audit is a useful second example because its label is a different kind of "ground truth." Where `hired` in the recruitment dataset is a direct historical human decision, the credit dataset's `good_credit` / `bad_credit` label is closer to an observed outcome. Both are still supervised learning in exactly the same structural sense - features in, label out, mapping learned - and both still let a protected attribute back in through a correlated feature. In lending it is `employment` tenure standing in for `age`; in hiring, historical hiring patterns stand in for gender. The mechanism does not care what kind of label it is given. It treats a human decision and an observed outcome identically: as ground truth to be reproduced.
+The German Credit Lending audit is a useful second example because its label is a different kind of "ground truth." Where `Hiring_Decision` in the recruitment dataset is a direct historical human decision, the credit dataset's `class` (good/bad credit) label is closer to an observed outcome. Both are still supervised learning in exactly the same structural sense - features in, label out, mapping learned - and both still let a protected attribute back in through a correlated feature. In lending it is `employment` tenure standing in for `age`; in hiring, historical hiring patterns stand in for gender. The mechanism does not care what kind of label it is given. It treats a human decision and an observed outcome identically: as ground truth to be reproduced.
 
 ## Concrete Example: AI Fair Recruitment - Audit 02
 
-The AI Fair Recruitment dataset pairs applicant features (gender, age, years of experience, technical test score) with a historical `hired` label. Trained on all four features, the model reproduced a hiring gap that closely tracked gender rather than the merit-based inputs alone.
+The AI Fair Recruitment dataset pairs applicant features (gender, age, years of experience, technical test score) with a historical `Hiring_Decision` label. Trained on all four features, the model reproduced a hiring gap that closely tracked gender rather than the merit-based inputs alone.
 
 | Group | Hire Rate |
 |-------|:---------:|
@@ -56,7 +56,7 @@ The model was never given a rule about gender. It inferred the gap because a gap
 
 ```python
 # THE FIX: Merit only
-X = df[['experience_years', 'test_score']]
+X = df[['Experience_Years', 'Technical_Test_Score']]
 # gender removed ✓
 # age removed ✓
 ```
@@ -145,9 +145,9 @@ def compare_label_vs_prediction_gap(df, protected_col, label_col, test_index, pr
 
 # Usage example
 # model, X_test, y_test, preds = train_supervised_classifier(
-#     df, ['gender', 'age', 'experience_years', 'test_score'], 'hired'
+#     df, ['Gender', 'Age', 'Experience_Years', 'Technical_Test_Score'], 'Hiring_Decision'
 # )
-# compare_label_vs_prediction_gap(df, 'gender', 'hired', X_test.index, preds)
+# compare_label_vs_prediction_gap(df, 'Gender', 'Hiring_Decision', X_test.index, preds)
 ```
 
 ## Limitations and Trade-offs
