@@ -185,18 +185,18 @@ for race_group in ['White', 'Black']:
     total = len(cf_df[cf_df['race'] == race_group])
     print(f"  {race_group} applicants whose decision flips: {len(group)}/{total} ({len(group)/total*100:.1f}%)")
 
-# ── Expected output ──────────────────────────────────────────────────────────
+# ── Actual output (this exact seed) ──────────────────────────────────────────
 # ── COUNTERFACTUAL FAIRNESS AUDIT ──
 #
 # Total test records:               600
-# Counterfactual violations:        214
-# Violation rate:                   35.7%
+# Counterfactual violations:        189
+# Violation rate:                   31.5%
 #
-#   White applicants whose decision flips: 87/356 (24.4%)
-#   Black applicants whose decision flips: 127/244 (52.0%)
+#   White applicants whose decision flips: 114/355 (32.1%)
+#   Black applicants whose decision flips: 75/245 (30.6%)
 ```
 
-A 35.7% violation rate means more than one in three applicants would receive a different loan decision if they had been born into the other racial group - with everything causally independent (income, personal behaviour) held constant. This is the operational signature of a model that is, at the causal level, making race-based decisions.
+A 31.5% violation rate means about one in three applicants would receive a different loan decision if they had been born into the other racial group - with everything causally independent (income, personal behaviour) held constant. In this run, White and Black applicants flip at nearly identical rates (32.1% vs. 30.6%), so the violation itself isn't concentrated in one group here - what it shows is that `neighbourhood`/`credit_score` still move the outcome for a large share of applicants purely because of a causally-upstream group label, for either group. That is still the operational signature of a model that is, at the causal level, making race-based decisions - counterfactual fairness flags the causal dependence on race regardless of which direction it currently cuts in a given sample.
 
 ### The fix: use only causally independent features
 
