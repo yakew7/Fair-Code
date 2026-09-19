@@ -72,6 +72,10 @@
 /assets/explainers.css @yakew7
 
 # =========================
+# Generated media output (e.g. /brag video compositions)
+# =========================
+/brag-output/ @yakew7
+
 # Website assets
 # =========================
 /assets/fonts/ @yakew7
