@@ -189,24 +189,34 @@ Fair-Code/
 │   ├── figures.py                       #   renders results_fairness.csv → figures/*.png (300 dpi)
 │   ├── cli.py                           #   `faircode profile` / `compare` / `benchmark` entry point
 │   ├── mcp_server.py                    #   `faircode-mcp` entry point - 6 MCP tools (SPEC.md section 11)
+│   ├── provenance.py                    #   dataset SHA-256 + resolved-params block for --json/--html exports
 │   ├── _explainers/                     #   generated mirror of explainers/*.md, for the MCP tools
 │   └── _results_frozen/                 #   generated mirror of paper/results-frozen/*.csv, for the MCP tools
 ├── tests/
 │   ├── fixtures/                        #   sample datasets for loader/edge-case tests
 │   ├── test_benchmark.py                # end-to-end benchmark harness tests
+│   ├── test_build_explainers.py         #   explainer HTML/JS generation
+│   ├── test_check_generated_files_current.py  #   validates the generated-files-current check itself
 │   ├── test_cli.py                      #   CLI subcommand tests
 │   ├── test_codeowners.py               #   validates .github/CODEOWNERS syntax
 │   ├── test_compare.py                  #   drift / comparison tests
 │   ├── test_declared_dependencies.py    #   every import is declared in pyproject.toml
 │   ├── test_dependency_versions.py      #   requirements-lock.txt pins meet pyproject.toml floors
+│   ├── test_figures.py                  #   results_fairness.csv -> figures/*.png rendering
+│   ├── test_freeze_paper_results.py     #   results/ -> paper/results-frozen/ snapshot script
 │   ├── test_generate_images.py          #   favicon / OG-image generation
+│   ├── test_js_category_keys.py         #   JS/Python dimension-category key parity
 │   ├── test_js_parity.py                #   JS profiler engine mirrors the Python one
 │   ├── test_json_edge_cases.py
 │   ├── test_loaders.py
 │   ├── test_manifest.py                 #   audit.yaml validation
+│   ├── test_mcp_server.py               #   MCP tool tests
 │   ├── test_metrics.py                  #   the 6 fairness metrics
+│   ├── test_models.py                   #   the 3 model families
 │   ├── test_profiler.py                 #   pytest suite for the profiler
+│   ├── test_provenance.py               #   provenance-block tests
 │   ├── test_proxy.py                    #   proxy-hint tests (scipy)
+│   ├── test_render_terminal_png.py      #   terminal-PNG rendering
 │   ├── test_report.py
 │   ├── test_significance.py             #   significance-module tests
 │   ├── test_strategies.py
@@ -228,6 +238,7 @@ Fair-Code/
 │   ├── build_explainers.py              # regenerates explainer HTML/JS/sitemap from the JSON source
 │   ├── check_broken_links.py            #   flags dead in-repo markdown links/anchors (make lint)
 │   ├── check_em_dash.py                 #   flags em dashes in tracked source/prose (make lint)
+│   ├── check_explainer_count.py         #   verifies every "N explainers" mention matches explainers/*.md
 │   ├── check_generated_files_current.py #   verifies build_explainers.py output is up to date
 │   ├── engine-js.js                     #   Node harness for the JS profiler parity tests
 │   ├── freeze_paper_results.py          #   snapshots results/ -> paper/results-frozen/
@@ -293,7 +304,12 @@ Fair-Code/
 │   ├── counterfactual-explanation.md
 │   ├── multiple-comparisons.md
 │   ├── fairness-accuracy-tradeoff.md
-│   └── treatment-equality.md
+│   ├── treatment-equality.md
+│   ├── conditional-demographic-parity.md
+│   ├── differential-privacy.md
+│   ├── reject-option-classification.md
+│   ├── simpsons-paradox.md
+│   └── subgroup-fairness.md
 │
 ├── .pre-commit-config.yaml              # em-dash/broken-links/ruff + build-explainers pre-push hooks
 ├── CHANGELOG.md
