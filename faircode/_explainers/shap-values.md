@@ -90,7 +90,7 @@ CustodyStatus_Probation     0.0165   (proxy)
 MaritalStatus_Divorced      0.0126
 ```
 
-**The model's single largest driver was race.** `MaritalStatus_Single` was the second largest; `CustodyStatus_Probation` - a proxy for race - ranks fourth. Race alone accounted for roughly 40% of the top-5 features' combined influence.
+**The model's single largest driver was race.** `MaritalStatus_Single` was the second largest; `CustodyStatus_Probation` - a proxy for race - ranks fourth. Race alone accounted for roughly 48% of the top-5 features' combined influence (and roughly 42% of all features' combined influence).
 
 Without SHAP, you would not know this. The model's accuracy numbers alone tell you nothing about which features drove individual predictions.
 

@@ -245,7 +245,7 @@ MaritalStatus_Single        0.0624   ← second highest
 MaritalStatus_Married       0.0234
 CustodyStatus_Probation     0.0165   (proxy)
 MaritalStatus_Divorced      0.0126</code></pre>
-<p><strong>The model&#x27;s single largest driver was race.</strong> <code>MaritalStatus_Single</code> was the second largest; <code>CustodyStatus_Probation</code> - a proxy for race - ranks fourth. Race alone accounted for roughly 40% of the top-5 features&#x27; combined influence.</p>
+<p><strong>The model&#x27;s single largest driver was race.</strong> <code>MaritalStatus_Single</code> was the second largest; <code>CustodyStatus_Probation</code> - a proxy for race - ranks fourth. Race alone accounted for roughly 48% of the top-5 features&#x27; combined influence (and roughly 42% of all features&#x27; combined influence).</p>
 <p>Without SHAP, you would not know this. The model&#x27;s accuracy numbers alone tell you nothing about which features drove individual predictions.</p>
 <h4 id="after-the-fix-fair-model-shap">After the Fix - Fair Model SHAP</h4>
 <pre><code class="language-python"># Fair feature set (race + proxy removed)
