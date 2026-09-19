@@ -207,9 +207,12 @@
 <p>We tested this directly using the <a href="https://github.com/propublica/compas-analysis" target="_blank" rel="noreferrer noopener">ProPublica COMPAS dataset</a>.</p>
 <h4 id="what-we-did">What We Did</h4>
 <p><strong>Step 1 - Biased model (includes race + proxies):</strong></p>
-<pre><code class="language-python">X = pd.get_dummies(df[[
-    &#x27;race&#x27;,
-    &#x27;sex&#x27;,
+<pre><code class="language-python"># compas-scores-raw.csv has no raw `race`/`sex` columns - race_binary is
+# derived from Ethnic_Code_Text, exactly as unfair.py does
+df[&#x27;race_binary&#x27;] = df[&#x27;Ethnic_Code_Text&#x27;].map({&#x27;African-American&#x27;: 1, &#x27;Caucasian&#x27;: 0})
+X = pd.get_dummies(df[[
+    &#x27;race_binary&#x27;,
+    &#x27;Sex_Code_Text&#x27;,
     &#x27;CustodyStatus&#x27;,        # proxy for race
     &#x27;MaritalStatus&#x27;
 ]])</code></pre>
@@ -217,8 +220,7 @@
 <div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Group</th><th>High-Risk Flag Rate</th></tr></thead><tbody><tr><td>Black defendants</td><td>87.16%</td></tr><tr><td>White defendants</td><td>0.40%</td></tr><tr><td><strong>Fairness gap</strong></td><td><strong>86.77%</strong></td></tr></tbody></table></div>
 <hr>
 <p><strong>Step 2 - Remove race only (naive approach):</strong></p>
-<p>Many developers stop here. They drop the <code>race</code> column and assume the model is now fair. It isn&#x27;t.</p>
-<p>The <code>CustodyStatus</code> feature was still acting as a racial proxy. The gap barely moved.</p>
+<p>Many developers stop here. They drop <code>race_binary</code> and assume the model is now fair. Dropping race alone already takes the gap from 86.77% down to 18.38% - most of the signal was riding on race directly. But it isn&#x27;t fully fixed: <code>CustodyStatus</code> is still acting as a racial proxy, and its own marginal contribution beyond race is the remaining ~2.7 points down to 15.69% once it&#x27;s removed too (see Step 3).</p>
 <hr>
 <p><strong>Step 3 - Remove race AND known proxies (our fix):</strong></p>
 <pre><code class="language-python">X = pd.get_dummies(df[[
@@ -230,7 +232,7 @@
 <p><strong>Results:</strong></p>
 <div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Group</th><th>High-Risk Flag Rate</th></tr></thead><tbody><tr><td>Black defendants</td><td>84.71%</td></tr><tr><td>White defendants</td><td>69.02%</td></tr><tr><td><strong>Fairness gap</strong></td><td><strong>15.69%</strong></td></tr></tbody></table></div>
 <h4 id="summary">Summary</h4>
-<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Approach</th><th>Fairness Gap</th><th>Reduction</th></tr></thead><tbody><tr><td>Biased model</td><td>86.77%</td><td>-</td></tr><tr><td>Remove race only</td><td>~80%+</td><td>Minimal</td></tr><tr><td>Remove race + proxy</td><td>15.69%</td><td><strong>82%</strong></td></tr></tbody></table></div>
+<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Approach</th><th>Fairness Gap</th><th>Reduction</th></tr></thead><tbody><tr><td>Biased model</td><td>86.77%</td><td>-</td></tr><tr><td>Remove race only</td><td>18.38%</td><td>79%</td></tr><tr><td>Remove race + proxy</td><td>15.69%</td><td><strong>82%</strong></td></tr></tbody></table></div>
 <p><strong>Removing the protected attribute alone is not enough. You must audit every feature for correlation with protected attributes.</strong></p>
 <hr>
 <h3 id="how-to-detect-proxy-variables">How to Detect Proxy Variables</h3>
@@ -253,9 +255,9 @@ def check_proxy(df, feature, protected_attr):
     }
 
 # Example usage
-result = check_proxy(df, &#x27;CustodyStatus&#x27;, &#x27;race&#x27;)
+result = check_proxy(df, &#x27;CustodyStatus&#x27;, &#x27;Ethnic_Code_Text&#x27;)
 print(result)
-# {&#x27;feature&#x27;: &#x27;CustodyStatus&#x27;, &#x27;protected_attr&#x27;: &#x27;race&#x27;, &#x27;p_value&#x27;: 0.0001, &#x27;is_proxy&#x27;: True}</code></pre>
+# {&#x27;feature&#x27;: &#x27;CustodyStatus&#x27;, &#x27;protected_attr&#x27;: &#x27;Ethnic_Code_Text&#x27;, &#x27;p_value&#x27;: 0.0, &#x27;is_proxy&#x27;: True}</code></pre>
 <p>Run this on every feature in your dataset before training. Any feature with <code>is_proxy: True</code> needs careful consideration - either remove it or apply fairness-aware techniques.</p>
 <hr>
 <h3 id="the-bigger-picture">The Bigger Picture</h3>

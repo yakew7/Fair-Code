@@ -41,9 +41,12 @@ We tested this directly using the [ProPublica COMPAS dataset](https://github.com
 
 **Step 1 - Biased model (includes race + proxies):**
 ```python
+# compas-scores-raw.csv has no raw `race`/`sex` columns - race_binary is
+# derived from Ethnic_Code_Text, exactly as unfair.py does
+df['race_binary'] = df['Ethnic_Code_Text'].map({'African-American': 1, 'Caucasian': 0})
 X = pd.get_dummies(df[[
-    'race',
-    'sex',
+    'race_binary',
+    'Sex_Code_Text',
     'CustodyStatus',        # proxy for race
     'MaritalStatus'
 ]])
@@ -60,9 +63,7 @@ X = pd.get_dummies(df[[
 
 **Step 2 - Remove race only (naive approach):**
 
-Many developers stop here. They drop the `race` column and assume the model is now fair. It isn't.
-
-The `CustodyStatus` feature was still acting as a racial proxy. The gap barely moved.
+Many developers stop here. They drop `race_binary` and assume the model is now fair. Dropping race alone already takes the gap from 86.77% down to 18.38% - most of the signal was riding on race directly. But it isn't fully fixed: `CustodyStatus` is still acting as a racial proxy, and its own marginal contribution beyond race is the remaining ~2.7 points down to 15.69% once it's removed too (see Step 3).
 
 ---
 
@@ -88,7 +89,7 @@ X = pd.get_dummies(df[[
 | Approach | Fairness Gap | Reduction |
 |---|---|---|
 | Biased model | 86.77% | - |
-| Remove race only | ~80%+ | Minimal |
+| Remove race only | 18.38% | 79% |
 | Remove race + proxy | 15.69% | **82%** |
 
 **Removing the protected attribute alone is not enough. You must audit every feature for correlation with protected attributes.**
@@ -117,9 +118,9 @@ def check_proxy(df, feature, protected_attr):
     }
 
 # Example usage
-result = check_proxy(df, 'CustodyStatus', 'race')
+result = check_proxy(df, 'CustodyStatus', 'Ethnic_Code_Text')
 print(result)
-# {'feature': 'CustodyStatus', 'protected_attr': 'race', 'p_value': 0.0001, 'is_proxy': True}
+# {'feature': 'CustodyStatus', 'protected_attr': 'Ethnic_Code_Text', 'p_value': 0.0, 'is_proxy': True}
 ```
 
 Run this on every feature in your dataset before training. Any feature with `is_proxy: True` needs careful consideration - either remove it or apply fairness-aware techniques.
