@@ -86,7 +86,7 @@ print("\nDifferences:")
 print(frame.difference())
 ```
 
-Example output (this exact recipe, this exact seed - a `RandomForestClassifier` with a fixed seed is not guaranteed bit-identical across CPU architectures and BLAS backends, so treat these as this repo's reference-environment values rather than a universal constant):
+Example output (this exact recipe, this exact seed; a `RandomForestClassifier` with a fixed seed is not guaranteed bit-identical across CPU architectures and BLAS backends, so the last digit can move on other machines - see [reject-inference.md](reject-inference.md) for the same caveat):
 
 ```
                   TPR   FPR

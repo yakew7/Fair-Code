@@ -112,7 +112,7 @@
         "url": "https://www.thefaircode.xyz/index.html#explainers"
       },
       "datePublished": "2026-05-19",
-      "dateModified": "2026-09-10"
+      "dateModified": "2026-09-19"
     },
     {
       "@type": "FAQPage",
@@ -238,7 +238,7 @@ frame = MetricFrame(
 print(frame.by_group)
 print(&quot;\nDifferences:&quot;)
 print(frame.difference())</code></pre>
-<p>Example output (this exact recipe, this exact seed - a <code>RandomForestClassifier</code> with a fixed seed is not guaranteed bit-identical across CPU architectures and BLAS backends, so treat these as this repo&#x27;s reference-environment values rather than a universal constant):</p>
+<p>Example output (this exact recipe, this exact seed; a <code>RandomForestClassifier</code> with a fixed seed is not guaranteed bit-identical across CPU architectures and BLAS backends, so the last digit can move on other machines - see <a href="reject-inference.html">reject-inference.md</a> for the same caveat):</p>
 <pre><code>                  TPR   FPR
 Black Defendants  0.73  0.61
 White Defendants  0.64  0.43
