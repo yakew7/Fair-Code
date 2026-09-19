@@ -56,9 +56,9 @@ A model trained with gender and age as features assigned hire recommendations at
 
 (The disparate-impact ratio here is 17.10 / 21.62 = 0.79, below the 0.80 four-fifths threshold.)
 
-The model was not told to discriminate. It learned to - by treating age as a proxy for gender, because women in the dataset more often had career gaps. Age was correlated with gender, so including it smuggled the gender signal back in even without an explicit gender rule.
+The model was not told to discriminate. It learned to - by treating gender as a direct signal, since it was fed to the model as a feature. `AI Fair Recruitment/audit.yaml` also lists `Age` as a declared proxy feature to remove alongside gender, but in this dataset Age is not actually correlated with Gender (point-biserial r ≈ -0.002, p ≈ 0.42 - not significant, and dropping only Gender while keeping Age already closes the gap to about 0.2 percentage points, nearly as small as the fully-fixed model below). The gap here was overwhelmingly about gender being visible to the model directly, not about a career-gap-driven age proxy.
 
-After dropping gender and age (the protected attribute and its proxy), the gap closes to **0.12 percentage points** - a **97.3% reduction**. The gap wasn't in the underlying merit of candidates - it was in which features the model was permitted to see.
+After dropping gender and age (the protected attribute and the declared proxy), the gap closes to **0.12 percentage points** - a **97.3% reduction**. The gap wasn't in the underlying merit of candidates - it was in which features the model was permitted to see.
 
 ---
 
