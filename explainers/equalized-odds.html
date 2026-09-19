@@ -208,10 +208,10 @@
 <p>We can demonstrate this directly using the <a href="https://github.com/propublica/compas-analysis" target="_blank" rel="noreferrer noopener">ProPublica COMPAS dataset</a>.</p>
 <p>COMPAS is a risk assessment tool deployed across 46 US states. Judges use its scores to make bail, sentencing, and parole decisions. It doesn&#x27;t just need to be accurate - it needs to be <em>equally</em> accurate for every defendant, regardless of race.</p>
 <h4 id="what-we-measured">What We Measured</h4>
-<p>After training a classifier on the COMPAS dataset, we measured true positive rate (TPR) and false positive rate (FPR) broken down by race:</p>
-<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Group</th><th>True Positive Rate</th><th>False Positive Rate</th></tr></thead><tbody><tr><td>Black Defendants</td><td>0.89</td><td>0.31</td></tr><tr><td>White Defendants</td><td>0.67</td><td>0.11</td></tr><tr><td><strong>Gap</strong></td><td><strong>0.22</strong></td><td><strong>0.20</strong></td></tr></tbody></table></div>
+<p>Training a <code>RandomForestClassifier(random_state=42)</code> on <code>Sex_Code_Text</code>, <code>CustodyStatus</code>, and <code>MaritalStatus</code> (race already removed, matching this repo&#x27;s own &quot;remove race only&quot; recipe - see <a href="proxy-variables.html">proxy-variables.md</a>), we measured true positive rate (TPR) and false positive rate (FPR) against <code>ScoreText</code>-derived <code>is_high_risk</code>, broken down by race:</p>
+<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Group</th><th>True Positive Rate</th><th>False Positive Rate</th></tr></thead><tbody><tr><td>Black Defendants</td><td>0.73</td><td>0.61</td></tr><tr><td>White Defendants</td><td>0.64</td><td>0.43</td></tr><tr><td><strong>Gap</strong></td><td><strong>0.08</strong></td><td><strong>0.18</strong></td></tr></tbody></table></div>
 <p>Interpretation:</p>
-<ul><li>Black defendants who <em>will</em> reoffend are correctly flagged at a higher rate - but</li><li>Black defendants who <em>won&#x27;t</em> reoffend are also incorrectly flagged at nearly three times the rate of white defendants</li></ul>
+<ul><li>Black defendants who <em>will</em> reoffend are correctly flagged at a somewhat higher rate - but</li><li>Black defendants who <em>won&#x27;t</em> reoffend are also incorrectly flagged at a much higher rate than white defendants</li></ul>
 <p>The model isn&#x27;t just wrong more often for Black defendants. It&#x27;s wrong in a specific <em>direction</em> - over-flagging them as high-risk. Equalized Odds catches this because it checks both error types, not just overall accuracy.</p>
 <hr>
 <h3 id="how-to-detect-it-in-python">How to Detect It in Python</h3>
@@ -238,14 +238,14 @@ frame = MetricFrame(
 print(frame.by_group)
 print(&quot;\nDifferences:&quot;)
 print(frame.difference())</code></pre>
-<p>Example output:</p>
+<p>Example output (this exact recipe, this exact seed - a <code>RandomForestClassifier</code> with a fixed seed is not guaranteed bit-identical across CPU architectures and BLAS backends, so treat these as this repo&#x27;s reference-environment values rather than a universal constant):</p>
 <pre><code>                  TPR   FPR
-Black Defendants  0.89  0.31
-White Defendants  0.67  0.11
+Black Defendants  0.73  0.61
+White Defendants  0.64  0.43
 
 Differences:
-TPR    0.22
-FPR    0.20</code></pre>
+TPR    0.08
+FPR    0.18</code></pre>
 <p>Large differences in either metric indicate an Equalized Odds violation. Run this on every protected attribute in your dataset before deployment.</p>
 <p>Install dependency:</p>
 <pre><code class="language-bash">pip install fairlearn</code></pre>

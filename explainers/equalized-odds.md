@@ -41,18 +41,18 @@ COMPAS is a risk assessment tool deployed across 46 US states. Judges use its sc
 
 ### What We Measured
 
-After training a classifier on the COMPAS dataset, we measured true positive rate (TPR) and false positive rate (FPR) broken down by race:
+Training a `RandomForestClassifier(random_state=42)` on `Sex_Code_Text`, `CustodyStatus`, and `MaritalStatus` (race already removed, matching this repo's own "remove race only" recipe - see [proxy-variables.md](proxy-variables.md)), we measured true positive rate (TPR) and false positive rate (FPR) against `ScoreText`-derived `is_high_risk`, broken down by race:
 
 | Group | True Positive Rate | False Positive Rate |
 |---|---:|---:|
-| Black Defendants | 0.89 | 0.31 |
-| White Defendants | 0.67 | 0.11 |
-| **Gap** | **0.22** | **0.20** |
+| Black Defendants | 0.73 | 0.61 |
+| White Defendants | 0.64 | 0.43 |
+| **Gap** | **0.08** | **0.18** |
 
 Interpretation:
 
-- Black defendants who *will* reoffend are correctly flagged at a higher rate - but
-- Black defendants who *won't* reoffend are also incorrectly flagged at nearly three times the rate of white defendants
+- Black defendants who *will* reoffend are correctly flagged at a somewhat higher rate - but
+- Black defendants who *won't* reoffend are also incorrectly flagged at a much higher rate than white defendants
 
 The model isn't just wrong more often for Black defendants. It's wrong in a specific *direction* - over-flagging them as high-risk. Equalized Odds catches this because it checks both error types, not just overall accuracy.
 
@@ -86,16 +86,16 @@ print("\nDifferences:")
 print(frame.difference())
 ```
 
-Example output:
+Example output (this exact recipe, this exact seed - a `RandomForestClassifier` with a fixed seed is not guaranteed bit-identical across CPU architectures and BLAS backends, so treat these as this repo's reference-environment values rather than a universal constant):
 
 ```
                   TPR   FPR
-Black Defendants  0.89  0.31
-White Defendants  0.67  0.11
+Black Defendants  0.73  0.61
+White Defendants  0.64  0.43
 
 Differences:
-TPR    0.22
-FPR    0.20
+TPR    0.08
+FPR    0.18
 ```
 
 Large differences in either metric indicate an Equalized Odds violation. Run this on every protected attribute in your dataset before deployment.
