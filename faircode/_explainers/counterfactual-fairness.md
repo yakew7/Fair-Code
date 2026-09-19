@@ -214,7 +214,7 @@ X_train_f, X_test_f, y_train_f, y_test_f = train_test_split(
 model_fair = RandomForestClassifier(n_estimators=100, random_state=42)
 model_fair.fit(X_train_f, y_train_f)
 
-test_df['prediction_fair'] = model_fair.predict(X_test_f)
+cf_df['prediction_fair'] = model_fair.predict(X_test_f)
 
 # Re-run audit - counterfactual flipping race no longer changes income,
 # so predictions are now stable across the counterfactual
