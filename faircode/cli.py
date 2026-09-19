@@ -364,8 +364,12 @@ def main(argv: list[str] | None = None) -> int:
                         file=sys.stderr,
                     )
 
-        profile_a = profile(df_a, overrides, opts)
-        profile_b = profile(df_b, overrides, opts)
+        try:
+            profile_a = profile(df_a, overrides, opts)
+            profile_b = profile(df_b, overrides, opts)
+        except ValueError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
         result = compare(profile_a, profile_b, name_a=args.csv_a, name_b=args.csv_b)
 
         if args.proxy_hints:

@@ -49,6 +49,22 @@ def test_profile_rejects_out_of_range_min_share(tmp_path, capsys):
     assert "min_share must be between 0 and 1" in captured.err
 
 
+def test_compare_rejects_out_of_range_min_share(tmp_path, capsys):
+    # compare accepts the same tunables as profile, but used to skip the
+    # ValueError -> clean-exit handling profile has, crashing with a raw
+    # traceback instead (#663).
+    path_a = tmp_path / "a.csv"
+    path_a.write_text("sex\n" + "M\n" * 50 + "F\n" * 50, encoding="utf-8")
+    path_b = tmp_path / "b.csv"
+    path_b.write_text("sex\n" + "M\n" * 60 + "F\n" * 40, encoding="utf-8")
+
+    exit_code = main(["compare", str(path_a), str(path_b), "--min-share", "1.5"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 2
+    assert "min_share must be between 0 and 1" in captured.err
+
+
 def test_profile_fail_under_keeps_json_output_machine_readable(tmp_path, capsys):
     path = tmp_path / "balanced.csv"
     path.write_text("sex\nM\nF\nM\nF\n", encoding="utf-8")
