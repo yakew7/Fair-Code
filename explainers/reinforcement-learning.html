@@ -412,7 +412,7 @@ model_fair = RandomForestClassifier(random_state=42)
 model_fair.fit(X_train_f, y_train_f)</code></pre>
 <p><strong>Results - mitigated policy (race + proxy removed):</strong></p>
 <div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Group</th><th>High-Risk Flag Rate</th></tr></thead><tbody><tr><td>Black defendants</td><td>84.71%</td></tr><tr><td>White defendants</td><td>69.02%</td></tr><tr><td><strong>New fairness gap</strong></td><td><strong>15.69%</strong></td></tr></tbody></table></div>
-<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Approach</th><th>Fairness Gap</th><th>Reduction</th></tr></thead><tbody><tr><td>Biased policy</td><td>86.77%</td><td>-</td></tr><tr><td>Remove race only</td><td>~60%</td><td>Partial</td></tr><tr><td>Remove race + custody_status</td><td>15.69%</td><td><strong>82%</strong></td></tr></tbody></table></div>
+<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Approach</th><th>Fairness Gap</th><th>Reduction</th></tr></thead><tbody><tr><td>Biased policy</td><td>86.77%</td><td>-</td></tr><tr><td>Remove race only (keep custody_status)</td><td>18.38%</td><td>79%</td></tr><tr><td>Remove race + custody_status</td><td>15.69%</td><td><strong>82%</strong></td></tr></tbody></table></div>
 <p>The policy architecture did not change. The training procedure did not change. Only the state representation changed - and most of the discriminatory behaviour disappeared.</p>
 <hr>
 <h3 id="second-case-recommendation-systems-and-feedback-loops">Second Case: Recommendation Systems and Feedback Loops</h3>

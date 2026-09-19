@@ -309,7 +309,7 @@ model_fair.fit(X_train_f, y_train_f)
 | Approach | Fairness Gap | Reduction |
 |---|---|---|
 | Biased policy | 86.77% | - |
-| Remove race only | ~60% | Partial |
+| Remove race only (keep custody_status) | 18.38% | 79% |
 | Remove race + custody_status | 15.69% | **82%** |
 
 The policy architecture did not change. The training procedure did not change. Only the state representation changed - and most of the discriminatory behaviour disappeared.
