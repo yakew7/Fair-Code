@@ -16,9 +16,9 @@ That question matters most exactly where fairness audits are weakest: small subg
 
 Both methods are non-parametric - they assume nothing about the shape of the underlying distribution, which matters because fairness metrics here are built on binary prediction rates, not smooth continuous measurements.
 
-**Bootstrap confidence interval.** Resample each group independently, with replacement, back up to its own original size, and recompute the gap. Do this thousands of times (`faircode/significance.py` defaults to 2,000 resamples, matching the paper's frozen run), and take the 2.5th and 97.5th percentile of the resulting distribution of gaps - that range is the 95% confidence interval. It answers: "given only the data I have, how much would this gap plausibly move around if I could resample from the same population again?"
+**Bootstrap confidence interval.** Resample each group independently, with replacement, back up to its own original size, and recompute the gap. Do this thousands of times (`faircode/significance.py` defaults to 10,000 resamples), and take the 2.5th and 97.5th percentile of the resulting distribution of gaps - that range is the 95% confidence interval. It answers: "given only the data I have, how much would this gap plausibly move around if I could resample from the same population again?"
 
-**Permutation-test p-value.** Under the null hypothesis, group membership carries no real information about the outcome - so pool both groups together, reshuffle which rows are labeled which group, and recompute the gap. Repeat thousands of times (2,000, matching the CI resample count). The p-value is the fraction of those reshuffled gaps that are at least as extreme as the one actually observed. It answers a different question than the CI: "if there were truly no difference between groups, how often would random chance alone produce a gap this large?"
+**Permutation-test p-value.** Under the null hypothesis, group membership carries no real information about the outcome - so pool both groups together, reshuffle which rows are labeled which group, and recompute the gap. Repeat thousands of times (10,000, matching the CI resample count). The p-value is the fraction of those reshuffled gaps that are at least as extreme as the one actually observed. It answers a different question than the CI: "if there were truly no difference between groups, how often would random chance alone produce a gap this large?"
 
 Neither method assumes normality, a minimum sample size, or a particular metric - the same two functions apply identically whether the metric is a proportion, a rate difference, or a ratio.
 
@@ -43,8 +43,8 @@ A minimal, from-scratch implementation of both methods, so the mechanics are vis
 import numpy as np
 
 
-def bootstrap_ci_and_permutation_p(group_a, group_b, n_resamples=2000,
-                                   n_permutations=2000, confidence=0.95,
+def bootstrap_ci_and_permutation_p(group_a, group_b, n_resamples=10000,
+                                   n_permutations=10000, confidence=0.95,
                                    random_state=42):
     """
     Computes a bootstrap confidence interval and a permutation-test p-value
