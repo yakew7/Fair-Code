@@ -147,7 +147,7 @@ Goal: grow to 15+ contributors with quality-controlled contributions.
 - [x] CI pipeline (all audit scripts run on push/PR)
 - [x] Good-first-issue and help-wanted labels
 - [x] First-interaction workflow (greets new contributors)
-- [x] 10–15 labelled issues open at all times
+- [ ] Target: 10–15 labelled issues open at all times (a moving snapshot, not a maintained invariant - no automated mechanism keeps it true over time)
 - [x] Contributor list in README
 - [x] METRICS.md tracking contributor growth weekly
 
