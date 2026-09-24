@@ -77,7 +77,7 @@ Each audit ships as both a pair of Python scripts (`unfair.py` / `fair.py`) for 
 | ↳  | | | | Race: 12.75% → 6.90% | **46%** |
 | ↳  | | | | Origin: 4.40% → 0.52% | **88%** |
 | ↳  | | | | Age: -2.72% → -2.79% | **+3% ↑** |
-| 06 | [Healthcare Readmission](#06--healthcare-readmission--clinical-bias) | Race, Gender, Age | Payer Code, Discharge Disposition, Medical Specialty, Prior Inpatient | Gender: 0.02% → 0.04% | **+100% ↑** |
+| 06 | [Healthcare Readmission](#06--healthcare-readmission--clinical-bias) | Race, Gender, Age | Payer Code, Discharge Disposition, Medical Specialty, Prior Inpatient | Gender: -0.02% → +0.04% | direction flips |
 | ↳  | | | | Race: 0.08% → 0.06% | **25%** |
 | ↳  | | | | Age: 0.28% → 0.09% | **68%** |
 | 07 | [Tenant Screening](#07--tenant-screening--rental-application-bias) | Race | Prior Arrest/Conviction Episodes, Gang Affiliated, Residence Changes | Race: 6.68% → 5.16% | **23%** |
@@ -706,11 +706,11 @@ features = [
 
 | Gap | Before | After | Change |
 |-----|:------:|:-----:|:---------:|
-| Gender | 0.02% | 0.04% | **+100% ↑** |
+| Gender | -0.02% | +0.04% | **direction flips** |
 | Race | 0.08% | 0.06% | **25% reduction** |
 | Age | 0.28% | 0.09% | **68% reduction** |
 
-**Result: Gender gap increased from 0.02% to 0.04% (proxy removal worsened this gap slightly). 25% reduction in race gap. 68% reduction in age gap.**
+**Result: Gender gap direction flips, from -0.02% to +0.04% (both near zero). 25% reduction in race gap. 68% reduction in age gap.**
 
 > **Key insight:** Healthcare readmission models don't need race or gender to discriminate by them. Payer code, discharge destination, and prior inpatient visits are the `occupation` and `relationship` of clinical AI - variables that look like neutral operational data but encode structural inequalities in insurance, geography, and access to preventive care. The causal direction matters: lower SNF access creates readmission risk. The patient does not bring the risk to the gap - the gap creates the risk.
 

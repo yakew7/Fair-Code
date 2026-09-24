@@ -28,6 +28,6 @@ python3 "Healthcare Readmission/fair.py"     # mitigated (protected attribute + 
 |-------|--------------------------:|---------------------------:|----------:|
 | Race | 0.08% | 0.06% | 25% |
 | Age | 0.28% | 0.09% | 68% |
-| Gender | 0.02% | 0.04% | +100% (slight increase; both near zero) |
+| Gender | -0.02% | +0.04% | direction flips (both near zero) |
 
 These match the "Results at a Glance" table in the [main README](../README.md#results-at-a-glance) and the frozen snapshot in `paper/results-frozen/`. The scripts are deterministic at `random_state=42`, so a correct local run reproduces them exactly. If your numbers differ, check the seed, the split, and your package versions first - but if they genuinely differ, open a PR updating them with your environment noted; the paper freeze that used to make these numbers off-limits to edit has lifted (see [CLAUDE.md](../CLAUDE.md)).
