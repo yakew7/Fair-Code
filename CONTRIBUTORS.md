@@ -195,6 +195,26 @@ Fixed the dataset path in the AI Fair Recruitment scripts ([#27](https://github.
 
 A build-time check for missing Open Graph images in `scripts/build_explainers.py` ([#191](https://github.com/yakew7/Fair-Code/pull/191)), and a wording standardisation sweep across the docs and audit-script comments ([#232](https://github.com/yakew7/Fair-Code/pull/232)) - prose only, leaving every reported number untouched, as the freeze requires.
 
+### Lovish Menaria - [@lovishmenaria14-gif](https://github.com/lovishmenaria14-gif)
+
+**2 merged PRs · 2 commits · first merged 2026-08-29**
+
+Added a `provenance` block to the web profiler's "Copy as JSON" export, mirroring the Python side's
+shape (`faircode_version`, `engine: "js"`, `dataset_hash`, `params`, `overrides`) via
+`crypto.subtle.digest` ([#339](https://github.com/yakew7/Fair-Code/pull/339), closing issue #329).
+Also fixed README.md's stale `explainer.html` repo-tree comment
+([#340](https://github.com/yakew7/Fair-Code/pull/340), closing issue #326).
+
+### Aaqibhafeez Khan - [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan)
+
+**2 merged PRs · 2 commits · first merged 2026-09-09**
+
+Two one-line doc fixes, same day: corrected `unsupervised-learning.md`'s "Benefits Denial - Audit
+04" to "Audit 05" ([#526](https://github.com/yakew7/Fair-Code/pull/526), closing issue #520 -
+Insurance Denial is Audit 04), and fixed `index.html`'s Benchmark Harness callout citing "1.4%"
+instead of the real 1.2% in-processing gap for COMPAS
+([#527](https://github.com/yakew7/Fair-Code/pull/527), closing issue #517).
+
 ### Zhengzhuo Wang - [@wangzhengzhuo05](https://github.com/wangzhengzhuo05)
 
 **2 merged PRs · 2 commits · first merged 2026-09-12**
@@ -288,26 +308,6 @@ Added a guard against `faircode profile --cross COLA,COLA` (the same column cros
 matching the check the web profiler already had for this exact case: every off-diagonal cell in a
 same-column crosstab is a tautological 0 that reads as a real representation gap but isn't one
 ([#337](https://github.com/yakew7/Fair-Code/pull/337), closing issue #320).
-
-### Lovish Menaria - [@lovishmenaria14-gif](https://github.com/lovishmenaria14-gif)
-
-**2 merged PRs · 2 commits · first merged 2026-08-29**
-
-Added a `provenance` block to the web profiler's "Copy as JSON" export, mirroring the Python side's
-shape (`faircode_version`, `engine: "js"`, `dataset_hash`, `params`, `overrides`) via
-`crypto.subtle.digest` ([#339](https://github.com/yakew7/Fair-Code/pull/339), closing issue #329).
-Also fixed README.md's stale `explainer.html` repo-tree comment
-([#340](https://github.com/yakew7/Fair-Code/pull/340), closing issue #326).
-
-### Aaqibhafeez Khan - [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan)
-
-**2 merged PRs · 2 commits · first merged 2026-09-09**
-
-Two one-line doc fixes, same day: corrected `unsupervised-learning.md`'s "Benefits Denial - Audit
-04" to "Audit 05" ([#526](https://github.com/yakew7/Fair-Code/pull/526), closing issue #520 -
-Insurance Denial is Audit 04), and fixed `index.html`'s Benchmark Harness callout citing "1.4%"
-instead of the real 1.2% in-processing gap for COMPAS
-([#527](https://github.com/yakew7/Fair-Code/pull/527), closing issue #517).
 
 ### [@sushicat75](https://github.com/sushicat75)
 
