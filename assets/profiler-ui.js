@@ -148,8 +148,7 @@
 
   function runText(text, name, file) {
     try {
-      var trimmed = text.trim();
-      if (/\.json$/i.test(name) || trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      if (/\.json$/i.test(name)) {
         var table = E.parseJSON(text);
       } else {
         var table = E.parseCSV(text);
