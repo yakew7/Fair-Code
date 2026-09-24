@@ -39,7 +39,7 @@ Splitting the 1,000 rows into five sequential windows of 200 and re-measuring th
 | 4 | 69.0% | 38.5% | 15.1% |
 | 5 | 69.5% | 35.0% | 10.2% |
 
-The original `unfair.py` audit reports a single 6.39% gap from one random 80/20 split, not statistically significant at n=1,000 (`p=0.348`). That one number sits inside a range that swings from 4.3% to 15.1% depending on which 200-row slice happens to get measured. A single audit run can land near either end of that range purely by chance of which rows fall in the test set, which is exactly the instability a rolling-window view is built to catch and a one-shot snapshot cannot.
+The original `unfair.py` audit reports a single 7.16% gap from one random 80/20 split, not statistically significant at n=1,000 (`p=0.2564`). That one number sits inside a range that swings from 4.3% to 15.1% depending on which 200-row slice happens to get measured. A single audit run can land near either end of that range purely by chance of which rows fall in the test set, which is exactly the instability a rolling-window view is built to catch and a one-shot snapshot cannot.
 
 Running PSI between the first and last windows on three features gives a concrete read on which ones actually moved:
 
