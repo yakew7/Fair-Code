@@ -398,12 +398,6 @@ Fixed `profiler.html`'s stale "six bias audits" line - the same drift pattern al
 
 Fixed `faircode benchmark --n-resamples 0` and `--n-permutations 0` crashing with raw `IndexError`/`ZeroDivisionError` instead of a clean usage error - both flags are now validated as positive integers at the argparse level, with test coverage for both ([#630](https://github.com/yakew7/Fair-Code/pull/630), closing issues #617, #618).
 
-### Erol Tasci - [@Voyagerroc-Lab](https://github.com/Voyagerroc-Lab)
-
-**1 merged PR · 1 commit · first merged 2026-09-13**
-
-Fixed `roc-curve-auc.md`'s COMPAS example implying the model predicts real two-year recidivism, when per `COMPAS/audit.yaml` it actually predicts COMPAS's own high/medium risk label - corrected the framing while leaving the (already-accurate) AUC numbers untouched ([#632](https://github.com/yakew7/Fair-Code/pull/632), closing issue #623).
-
 ---
 
 ## Contributions by area
@@ -413,7 +407,7 @@ A cross-cut of the same work, for anyone looking for who to ask about what.
 | Area | Contributors |
 |------|--------------|
 | **Audits** (`*/unfair.py`, `*/fair.py`, `audit.yaml`) | [@yakew7](https://github.com/yakew7), [@YashKewlani1](https://github.com/YashKewlani1), [@Rajveerx11](https://github.com/Rajveerx11), [@cannotdoit13](https://github.com/cannotdoit13) |
-| **Explainers** (`explainers/`) | [@yakew7](https://github.com/yakew7), [@Shreyash0712](https://github.com/Shreyash0712), [@evanjain-dot](https://github.com/evanjain-dot), [@AnayDhawan](https://github.com/AnayDhawan), [@propcgamer20-png](https://github.com/propcgamer20-png), [@Rajveerx11](https://github.com/Rajveerx11), [@TanishGoyal-Dev](https://github.com/TanishGoyal-Dev), [@shwetagupta1234](https://github.com/shwetagupta1234), [@Aarav1611](https://github.com/Aarav1611), [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan), [@Voyagerroc-Lab](https://github.com/Voyagerroc-Lab) |
+| **Explainers** (`explainers/`) | [@yakew7](https://github.com/yakew7), [@Shreyash0712](https://github.com/Shreyash0712), [@evanjain-dot](https://github.com/evanjain-dot), [@AnayDhawan](https://github.com/AnayDhawan), [@propcgamer20-png](https://github.com/propcgamer20-png), [@Rajveerx11](https://github.com/Rajveerx11), [@TanishGoyal-Dev](https://github.com/TanishGoyal-Dev), [@shwetagupta1234](https://github.com/shwetagupta1234), [@Aarav1611](https://github.com/Aarav1611), [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan) |
 | **Profiler - CLI & loaders** (`faircode/`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@tomatotomata](https://github.com/tomatotomata), [@ImMortaL0P](https://github.com/ImMortaL0P), [@propcgamer20-png](https://github.com/propcgamer20-png), [@evanjain-dot](https://github.com/evanjain-dot), [@AnayDhawan](https://github.com/AnayDhawan), [@VedantMadane](https://github.com/VedantMadane), [@mahirhir](https://github.com/mahirhir), [@StudentSuite3](https://github.com/StudentSuite3), [@oxura](https://github.com/oxura), [@nitishchauhan002](https://github.com/nitishchauhan002), [@be-student](https://github.com/be-student), [@slsgzs-cloud](https://github.com/slsgzs-cloud), [@wangzhengzhuo05](https://github.com/wangzhengzhuo05), [@Rayan-and-beyond](https://github.com/Rayan-and-beyond), [@KingEmma7](https://github.com/KingEmma7) |
 | **Profiler - web** (`profiler.html`, `assets/profiler-*.js`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@ImMortaL0P](https://github.com/ImMortaL0P), [@AnayDhawan](https://github.com/AnayDhawan), [@Shreyash0712](https://github.com/Shreyash0712), [@lovishmenaria14-gif](https://github.com/lovishmenaria14-gif), [@be-student](https://github.com/be-student), [@propcgamer20-png](https://github.com/propcgamer20-png), [@wangzhengzhuo05](https://github.com/wangzhengzhuo05), [@kevin-lozada-santos](https://github.com/kevin-lozada-santos), [@ege-arhan](https://github.com/ege-arhan) |
 | **Benchmark harness & paper freeze** | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@shauryagangrade](https://github.com/shauryagangrade), [@be-student](https://github.com/be-student), [@propcgamer20-png](https://github.com/propcgamer20-png) |
