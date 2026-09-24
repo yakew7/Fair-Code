@@ -54,4 +54,4 @@ repos:
         language: system
         pass_filenames: false
         stages: [pre-push]
-        files: '^(faircode/.*|scripts/.*|tests/.*|assets/(profiler-engine\.js|profiler-compare\.js)|pyproject\.toml|requirements(-lock)?\.txt|\.github/CODEOWNERS|.*\.csv|.*/(fair|unfair)\.py|.*/audit\.yaml)$'
+        files: '^(faircode/.*|scripts/.*|tests/.*|assets/(profiler-engine\.js|profiler-compare\.js|profiler-ui\.js)|pyproject\.toml|requirements(-lock)?\.txt|\.github/CODEOWNERS|.*\.csv|.*/(fair|unfair)\.py|.*/audit\.yaml)$'
