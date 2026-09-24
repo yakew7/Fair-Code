@@ -73,16 +73,16 @@
     const baseWithoutExt = basename.replace(/\.md$/i, '');
 
     if (/\.md$/i.test(basename) && explainers.some(entry => entry.slug === baseWithoutExt)) {
-      return `explainers/${encodeURIComponent(baseWithoutExt)}.html${suffix}`;
+      return `${encodeURIComponent(baseWithoutExt)}.html${suffix}`;
     }
 
     if (projectAnchors[cleanPath] || projectAnchors[basename]) {
       const anchor = projectAnchors[cleanPath] || projectAnchors[basename];
-      return `index.html#${anchor}${suffix}`;
+      return `../index.html#${anchor}${suffix}`;
     }
 
     if (/\.md$/i.test(basename)) {
-      return `explainers/${encodeURIComponent(baseWithoutExt)}.html${suffix}`;
+      return `${encodeURIComponent(baseWithoutExt)}.html${suffix}`;
     }
 
     return url.startsWith('../') ? cleanPath : url;
