@@ -8,6 +8,10 @@
 
 [🌐 Live website](https://www.thefaircode.xyz) · [📓 Notebooks](#projects) · [🧠 Explainers](#explainers) · [🤝 Contribute](CONTRIBUTING.md)
 
+![COMPAS audit: the fairness gap is 86.77% with a biased model and 15.69% after removing race and the custody proxy](assets/demo.gif)
+
+*This GIF was created using [openvidstudio](https://github.com/AnayDhawan/openvidstudio).*
+
 ![Python](https://img.shields.io/badge/Python-3.x-blue?style=flat-square&logo=python)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-ML-orange?style=flat-square&logo=scikit-learn)
 ![Jupyter](https://img.shields.io/badge/Jupyter-Notebooks-F37626?style=flat-square&logo=jupyter)
