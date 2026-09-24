@@ -58,7 +58,7 @@ print("""
                    in any federally-funded programme.
 
   native.country → protected (national origin). Foreign-born
-                   applicants are flagged ineligible at 4.8%
+                   applicants are flagged ineligible at 4.40%
                    lower rates in the biased model - not
                    because of economic differences, but because
                    the country variable encodes labour market
