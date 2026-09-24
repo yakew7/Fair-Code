@@ -1,4 +1,4 @@
-"""Freeze the current results/ into paper/results-frozen/ for a paper citation.
+"""Freeze the current results/ into paper/results-frozen/ as a comparison snapshot.
 
 The repo keeps changing - new audits, new strategies, reruns with more resamples.
 A paper cites specific numbers. This script separates the two: it snapshots
@@ -107,9 +107,10 @@ def freeze(tag: str | None = None) -> Path:
     manifest_lines = [
         "# Frozen results provenance",
         "",
-        "This snapshot is what a paper should cite. `results/` at the repo root keeps changing as",
-        "contributors add audits or rerun the harness; this folder does not - regenerate it with",
-        "`scripts/freeze_paper_results.py` only when you are ready to move the citation forward.",
+        "This is a comparison snapshot, not evidence for a live publication. `results/` at the repo",
+        "root keeps changing as contributors add audits or rerun the harness; this folder does not -",
+        "regenerate it with `scripts/freeze_paper_results.py` only when you want a new fixed point to",
+        "compare against.",
         "",
         "## Provenance",
         "",
