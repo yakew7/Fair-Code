@@ -6,7 +6,7 @@ Part of [Fair Code](../README.md#results-at-a-glance). This documents how to rep
 
 - [ ] Install pinned dependencies: `pip install -r ../requirements-lock.txt` (the exact versions used for the published run), or `pip install -r ../requirements.txt` for loose ranges
 - [ ] Randomness is fixed: `random_state: 42` (declared in `audit.yaml`, and used in `unfair.py` / `fair.py`)
-- [ ] Split: 80/20 train/test, stratified (`test_size: 0.2`)
+- [ ] Split: 80/20 train/test (`test_size: 0.2`)
 - [ ] Run both scripts from the repository root, so dataset paths resolve
 
 ## Reproduce
