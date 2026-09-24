@@ -54,7 +54,7 @@ jobs:
           echo "Changed files:"
           echo "$changed"
 
-          if echo "$changed" | grep -Eq '^(faircode/.*|scripts/.*|tests/.*|assets/(profiler-engine\.js|profiler-compare\.js)|pyproject\.toml|requirements(-lock)?\.txt|\.github/CODEOWNERS|.*\.csv|.*/(fair|unfair)\.py|.*/audit\.yaml)$'; then
+          if echo "$changed" | grep -Eq '^(faircode/.*|scripts/.*|tests/.*|assets/(profiler-engine\.js|profiler-compare\.js|profiler-ui\.js)|pyproject\.toml|requirements(-lock)?\.txt|\.github/CODEOWNERS|.*\.csv|.*/(fair|unfair)\.py|.*/audit\.yaml)$'; then
             echo "code_relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "code_relevant=false" >> "$GITHUB_OUTPUT"
