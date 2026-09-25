@@ -55,6 +55,10 @@
 # =========================
 # Website & web profiler
 # =========================
+# Catch-all for anything under assets/ not matched by a more specific entry
+# below (e.g. README media like assets/demo.gif). Must stay above the
+# specific /assets/ entries - CODEOWNERS uses the last matching pattern.
+/assets/ @yakew7
 /assets/profiler-engine.js @yakew7 @ahmdkaml
 /assets/profiler-compare.js @yakew7 @ahmdkaml
 /assets/profiler-ui.js @yakew7 @ahmdkaml
