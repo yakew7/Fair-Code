@@ -39,6 +39,7 @@ CHECKS = [
     ("README.md", re.compile(r"(\d+) short, plain-language write-ups")),
     ("CONTRIBUTORS.md", re.compile(r"the bulk of the (\d+) explainers")),
     ("METRICS.md", re.compile(r"Explainers-(\d+)-blueviolet")),
+    ("METRICS.md", re.compile(r"\| Explainers \| (\d+) \|")),
     ("ROADMAP.md", re.compile(r"(\d+) explainers published")),
 ]
 

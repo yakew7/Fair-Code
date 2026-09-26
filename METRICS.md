@@ -104,7 +104,7 @@ Weekly snapshot of project health. Updated every Friday.
 | Countries reached | 20 | 20+ | End of 2026 |
 | Issues closed | 29 (past 7 days) | Track weekly | Ongoing |
 | Code audits | 7 | 8+ | End of 2026 |
-| Explainers | 56 | 60+ | End of 2026 |
+| Explainers | 61 | 65+ | End of 2026 |
 
 ---
 
