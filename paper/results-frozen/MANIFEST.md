@@ -10,7 +10,7 @@ compare against.
 - **Git commit:** `2fa4a6693210a1c99932b8ec7a0bd20f052597aa`
 - **Git branch:** `main`
 - **Python:** 3.13.2
-- **scikit-learn:** 1.9.0
+- **scikit-learn:** 1.8.0
 - **fairlearn:** 0.14.0
 - **pandas:** 3.0.2
 - **numpy:** 2.4.4
