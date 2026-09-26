@@ -159,6 +159,7 @@ def render_markdown(markdown_text, known_slugs):
     blocks = []
     paragraph = []
     list_items = []
+    list_type = None  # 'ul' or 'ol' - whichever the pending list_items belong to
     quote_lines = []
     code_lines = []
     code_lang = ""
@@ -173,11 +174,13 @@ def render_markdown(markdown_text, known_slugs):
             paragraph = []
 
     def flush_list():
-        nonlocal list_items
+        nonlocal list_items, list_type
         if list_items:
+            tag = list_type or "ul"
             items = "".join(f"<li>{inline_markdown(item, known_slugs)}</li>" for item in list_items)
-            blocks.append(f"<ul>{items}</ul>")
+            blocks.append(f"<{tag}>{items}</{tag}>")
             list_items = []
+            list_type = None
 
     def flush_quote():
         nonlocal quote_lines
@@ -237,7 +240,13 @@ def render_markdown(markdown_text, known_slugs):
 
         if not trimmed:
             flush_paragraph()
-            flush_list()
+            # Deliberately not flush_list() here: a blank line between two
+            # list items of the same type is a "loose" list in CommonMark
+            # terms, not the end of the list - every other block type
+            # (heading, table, code fence, hr, quote, paragraph) already
+            # flushes the list itself when it actually starts, so a list
+            # still followed only by more of its own items after a blank
+            # line stays one <ul>/<ol> instead of fragmenting into several.
             flush_quote()
             index += 1
             continue
@@ -277,7 +286,20 @@ def render_markdown(markdown_text, known_slugs):
         if re.match(r"^[-*]\s+", trimmed):
             flush_paragraph()
             flush_quote()
+            if list_type == "ol":
+                flush_list()
+            list_type = "ul"
             list_items.append(re.sub(r"^[-*]\s+", "", trimmed))
+            index += 1
+            continue
+
+        if re.match(r"^\d+\.\s+", trimmed):
+            flush_paragraph()
+            flush_quote()
+            if list_type == "ul":
+                flush_list()
+            list_type = "ol"
+            list_items.append(re.sub(r"^\d+\.\s+", "", trimmed))
             index += 1
             continue
 

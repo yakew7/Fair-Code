@@ -132,6 +132,7 @@
     const blocks = [];
     let paragraph = [];
     let listItems = [];
+    let listType = null; // 'ul' or 'ol' - whichever the pending listItems belong to
     let quoteLines = [];
     let codeLines = [];
     let codeLang = '';
@@ -147,8 +148,10 @@
 
     function flushList() {
       if (listItems.length) {
-        blocks.push(`<ul>${listItems.map(item => `<li>${inlineMarkdown(item)}</li>`).join('')}</ul>`);
+        const tag = listType || 'ul';
+        blocks.push(`<${tag}>${listItems.map(item => `<li>${inlineMarkdown(item)}</li>`).join('')}</${tag}>`);
         listItems = [];
+        listType = null;
       }
     }
 
@@ -202,7 +205,9 @@
 
       if (!trimmed) {
         flushParagraph();
-        flushList();
+        // Deliberately not flushList() here - see build_explainers.py's
+        // render_markdown() for why a blank line between same-type list
+        // items must not end the list.
         flushQuote();
         continue;
       }
@@ -242,7 +247,18 @@
       if (/^[-*]\s+/.test(trimmed)) {
         flushParagraph();
         flushQuote();
+        if (listType === 'ol') flushList();
+        listType = 'ul';
         listItems.push(trimmed.replace(/^[-*]\s+/, ''));
+        continue;
+      }
+
+      if (/^\d+\.\s+/.test(trimmed)) {
+        flushParagraph();
+        flushQuote();
+        if (listType === 'ul') flushList();
+        listType = 'ol';
+        listItems.push(trimmed.replace(/^\d+\.\s+/, ''));
         continue;
       }
 

@@ -221,7 +221,8 @@
 <div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Metric</th><th>Without Race Multiplier (Unadjusted)</th><th>With 1.212 Race Multiplier (Race-Corrected)</th><th>Impact of Race Correction</th></tr></thead><tbody><tr><td>Average eGFR Score</td><td>53.4 mL/min/1.73m²</td><td>64.7 mL/min/1.73m²</td><td>Inflated by +11.3 mL/min/1.73m²</td></tr><tr><td>Classified as CKD (eGFR &lt; 60)</td><td>640 patients (64.0%)</td><td>410 patients (41.0%)</td><td><strong>230 patients (23.0%) denied CKD diagnosis</strong></td></tr><tr><td>Eligible for Transplant List (eGFR &lt; 20)</td><td>85 patients (8.5%)</td><td>42 patients (4.2%)</td><td><strong>43 patients (4.3%) delayed from transplant list</strong></td></tr></tbody></table></div>
 <p>The race multiplier hides real kidney impairment in 23% of patients, treating them as healthy on paper while their kidney function declines.</p>
 <h3 id="detection-code">Detection Code</h3>
-<p>Below are two modular Python functions: 1. <code>audit_race_corrected_formula</code>: Audits clinical datasets for diagnostic reclassification and care delays caused by race multipliers. 2. <code>scan_for_explicit_race_coefficients</code>: Scans model feature lists or code for hardcoded racial multipliers or race-based dummy variables.</p>
+<p>Below are two modular Python functions:</p>
+<ol><li><code>audit_race_corrected_formula</code>: Audits clinical datasets for diagnostic reclassification and care delays caused by race multipliers.</li><li><code>scan_for_explicit_race_coefficients</code>: Scans model feature lists or code for hardcoded racial multipliers or race-based dummy variables.</li></ol>
 <pre><code class="language-python">import numpy as np
 import pandas as pd
 
