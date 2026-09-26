@@ -114,15 +114,15 @@
 
   function readFile(file) {
     var okExt = /\.(csv|tsv|json|xlsx)$/i.test(file.name);
+    var isXlsxType = file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     var okType = file.type === 'text/csv' || file.type === 'text/tab-separated-values' ||
-      file.type === 'application/json' ||
-      file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      file.type === 'application/json' || isXlsxType;
     if (!okExt && !okType) {
       return showError('Please choose a .csv, .tsv, .json, or .xlsx file.');
     }
     var reader = new FileReader();
     reader.onerror = function () { showError('Could not read that file.'); };
-    if (/\.xlsx$/i.test(file.name)) {
+    if (/\.xlsx$/i.test(file.name) || isXlsxType) {
       reader.onload = async function () {
         try {
           var result = await E.parseXLSX(reader.result);
@@ -148,7 +148,7 @@
 
   function runText(text, name, file) {
     try {
-      if (/\.json$/i.test(name)) {
+      if (/\.json$/i.test(name) || (file && file.type === 'application/json')) {
         var table = E.parseJSON(text);
       } else {
         var table = E.parseCSV(text);
