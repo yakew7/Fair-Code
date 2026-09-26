@@ -480,8 +480,8 @@ print(pd.crosstab(df['employment'], df['is_young'], normalize='columns').round(3
 # is_young          0      1
 # employment
 # <1yr           0.113  0.272   ← young applicants over-represented
-# 1-4yr          0.294  0.455
-# 4-7yr          0.253  0.200
+# 1-4yr          0.288  0.426
+# 4-7yr          0.170  0.181
 # >=7yr          0.359  0.073   ← older applicants over-represented
 ```
 
