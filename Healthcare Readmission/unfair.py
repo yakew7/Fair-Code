@@ -78,8 +78,10 @@ df['is_selfpay'] = (df['payer_code'] == 'SP').astype(int)
 selfpay_race = df.groupby('race')['is_selfpay'].mean().round(3)
 for r, v in selfpay_race.items():
     print(f"  {r:<22} {v:.1%}")
-print("  → Self-pay = uninsured. Uninsured rates are higher among")
-print("    minority populations due to structural access gaps.")
+print("  → Self-pay = uninsured. Higher among Asian, Other, and Hispanic")
+print("    patients than Caucasian; AfricanAmerican is actually lower (2.6%")
+print("    vs 5.2%) - self-pay doesn't track the same minority/majority")
+print("    split as the Medicaid-rate proxy above.")
 
 print("\nSNF (skilled nursing) discharge rate by race:")
 df['discharged_to_snf'] = df['discharge_disposition_id'].isin([2, 3]).astype(int)
