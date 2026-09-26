@@ -236,6 +236,8 @@ Fair-Code/
 │       ├── summary.csv
 │       ├── requirements-lock.txt
 │       └── figures/*.png
+├── brag-output/                          # generated launch-video assets (composition, fonts, SFX/music) - not project docs
+│   └── composition/**
 ├── scripts/
 │   ├── build_explainers.py              # regenerates explainer HTML/JS/sitemap from the JSON source
 │   ├── check_broken_links.py            #   flags dead in-repo markdown links/anchors (make lint)
