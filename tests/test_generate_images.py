@@ -1,4 +1,6 @@
 import importlib
+import tempfile
+from pathlib import Path
 
 import pytest
 from PIL import Image
@@ -110,8 +112,11 @@ def test_generate_favicons(tmp_path, monkeypatch):
 def test_generate_og_images(tmp_path, monkeypatch):
     script = importlib.import_module("scripts.generate_og_images")
 
-    test_root = script.ROOT / f".tmp-test-{tmp_path.name}"
-    test_root.mkdir()
+    # main() computes each out_dir's relative_to(script.ROOT) for its summary print,
+    # so the scratch dir has to live under script.ROOT - it can't just be tmp_path.
+    # mkdtemp (not tmp_path.name, which repeats across separate pytest invocations)
+    # creates it atomically with a unique name, so concurrent runs can't collide.
+    test_root = Path(tempfile.mkdtemp(dir=script.ROOT, prefix=".tmp-test-"))
 
     try:
         monkeypatch.setitem(script.THEMES["dark"], "out_dir", test_root / "og")
