@@ -168,7 +168,7 @@ Fair-Code/
 │   ├── 05_benefits_denial_bias_audit.ipynb
 │   ├── 06_healthcare_readmission_bias_audit.ipynb
 │   ├── 07_intersectional_bias_audit.ipynb
-│   └── 07_tenant_screening_bias_audit.ipynb
+│   └── 08_tenant_screening_bias_audit.ipynb
 │
 ├── faircode/                            # Open Dataset Profiler + benchmark harness
 │   ├── SPEC.md                          #   profiler analysis spec, shared with the web port
@@ -794,7 +794,7 @@ features = [
 
 > **Key insight:** Removing `Race` from a tenant-screening model does almost nothing, because the score is built out of criminal-history counts - and those counts are not a race-neutral measure of risk. Prior arrest and conviction episodes measure how often the system has stopped, charged, and convicted a person, and over-policing means Black applicants carry more of them for the same behaviour. Dropping race and all twelve proxies only cuts the gap from 6.68% to 5.16%, and it stays significant - because the residual bias lives in the label itself. The model is trained to predict re-arrest, and re-arrest is a policed quantity. When the target is downstream of the same enforcement that produced the proxies, no feature removal fully closes the gap. The real remedy is not a cleaner feature set - it is questioning whether a re-arrest-derived score belongs in a housing decision at all.
 
-📓 **[Full notebook walkthrough →](notebooks/07_tenant_screening_bias_audit.ipynb)**
+📓 **[Full notebook walkthrough →](notebooks/08_tenant_screening_bias_audit.ipynb)**
 
 </details>
 
