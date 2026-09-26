@@ -74,7 +74,7 @@ Each audit ships as both a pair of Python scripts (`unfair.py` / `fair.py`) for 
 | 02 | [Hiring](#02--ai-fair-recruitment--hiring-bias) | Gender | Age | 4.51% → 0.12% | **97.3%** |
 | 03 | [Lending](#03--german-credit-lending--lending-bias) | Age | Employment Tenure | 7.16% → 1.89% | **73.6%** |
 | 04 | [Healthcare](#04--insurance-denial--healthcare-bias) | Age, Gender | BMI, Smoker, Diabetic | Age: 7.93% → 3.18% | **60%** |
-| ↳  | | | | Gender: 5.44% → 1.54% | **72%** |
+| ↳  | | | | Gender: -5.44% → +1.54% | direction flips |
 | 05 | [Welfare](#05--benefits-denial--welfare-eligibility-bias) | Sex, Race, Origin, Age | Relationship, Marital Status, Hours, Occupation, fnlwgt | Sex: 18.00% → 8.52% | **53%** |
 | ↳  | | | | Race: 12.75% → 6.90% | **46%** |
 | ↳  | | | | Origin: 4.40% → 0.52% | **88%** |
@@ -542,7 +542,7 @@ Dropped `age`, `gender`, `bmi`, `smoker`, and `diabetic`. Retained only objectiv
 | Male | 50.00% |
 | **New Fairness Gap (Gender)** | **1.54%** |
 
-**Result: 60% reduction in age gap. 72% reduction in gender gap.**
+**Result: 60% reduction in age gap. Gender gap direction flips, from -5.44% to +1.54% (the disadvantaged side switches from female to male).**
 
 > **Key insight:** Insurance AI models don't need to name race to discriminate by race. BMI, smoking, and diabetes status are the `CustodyStatus` of health insurance - clinical-sounding features that carry protected-class signal because of structural inequalities baked into American healthcare.
 
