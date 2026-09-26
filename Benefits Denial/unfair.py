@@ -240,11 +240,13 @@ It also includes four proxy variables:
                   signal is penalizing the gender pay gap, not
                   measuring economic need.
 
-  occupation    → Racial occupational segregation means Black and
-                  Native applicants appear in high-skill roles at
-                  half the rate of White applicants. Including
-                  occupation lets the model encode race through
-                  a labour-market variable that looks purely
+  occupation    → Racial occupational segregation means Black
+                  applicants appear in high-skill roles at about
+                  half the rate of White applicants (15.5% vs
+                  26.2%); Native applicants are also below White's
+                  rate, though less steeply (20.3%, ~77% of White's).
+                  Including occupation lets the model encode race
+                  through a labour-market variable that looks purely
                   economic.
 
 Run fair.py to see the fix.
