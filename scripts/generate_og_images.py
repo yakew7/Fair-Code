@@ -9,10 +9,12 @@ unique, on-brand share card instead of a generic fallback.
 
 Renders each card twice, once per site theme (dark, light), using the same
 --bg/--accent/--white/--muted/--border tokens as index.html's :root and
-html[data-theme="dark"] blocks. Dark cards land in assets/og/ (what
-og:image/twitter:image actually point at - see build_explainers.py) and
-light cards in assets/og-light/, a companion set not currently wired into
-any meta tag; see CONTRIBUTING.md for what they're for.
+html[data-theme="dark"] blocks. Dark cards land in assets/og/ and light
+cards in assets/og-light/; both are wired in as a second og:image meta
+tag on every page (index.html, profiler.html, and every generated
+explainer page - see build_explainers.py), giving a consuming platform
+a light-theme alternative. twitter:image stays dark-only, since Twitter
+only supports one image per page.
 
 Fonts are bundled (not system fonts) so this runs identically in CI
 (ubuntu-latest) and locally. Run with: python3 scripts/generate_og_images.py
