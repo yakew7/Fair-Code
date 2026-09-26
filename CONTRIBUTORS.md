@@ -161,9 +161,9 @@ A full-backlog sweep of issues found in review, in one day: fixed `fit_post_proc
 
 ### Anay Dhawan - [@AnayDhawan](https://github.com/AnayDhawan)
 
-**4 merged PRs · 4 commits · first merged 2026-07-14**
+**5 merged PRs · 6 commits · first merged 2026-07-14**
 
-[Unsupervised Learning](explainers/unsupervised-learning.md) ([#74](https://github.com/yakew7/Fair-Code/pull/74)), on k-means over the Benefits Denial dataset recovering a sex split without sex ever being a feature, and [Model Drift](explainers/model-drift.md) ([#75](https://github.com/yakew7/Fair-Code/pull/75)), on why a fairness gap measured once at launch is not guaranteed to hold months later. Then fixed two related report-rendering parity bugs: `to_html()`'s and the web profiler's downloadable report's missing imbalance/missing/skew meta line, and the web profiler's downloadable report dropping the reference-baseline comparison section entirely ([#294](https://github.com/yakew7/Fair-Code/pull/294), closing issues #283 and #272). Most recently, excluded the generated `faircode/_explainers/` mirror from `check_em_dash.py`'s scan, which had been reporting the same em dash twice under two different-looking paths for the same source file ([#412](https://github.com/yakew7/Fair-Code/pull/412), closing issue #393).
+[Unsupervised Learning](explainers/unsupervised-learning.md) ([#74](https://github.com/yakew7/Fair-Code/pull/74)), on k-means over the Benefits Denial dataset recovering a sex split without sex ever being a feature, and [Model Drift](explainers/model-drift.md) ([#75](https://github.com/yakew7/Fair-Code/pull/75)), on why a fairness gap measured once at launch is not guaranteed to hold months later. Then fixed two related report-rendering parity bugs: `to_html()`'s and the web profiler's downloadable report's missing imbalance/missing/skew meta line, and the web profiler's downloadable report dropping the reference-baseline comparison section entirely ([#294](https://github.com/yakew7/Fair-Code/pull/294), closing issues #283 and #272). Then excluded the generated `faircode/_explainers/` mirror from `check_em_dash.py`'s scan, which had been reporting the same em dash twice under two different-looking paths for the same source file ([#412](https://github.com/yakew7/Fair-Code/pull/412), closing issue #393). Most recently, added a demo GIF to README.md ([#711](https://github.com/yakew7/Fair-Code/pull/711)).
 
 ### [@slsgzs-cloud](https://github.com/slsgzs-cloud)
 
@@ -397,6 +397,12 @@ Fixed `profiler.html`'s stale "six bias audits" line - the same drift pattern al
 **1 merged PR · 1 commit · first merged 2026-09-13**
 
 Fixed `faircode benchmark --n-resamples 0` and `--n-permutations 0` crashing with raw `IndexError`/`ZeroDivisionError` instead of a clean usage error - both flags are now validated as positive integers at the argparse level, with test coverage for both ([#630](https://github.com/yakew7/Fair-Code/pull/630), closing issues #617, #618).
+
+### Sai Keerthana Kavuri - [@saikeerthanakavuri](https://github.com/saikeerthanakavuri)
+
+**1 merged PR · 1 commit · first merged 2026-09-24**
+
+Added `assets/profiler-ui.js` to CI's code-relevance filter and the pre-push pytest hook's trigger paths, both of which had listed `profiler-engine.js`/`profiler-compare.js` but omitted this third profiler JS file despite `tests/test_js_parity.py` asserting directly against its source ([#710](https://github.com/yakew7/Fair-Code/pull/710), closing issue #702).
 
 ---
 
