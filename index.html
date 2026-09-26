@@ -154,15 +154,15 @@
     {
       "@type": "Dataset",
       "name": "AI Fair Recruitment - Hiring Bias Audit",
-      "description": "Bias audit of a Kaggle recruitment dataset. Demographic parity gap by gender reduced from 4.51% (biased model) to 0.12% (fair model) - a 97.3% reduction.",
+      "description": "Bias audit of a Kaggle recruitment dataset. Demographic parity gap by gender reduced from 4.03% (biased model) to 0.16% (fair model) - a 96.1% reduction.",
       "url": "https://www.thefaircode.xyz/#project-hiring",
       "creator": {"@type": "Organization", "name": "Fair Code", "url": "https://www.thefaircode.xyz/"},
       "license": "https://opensource.org/licenses/MIT",
       "isAccessibleForFree": true,
       "measurementTechnique": "Demographic Parity (difference in positive-prediction rate between groups)",
       "variableMeasured": [
-        {"@type": "PropertyValue", "name": "Gender demographic parity gap, biased model", "value": "4.51%"},
-        {"@type": "PropertyValue", "name": "Gender demographic parity gap, fair model", "value": "0.12%"}
+        {"@type": "PropertyValue", "name": "Gender demographic parity gap, biased model", "value": "4.03%"},
+        {"@type": "PropertyValue", "name": "Gender demographic parity gap, fair model", "value": "0.16%"}
       ],
       "distribution": {"@type": "DataDownload", "encodingFormat": "text/csv",
                         "contentUrl": "https://github.com/yakew7/Fair-Code/tree/main/AI Fair Recruitment"}
@@ -1826,7 +1826,7 @@
     <span class="ticker-item red"><span class="dot"></span>COMPAS CRIMINAL JUSTICE</span>
     <span class="ticker-item"><span class="dot"></span>AI HIRING DISCRIMINATION</span>
     <span class="ticker-item red"><span class="dot"></span>FAIRNESS GAP 86.77% → 15.69%</span>
-    <span class="ticker-item"><span class="dot"></span>97.3% BIAS REDUCTION</span>
+    <span class="ticker-item"><span class="dot"></span>96.1% BIAS REDUCTION</span>
     <span class="ticker-item"><span class="dot"></span>RANDOM FOREST CLASSIFIER</span>
     <span class="ticker-item"><span class="dot"></span>DEMOGRAPHIC PARITY METRIC</span>
     <span class="ticker-item"><span class="dot"></span>PROXY VARIABLE REMOVAL</span>
@@ -1862,7 +1862,7 @@
     <span class="ticker-item red"><span class="dot"></span>COMPAS CRIMINAL JUSTICE</span>
     <span class="ticker-item"><span class="dot"></span>AI HIRING DISCRIMINATION</span>
     <span class="ticker-item red"><span class="dot"></span>FAIRNESS GAP 86.77% → 15.69%</span>
-    <span class="ticker-item"><span class="dot"></span>97.3% BIAS REDUCTION</span>
+    <span class="ticker-item"><span class="dot"></span>96.1% BIAS REDUCTION</span>
     <span class="ticker-item"><span class="dot"></span>RANDOM FOREST CLASSIFIER</span>
     <span class="ticker-item"><span class="dot"></span>DEMOGRAPHIC PARITY METRIC</span>
     <span class="ticker-item"><span class="dot"></span>PROXY VARIABLE REMOVAL</span>
@@ -2101,20 +2101,20 @@
 
   <!-- PROJECT 2: HIRING -->
   <div id="project-hiring" style="position:relative; top:-80px; visibility:hidden;"></div>
-  <div class="project-card red reveal" style="margin-top: 2px;" data-project-tags="hiring" data-project-text="ai hiring gender women men recruitment kaggle demographic parity 97.3% 4.51% 0.12% experience technical test score age proxy merit">
+  <div class="project-card red reveal" style="margin-top: 2px;" data-project-tags="hiring" data-project-text="ai hiring gender women men recruitment kaggle demographic parity 96.1% 4.03% 0.16% experience technical test score age proxy merit">
     <div class="card-bg-num">02</div>
     <div class="project-top">
       <div>
         <div class="project-num">PROJECT - 02</div>
         <h3 class="project-name">AI HIRING</h3>
-        <p class="project-desc">Women hired 20.9% less than equally qualified men. The algorithm wasn't told to discriminate. It learned to.</p>
+        <p class="project-desc">Women hired 18.6% less than equally qualified men. The algorithm wasn't told to discriminate. It learned to.</p>
       </div>
       <div class="project-stats">
         <div class="stat-label">FAIRNESS GAP BEFORE</div>
-        <div class="stat-big bad">4.51<span class="stat-unit">%</span></div>
+        <div class="stat-big bad">4.03<span class="stat-unit">%</span></div>
         <div class="stat-label" style="margin-top: 8px;">AFTER MITIGATION</div>
-        <div class="stat-big good">0.12<span class="stat-unit good">%</span></div>
-        <span class="reduction-badge">97.3% reduction</span>
+        <div class="stat-big good">0.16<span class="stat-unit good">%</span></div>
+        <span class="reduction-badge">96.1% reduction</span>
       </div>
     </div>
 
@@ -2127,9 +2127,9 @@
         <div class="terminal-body">
           <div class="t-head">--- BIASED MODEL OUTPUT ---</div>
           <div class="t-normal">Male Candidate Hire Rate: 21.62%</div>
-          <div class="t-bad">Female Candidate Hire Rate: 17.10%</div>
-          <div class="t-bad">Original Fairness Gap: 4.51%</div>
-          <div class="t-dim">95% CI: [3.52%, 5.53%]  ·  n=10,000 resamples</div>
+          <div class="t-bad">Female Candidate Hire Rate: 17.59%</div>
+          <div class="t-bad">Original Fairness Gap: 4.03%</div>
+          <div class="t-dim">95% CI: [2.98%, 5.08%]  ·  n=10,000 resamples</div>
           <div class="t-dim">Permutation p-value: 0.0000  ·  significant</div>
         </div>
       </div>
@@ -2141,17 +2141,17 @@
         <div class="terminal-body">
           <div class="t-head">--- MITIGATED MODEL OUTPUT ---</div>
           <div class="t-good">Male Candidate Hire Rate: 11.48%</div>
-          <div class="t-good">Female Candidate Hire Rate: 11.35%</div>
-          <div class="t-accent">New Fairness Gap: 0.12%</div>
-          <div class="t-dim">95% CI: [−0.69%, 0.93%]  ·  n=10,000 resamples</div>
-          <div class="t-dim">Permutation p-value: 0.7757  ·  not significant</div>
+          <div class="t-good">Female Candidate Hire Rate: 11.32%</div>
+          <div class="t-accent">New Fairness Gap: 0.16%</div>
+          <div class="t-dim">95% CI: [−0.70%, 0.99%]  ·  n=10,000 resamples</div>
+          <div class="t-dim">Permutation p-value: 0.7077  ·  not significant</div>
         </div>
       </div>
     </div>
 
     <div class="key-insight">
       <div class="key-insight-label">Key Insight</div>
-      <p>Dropping gender and age, retaining only Experience Years and Technical Test Score, collapsed the fairness gap from 4.51% to 0.12%. Merit features alone produce near-perfect demographic parity.</p>
+      <p>Dropping gender and age, retaining only Experience Years and Technical Test Score, collapsed the fairness gap from 4.03% to 0.16%. Merit features alone produce near-perfect demographic parity.</p>
     </div>
 
     <div class="bias-bar-wrap" style="margin-top: 32px;">
@@ -2162,8 +2162,8 @@
       </div>
       <div class="bias-row">
         <span class="bias-label">Female · BIASED</span>
-        <div class="bias-track"><div class="bias-fill bad" style="width: 17.10%;"></div></div>
-        <span class="bias-val">17.10%</span>
+        <div class="bias-track"><div class="bias-fill bad" style="width: 17.59%;"></div></div>
+        <span class="bias-val">17.59%</span>
       </div>
       <div class="bias-row">
         <span class="bias-label">Male · FAIR</span>
@@ -2172,8 +2172,8 @@
       </div>
       <div class="bias-row">
         <span class="bias-label">Female · FAIR</span>
-        <div class="bias-track"><div class="bias-fill good" style="width: 11.35%; opacity: 0.8;"></div></div>
-        <span class="bias-val">11.35%</span>
+        <div class="bias-track"><div class="bias-fill good" style="width: 11.32%; opacity: 0.8;"></div></div>
+        <span class="bias-val">11.32%</span>
       </div>
     </div>
   </div>
@@ -2725,7 +2725,7 @@
       <div class="roadmap-status done"></div>
       <div>
         <div class="roadmap-name">AI Recruitment Bias</div>
-        <div class="roadmap-meta">Kaggle dataset · gender + age · 97.3% bias reduction</div>
+        <div class="roadmap-meta">Kaggle dataset · gender + age · 96.1% bias reduction</div>
       </div>
     </div>
     <div class="roadmap-item">
@@ -3653,7 +3653,7 @@
     },
     'project-hiring': {
       title: 'AI Hiring Bias Audit',
-      desc: 'Women hired 20.9% less than equally qualified men. 97.3% bias reduction by removing gender/age proxies.',
+      desc: 'Women hired 18.6% less than equally qualified men. 96.1% bias reduction by removing gender/age proxies.',
     },
     'project-credit': {
       title: 'German Credit Lending Bias Audit',

@@ -152,8 +152,8 @@ features = [
 | Group | Hire Rate |
 |---|---|
 | Male candidates | 21.62% |
-| Female candidates | 17.10% |
-| **Fairness gap** | **4.51 percentage points** |
+| Female candidates | 17.59% |
+| **Fairness gap** | **4.03 percentage points** |
 
 The network didn't contain a rule that said "prefer men." It learned from historical hiring data in which men were hired more. The weights encoded that pattern. The bias was invisible - buried in floating-point numbers across hidden layers.
 
@@ -170,15 +170,15 @@ features = [
 ]
 ```
 
-**Result:** the fairness gap closes to **0.12 percentage points**.
+**Result:** the fairness gap closes to **0.16 percentage points**.
 
 ### Summary
 
 | Approach | Fairness Gap | Reduction |
 |---|---|---|
-| Biased model | 4.51% | - |
-| Remove gender only (keep Age) | 0.23% | 95% |
-| Remove gender + proxy | 0.12% | **97.3%** |
+| Biased model | 4.03% | - |
+| Remove gender only (keep Age) | 0.23% | 94% |
+| Remove gender + proxy | 0.16% | **96.1%** |
 
 **The network's architecture didn't change. The training procedure didn't change. Only the inputs changed - and the bias disappeared.**
 
@@ -269,7 +269,7 @@ This is why the work in this repository matters: not to fix the math, but to fix
 
 ## Related Projects in This Repo
 
-- [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - Full hiring bias audit: 97.3% gap reduction after removing gender + age proxy
+- [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - Full hiring bias audit: 96.1% gap reduction after removing gender + age proxy
 - [`German Credit Lending/`](../German%20Credit%20Lending/) - Lending bias: 73.6% gap reduction after removing age + employment tenure proxy
 - [`Insurance Denial/`](../Insurance%20Denial/) - Healthcare bias: 60–72% reduction after removing BMI, smoking status, and diabetes status as proxies
 - [`Benefits Denial/`](../Benefits%20Denial/) - Welfare eligibility: 46–88% gap reduction across race, sex, and national origin

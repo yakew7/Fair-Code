@@ -63,7 +63,7 @@ Two candidates matched on the merit features the fair model retains:
 `d(A, B)` on task-relevant features: **zero** - they are identical.
 `D(f(A), f(B))` on model output: **1** - opposite decisions.
 
-This violates individual fairness: equal inputs, unequal outputs. Group-level metrics catch the aggregate pattern (a 4.51pp gender hire-rate gap). Individual fairness makes explicit why: these two specific people, who are the same on every dimension that should matter, received opposite verdicts.
+This violates individual fairness: equal inputs, unequal outputs. Group-level metrics catch the aggregate pattern (a 4.03pp gender hire-rate gap). Individual fairness makes explicit why: these two specific people, who are the same on every dimension that should matter, received opposite verdicts.
 
 ```python
 import pandas as pd

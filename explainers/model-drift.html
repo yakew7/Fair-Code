@@ -112,7 +112,7 @@
         "url": "https://www.thefaircode.xyz/index.html#explainers"
       },
       "datePublished": "2026-07-14",
-      "dateModified": "2026-09-17"
+      "dateModified": "2026-09-24"
     },
     {
       "@type": "FAQPage",
@@ -206,7 +206,7 @@
 <p>The German Credit Lending dataset has no timestamp column, it is a static, single-release academic dataset of 1,000 applicants, so there is no genuinely chronological split available. What follows treats row order as a stand-in for arrival order, which is a real limitation named explicitly below, not a claim that this specific file exhibits true calendar drift.</p>
 <p>Splitting the 1,000 rows into five sequential windows of 200 and re-measuring the age-based fairness gap (<code>age &lt; 30</code> vs <code>30+</code>, good-credit rate) in each window shows the gap is not a fixed number:</p>
 <div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Window</th><th>Good-credit rate</th><th>Share under 30</th><th>Fairness gap (older - younger)</th></tr></thead><tbody><tr><td>1</td><td>71.5%</td><td>33.5%</td><td>4.3%</td></tr><tr><td>2</td><td>74.5%</td><td>40.0%</td><td>11.7%</td></tr><tr><td>3</td><td>65.5%</td><td>38.5%</td><td>13.6%</td></tr><tr><td>4</td><td>69.0%</td><td>38.5%</td><td>15.1%</td></tr><tr><td>5</td><td>69.5%</td><td>35.0%</td><td>10.2%</td></tr></tbody></table></div>
-<p>The original <code>unfair.py</code> audit reports a single 6.39% gap from one random 80/20 split, not statistically significant at n=1,000 (<code>p=0.348</code>). That one number sits inside a range that swings from 4.3% to 15.1% depending on which 200-row slice happens to get measured. A single audit run can land near either end of that range purely by chance of which rows fall in the test set, which is exactly the instability a rolling-window view is built to catch and a one-shot snapshot cannot.</p>
+<p>The original <code>unfair.py</code> audit reports a single 7.16% gap from one random 80/20 split, not statistically significant at n=1,000 (<code>p=0.2564</code>). That one number sits inside a range that swings from 4.3% to 15.1% depending on which 200-row slice happens to get measured. A single audit run can land near either end of that range purely by chance of which rows fall in the test set, which is exactly the instability a rolling-window view is built to catch and a one-shot snapshot cannot.</p>
 <p>Running PSI between the first and last windows on three features gives a concrete read on which ones actually moved:</p>
 <div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Feature</th><th>PSI (window 1 vs window 5)</th><th>Read</th></tr></thead><tbody><tr><td><code>age</code></td><td>0.096</td><td>borderline, just under the conventional 0.10 &quot;no significant shift&quot; cutoff</td></tr><tr><td><code>credit_amount</code></td><td>0.119</td><td>moderate shift</td></tr><tr><td><code>duration</code></td><td>0.045</td><td>no meaningful shift</td></tr></tbody></table></div>
 <p><code>credit_amount</code> is the feature that moved the most between the two windows, ahead of <code>age</code> itself, which is the kind of result a rolling PSI check surfaces and a single covariate-shift test run only once would not necessarily have been pointed at.</p>

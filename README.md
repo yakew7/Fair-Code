@@ -71,7 +71,7 @@ Each audit ships as both a pair of Python scripts (`unfair.py` / `fair.py`) for 
 | # | Domain | Protected Attribute | Proxies Removed | Gap Before → After | Reduction |
 |:-:|--------|--------------------|-----------------|--------------------|:---------:|
 | 01 | [Criminal Justice](#01--compas--criminal-justice-bias) | Race | Custody Status | 86.77% → 15.69% | **82%** |
-| 02 | [Hiring](#02--ai-fair-recruitment--hiring-bias) | Gender | Age | 4.51% → 0.12% | **97.3%** |
+| 02 | [Hiring](#02--ai-fair-recruitment--hiring-bias) | Gender | Age | 4.03% → 0.16% | **96.1%** |
 | 03 | [Lending](#03--german-credit-lending--lending-bias) | Age | Employment Tenure | 7.16% → 1.89% | **73.6%** |
 | 04 | [Healthcare](#04--insurance-denial--healthcare-bias) | Age, Gender | BMI, Smoker, Diabetic | Age: 7.93% → 3.18% | **60%** |
 | ↳  | | | | Gender: -5.44% → +1.54% | direction flips |
@@ -404,7 +404,7 @@ X = pd.get_dummies(df[[
 
 ### 02 · AI Fair Recruitment - Hiring Bias
 
-> *"Women were hired 20.9% less than equally qualified men. The algorithm wasn't told to discriminate. It learned to."*
+> *"Women were hired 18.6% less than equally qualified men. The algorithm wasn't told to discriminate. It learned to."*
 
 <details>
 <summary><strong>Show the dataset, before/after code, and results →</strong></summary>
@@ -418,10 +418,10 @@ Biased model trained with gender and age alongside merit-based inputs.
 | Group | Hire Rate |
 |-------|:---------:|
 | Men | 21.62% |
-| Women | 17.10% |
-| **Fairness Gap** | **4.51%** |
+| Women | 17.59% |
+| **Fairness Gap** | **4.03%** |
 
-Women were hired ~21% less than men with identical experience and test scores.
+Women were hired ~19% less than men with identical experience and test scores.
 
 #### The Fix - `fair.py`
 
@@ -437,10 +437,10 @@ X = df[['experience_years', 'test_score']]
 | Group | Hire Rate |
 |-------|:---------:|
 | Men | 11.48% |
-| Women | 11.35% |
-| **New Fairness Gap** | **0.12%** |
+| Women | 11.32% |
+| **New Fairness Gap** | **0.16%** |
 
-**Result: 97.3% reduction in the fairness gap.**
+**Result: 96.1% reduction in the fairness gap.**
 
 > **Key insight:** The model was never explicitly told to discriminate by gender. It inferred a gender penalty from historical hiring patterns in the training data - patterns reflecting human bias, not merit. Restricting inputs to demonstrated ability eliminates the channel through which that bias flows.
 

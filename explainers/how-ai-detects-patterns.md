@@ -147,7 +147,7 @@ A Random Forest treats `education.num` and `relationship` identically: both are 
 
 * [`COMPAS/`](../COMPAS/) - the clearest example of a model detecting a pattern (race-correlated custody history) that mirrors a discriminatory outcome rather than a behavioral one.
 * [`Healthcare Readmission/`](../Healthcare%20Readmission/) - shows pattern detection across an entangled cluster of administrative features, where no single feature's importance score tells the full story.
-* [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - shows a clean before/after where the patterns driving 97.3% of the fairness gap were concentrated in just two features (`gender`, `age`).
+* [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - shows a clean before/after where the patterns driving 96.1% of the fairness gap were concentrated in just two features (`gender`, `age`).
 
 ## Further Reading
 

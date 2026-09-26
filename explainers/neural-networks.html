@@ -284,7 +284,7 @@ loss = binary_cross_entropy(y_true=0, y_pred=0.87)
     &#x27;Technical_Test_Score&#x27;
 ]</code></pre>
 <p><strong>Results:</strong></p>
-<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Group</th><th>Hire Rate</th></tr></thead><tbody><tr><td>Male candidates</td><td>21.62%</td></tr><tr><td>Female candidates</td><td>17.10%</td></tr><tr><td><strong>Fairness gap</strong></td><td><strong>4.51 percentage points</strong></td></tr></tbody></table></div>
+<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Group</th><th>Hire Rate</th></tr></thead><tbody><tr><td>Male candidates</td><td>21.62%</td></tr><tr><td>Female candidates</td><td>17.59%</td></tr><tr><td><strong>Fairness gap</strong></td><td><strong>4.03 percentage points</strong></td></tr></tbody></table></div>
 <p>The network didn&#x27;t contain a rule that said &quot;prefer men.&quot; It learned from historical hiring data in which men were hired more. The weights encoded that pattern. The bias was invisible - buried in floating-point numbers across hidden layers.</p>
 <hr>
 <p><strong>Step 2 - Remove gender + proxy (our fix):</strong></p>
@@ -294,9 +294,9 @@ loss = binary_cross_entropy(y_true=0, y_pred=0.87)
     &#x27;Experience_Years&#x27;,
     &#x27;Technical_Test_Score&#x27;
 ]</code></pre>
-<p><strong>Result:</strong> the fairness gap closes to <strong>0.12 percentage points</strong>.</p>
+<p><strong>Result:</strong> the fairness gap closes to <strong>0.16 percentage points</strong>.</p>
 <h4 id="summary">Summary</h4>
-<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Approach</th><th>Fairness Gap</th><th>Reduction</th></tr></thead><tbody><tr><td>Biased model</td><td>4.51%</td><td>-</td></tr><tr><td>Remove gender only (keep Age)</td><td>0.23%</td><td>95%</td></tr><tr><td>Remove gender + proxy</td><td>0.12%</td><td><strong>97.3%</strong></td></tr></tbody></table></div>
+<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Approach</th><th>Fairness Gap</th><th>Reduction</th></tr></thead><tbody><tr><td>Biased model</td><td>4.03%</td><td>-</td></tr><tr><td>Remove gender only (keep Age)</td><td>0.23%</td><td>94%</td></tr><tr><td>Remove gender + proxy</td><td>0.16%</td><td><strong>96.1%</strong></td></tr></tbody></table></div>
 <p><strong>The network&#x27;s architecture didn&#x27;t change. The training procedure didn&#x27;t change. Only the inputs changed - and the bias disappeared.</strong></p>
 <hr>
 <h3 id="how-to-inspect-what-a-network-learned">How to Inspect What a Network Learned</h3>
@@ -357,7 +357,7 @@ sex ──────────────┘
 <p><strong>A neural network will learn exactly what you teach it. The question is whether you&#x27;re paying attention to what that is.</strong></p>
 <hr>
 <h3 id="related-projects-in-this-repo">Related Projects in This Repo</h3>
-<ul><li><a href="../index.html#project-hiring"><code>AI Fair Recruitment/</code></a> - Full hiring bias audit: 97.3% gap reduction after removing gender + age proxy</li><li><a href="../index.html#project-credit"><code>German Credit Lending/</code></a> - Lending bias: 73.6% gap reduction after removing age + employment tenure proxy</li><li><a href="../index.html#project-insurance"><code>Insurance Denial/</code></a> - Healthcare bias: 60–72% reduction after removing BMI, smoking status, and diabetes status as proxies</li><li><a href="../index.html#project-benefits"><code>Benefits Denial/</code></a> - Welfare eligibility: 46–88% gap reduction across race, sex, and national origin</li></ul>
+<ul><li><a href="../index.html#project-hiring"><code>AI Fair Recruitment/</code></a> - Full hiring bias audit: 96.1% gap reduction after removing gender + age proxy</li><li><a href="../index.html#project-credit"><code>German Credit Lending/</code></a> - Lending bias: 73.6% gap reduction after removing age + employment tenure proxy</li><li><a href="../index.html#project-insurance"><code>Insurance Denial/</code></a> - Healthcare bias: 60–72% reduction after removing BMI, smoking status, and diabetes status as proxies</li><li><a href="../index.html#project-benefits"><code>Benefits Denial/</code></a> - Welfare eligibility: 46–88% gap reduction across race, sex, and national origin</li></ul>
 <hr>
 <h3 id="further-reading">Further Reading</h3>
 <ul><li><a href="https://www.youtube.com/watch?v=aircAruvnKk" target="_blank" rel="noreferrer noopener">3Blue1Brown: Neural Networks (YouTube, 2017)</a> - the best visual introduction to how networks learn</li><li><a href="https://www.deeplearningbook.org/" target="_blank" rel="noreferrer noopener">Goodfellow, Bengio &amp; Courville: Deep Learning (MIT Press)</a> - the canonical textbook, free online</li><li><a href="https://arxiv.org/abs/1705.07874" target="_blank" rel="noreferrer noopener">Lundberg &amp; Lee: A Unified Approach to Interpreting Model Predictions (NeurIPS, 2017)</a> - the SHAP paper</li><li><a href="https://fairmlbook.org/" target="_blank" rel="noreferrer noopener">Barocas &amp; Hardt: Fairness and Machine Learning</a> - the standard reference for algorithmic fairness</li></ul>

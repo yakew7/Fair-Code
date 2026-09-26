@@ -35,16 +35,19 @@ The [`AI Fair Recruitment`](../AI%20Fair%20Recruitment/) audit in this repo trai
 
 ### Biased Model - [`unfair.py`](../AI%20Fair%20Recruitment/unfair.py)
 
+The dataset's `Gender` column has three values, not two - Male, Female, and Other. The Four-Fifths Rule compares *every* group's selection rate against the highest, not just whichever two look most convenient to compare:
+
 | Group | Hire Rate |
 |---|---:|
 | Men | 21.62% |
-| Women | 17.10% |
+| Women | 17.59% |
+| Other | 13.40% |
 
-**Disparate Impact Ratio = 17.10 / 21.62 = 0.791**
+**Disparate Impact Ratio = 13.40 / 21.62 = 0.620** (lowest rate ÷ highest rate, across all three groups - not just Men vs. Women)
 
-**0.791 < 0.80 → FAILS the Four-Fifths Rule.**
+**0.620 < 0.80 → FAILS the Four-Fifths Rule.**
 
-A real EEOC complaint filed against this model would survive the *prima facie* stage. The employer would then bear the burden of proving the selection process is "job-related and consistent with business necessity" - the legal standard set in *Griggs* and codified in 42 U.S.C. §2000e-2(k).
+Stopping at a Men-vs-Women comparison alone would understate the problem: that pair alone gives 17.59 / 21.62 = 0.81, just above the 0.80 line - a "pass" that hides the fact that the Other group is actually the most disadvantaged of the three, well below the threshold. A real EEOC complaint filed against this model would survive the *prima facie* stage. The employer would then bear the burden of proving the selection process is "job-related and consistent with business necessity" - the legal standard set in *Griggs* and codified in 42 U.S.C. §2000e-2(k).
 
 ### Mitigated Model - [`fair.py`](../AI%20Fair%20Recruitment/fair.py)
 
@@ -53,11 +56,12 @@ After dropping `Gender` and `Age` and retraining on `Experience_Years` and `Tech
 | Group | Hire Rate |
 |---|---:|
 | Men | 11.48% |
-| Women | 11.35% |
+| Women | 11.32% |
+| Other | 11.62% |
 
-**Disparate Impact Ratio = 11.35 / 11.48 = 0.989**
+**Disparate Impact Ratio = 11.32 / 11.62 = 0.974** (lowest ÷ highest, across all three groups)
 
-**0.989 ≥ 0.80 → PASSES the Four-Fifths Rule.**
+**0.974 ≥ 0.80 → PASSES the Four-Fifths Rule** - for every group, not just the two that happened to fail before.
 
 The legal exposure is gone, and the model is selecting candidates on demonstrated ability rather than inferred demographic signal.
 
@@ -231,7 +235,7 @@ Under Title VII, an employer that fails the 80% rule can still defend its select
 
 ## Related Projects in This Repo
 
-- [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - the hiring audit this explainer is grounded in. Biased model fails the 80% rule (0.791); mitigated model passes (0.989).
+- [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - the hiring audit this explainer is grounded in. Biased model fails the 80% rule (0.620, across all three Gender groups); mitigated model passes (0.974).
 - [`COMPAS/`](../COMPAS/) - same rule applied to criminal risk scoring. The biased COMPAS model has a Black-vs-White high-risk-flag ratio of 0.40 / 87.16 ≈ 0.005 - a catastrophic Four-Fifths Rule failure.
 - [`German Credit Lending/`](../German%20Credit%20Lending/) - same rule applied to credit decisions. Useful contrast: the gap is smaller (7.16 pp) but still legally relevant under the Equal Credit Opportunity Act, which adopts a similar disparate-impact analysis.
 - [`explainers/equalized-odds.md`](equalized-odds.md) - the error-rate counterpart to selection-rate fairness

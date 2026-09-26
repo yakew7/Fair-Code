@@ -25,16 +25,12 @@ model.fit(X_train, y_train)
 # 4. Measure Final Gap (Bring back gender data safely for metric tracking)
 test_results = X_test.copy()
 test_results['prediction'] = model.predict(X_test)
+test_results['gender'] = df.loc[X_test.index, 'Gender']
 
-# Convert gender to dummy variables for the test set index only
-df_gender = pd.get_dummies(df.loc[X_test.index, 'Gender'], drop_first=True)
-
-# Select exactly ONE column name from the generated gender columns
-male_col = df_gender.columns[0]
-test_results[male_col] = df_gender[male_col]  # Fixed: Only passing a single column series
-
-male_pred = test_results[test_results[male_col] == 1]['prediction']
-female_pred = test_results[test_results[male_col] == 0]['prediction']
+# Gender has a third category (Other, 5,881 rows) - compare Male vs Female only,
+# matching audit.yaml's disadvantaged_values: [Female] / advantaged_values: [Male]
+male_pred = test_results[test_results['gender'] == 'Male']['prediction']
+female_pred = test_results[test_results['gender'] == 'Female']['prediction']
 male_hire_rate = male_pred.mean()
 female_hire_rate = female_pred.mean()
 

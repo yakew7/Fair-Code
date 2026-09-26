@@ -140,7 +140,7 @@ Data doesn't exist in a vacuum. It reflects the society that generated it. A mod
 ## Related Projects in This Repo
 
 - [`COMPAS/`](../COMPAS/) - Full COMPAS analysis: biased model → fair model → 82% gap reduction
-- [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - AI recruitment bias: 97.3% gap reduction after feature audit
+- [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - AI recruitment bias: 96.1% gap reduction after feature audit
 - Coming soon: Facial recognition bias, HMDA loan bias, healthcare AI
 
 ---

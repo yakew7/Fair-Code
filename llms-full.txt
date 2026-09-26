@@ -154,7 +154,7 @@ Data doesn't exist in a vacuum. It reflects the society that generated it. A mod
 ## Related Projects in This Repo
 
 - [`COMPAS/`](../COMPAS/) - Full COMPAS analysis: biased model → fair model → 82% gap reduction
-- [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - AI recruitment bias: 97.3% gap reduction after feature audit
+- [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - AI recruitment bias: 96.1% gap reduction after feature audit
 - Coming soon: Facial recognition bias, HMDA loan bias, healthcare AI
 
 ---
@@ -943,16 +943,19 @@ The [`AI Fair Recruitment`](../AI%20Fair%20Recruitment/) audit in this repo trai
 
 ### Biased Model - [`unfair.py`](../AI%20Fair%20Recruitment/unfair.py)
 
+The dataset's `Gender` column has three values, not two - Male, Female, and Other. The Four-Fifths Rule compares *every* group's selection rate against the highest, not just whichever two look most convenient to compare:
+
 | Group | Hire Rate |
 |---|---:|
 | Men | 21.62% |
-| Women | 17.10% |
+| Women | 17.59% |
+| Other | 13.40% |
 
-**Disparate Impact Ratio = 17.10 / 21.62 = 0.791**
+**Disparate Impact Ratio = 13.40 / 21.62 = 0.620** (lowest rate ÷ highest rate, across all three groups - not just Men vs. Women)
 
-**0.791 < 0.80 → FAILS the Four-Fifths Rule.**
+**0.620 < 0.80 → FAILS the Four-Fifths Rule.**
 
-A real EEOC complaint filed against this model would survive the *prima facie* stage. The employer would then bear the burden of proving the selection process is "job-related and consistent with business necessity" - the legal standard set in *Griggs* and codified in 42 U.S.C. §2000e-2(k).
+Stopping at a Men-vs-Women comparison alone would understate the problem: that pair alone gives 17.59 / 21.62 = 0.81, just above the 0.80 line - a "pass" that hides the fact that the Other group is actually the most disadvantaged of the three, well below the threshold. A real EEOC complaint filed against this model would survive the *prima facie* stage. The employer would then bear the burden of proving the selection process is "job-related and consistent with business necessity" - the legal standard set in *Griggs* and codified in 42 U.S.C. §2000e-2(k).
 
 ### Mitigated Model - [`fair.py`](../AI%20Fair%20Recruitment/fair.py)
 
@@ -961,11 +964,12 @@ After dropping `Gender` and `Age` and retraining on `Experience_Years` and `Tech
 | Group | Hire Rate |
 |---|---:|
 | Men | 11.48% |
-| Women | 11.35% |
+| Women | 11.32% |
+| Other | 11.62% |
 
-**Disparate Impact Ratio = 11.35 / 11.48 = 0.989**
+**Disparate Impact Ratio = 11.32 / 11.62 = 0.974** (lowest ÷ highest, across all three groups)
 
-**0.989 ≥ 0.80 → PASSES the Four-Fifths Rule.**
+**0.974 ≥ 0.80 → PASSES the Four-Fifths Rule** - for every group, not just the two that happened to fail before.
 
 The legal exposure is gone, and the model is selecting candidates on demonstrated ability rather than inferred demographic signal.
 
@@ -1139,7 +1143,7 @@ Under Title VII, an employer that fails the 80% rule can still defend its select
 
 ## Related Projects in This Repo
 
-- [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - the hiring audit this explainer is grounded in. Biased model fails the 80% rule (0.791); mitigated model passes (0.989).
+- [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - the hiring audit this explainer is grounded in. Biased model fails the 80% rule (0.620, across all three Gender groups); mitigated model passes (0.974).
 - [`COMPAS/`](../COMPAS/) - same rule applied to criminal risk scoring. The biased COMPAS model has a Black-vs-White high-risk-flag ratio of 0.40 / 87.16 ≈ 0.005 - a catastrophic Four-Fifths Rule failure.
 - [`German Credit Lending/`](../German%20Credit%20Lending/) - same rule applied to credit decisions. Useful contrast: the gap is smaller (7.16 pp) but still legally relevant under the Equal Credit Opportunity Act, which adopts a similar disparate-impact analysis.
 - [`explainers/equalized-odds.md`](equalized-odds.md) - the error-rate counterpart to selection-rate fairness
@@ -1238,7 +1242,7 @@ Race is an explicit input. The model is permitted to use race as a predictive si
 features = ['Gender', 'Age', 'Experience_Years', 'Technical_Test_Score']
 ```
 
-`Gender` is a direct input. `Age` is both an input and a proxy for gender (women in the dataset more often have career gaps, so age encodes gender signal twice over - once directly, once through correlation). The model was *designed* to see these attributes. The 4.51pp hire rate gap (21.62% vs 17.10%) is the disparate impact.
+`Gender` is a direct input. `Age` is both an input and a proxy for gender (women in the dataset more often have career gaps, so age encodes gender signal twice over - once directly, once through correlation). The model was *designed* to see these attributes. The 4.03pp hire rate gap (21.62% vs 17.59%) is the disparate impact.
 
 ### The Fix - What Removing Disparate Treatment Looks Like
 
@@ -2083,14 +2087,14 @@ A model trained with gender and age as features assigned hire recommendations at
 | Group | Hire Rate |
 |---|---|
 | Male applicants | 21.62% |
-| Female applicants | 17.10% |
-| **Fairness Gap** | **4.51 percentage points** |
+| Female applicants | 17.59% |
+| **Fairness Gap** | **4.03 percentage points** |
 
-(The disparate-impact ratio here is 17.10 / 21.62 = 0.79, below the 0.80 four-fifths threshold.)
+(The disparate-impact ratio here is 17.59 / 21.62 = 0.81, just above the 0.80 four-fifths threshold - close enough that it's worth checking directly rather than assuming a pass.)
 
 The model was not told to discriminate. It learned to - by treating gender as a direct signal, since it was fed to the model as a feature. `AI Fair Recruitment/audit.yaml` also lists `Age` as a declared proxy feature to remove alongside gender, but in this dataset Age is not actually correlated with Gender (point-biserial r ≈ -0.002, p ≈ 0.42 - not significant, and dropping only Gender while keeping Age already closes the gap to about 0.2 percentage points, nearly as small as the fully-fixed model below). The gap here was overwhelmingly about gender being visible to the model directly, not about a career-gap-driven age proxy.
 
-After dropping gender and age (the protected attribute and the declared proxy), the gap closes to **0.12 percentage points** - a **97.3% reduction**. The gap wasn't in the underlying merit of candidates - it was in which features the model was permitted to see.
+After dropping gender and age (the protected attribute and the declared proxy), the gap closes to **0.16 percentage points** - a **96.1% reduction**. The gap wasn't in the underlying merit of candidates - it was in which features the model was permitted to see.
 
 ---
 
@@ -2883,7 +2887,7 @@ Any fairness constraint applied to correct for label bias will trade off against
 ## Related Projects in This Repo
 
 - [`COMPAS/`](../COMPAS/) - recidivism labels derived from re-arrest data, which reflects policing decisions as much as defendant behaviour. The most direct worked example of label bias in this repo.
-- [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - hiring labels generated by human managers whose decisions carried gender and age bias. The biased model (DI ratio 0.791) learns from those labels without any explicit demographic input.
+- [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - hiring labels generated by human managers whose decisions carried gender and age bias. The biased model (DI ratio 0.620, across all three Gender groups) learns from those labels without any explicit demographic input.
 - [`Benefits Denial/`](../Benefits%20Denial/) - income labels from 1994 Census data, a period when structural discrimination in wages and labour access was undocumented and unmitigated. The label column records outcomes, not potential.
 
 ---
@@ -2970,7 +2974,7 @@ Two candidates matched on the merit features the fair model retains:
 `d(A, B)` on task-relevant features: **zero** - they are identical.
 `D(f(A), f(B))` on model output: **1** - opposite decisions.
 
-This violates individual fairness: equal inputs, unequal outputs. Group-level metrics catch the aggregate pattern (a 4.51pp gender hire-rate gap). Individual fairness makes explicit why: these two specific people, who are the same on every dimension that should matter, received opposite verdicts.
+This violates individual fairness: equal inputs, unequal outputs. Group-level metrics catch the aggregate pattern (a 4.03pp gender hire-rate gap). Individual fairness makes explicit why: these two specific people, who are the same on every dimension that should matter, received opposite verdicts.
 
 ```python
 import pandas as pd
@@ -3821,8 +3825,8 @@ features = [
 | Group | Hire Rate |
 |---|---|
 | Male candidates | 21.62% |
-| Female candidates | 17.10% |
-| **Fairness gap** | **4.51 percentage points** |
+| Female candidates | 17.59% |
+| **Fairness gap** | **4.03 percentage points** |
 
 The network didn't contain a rule that said "prefer men." It learned from historical hiring data in which men were hired more. The weights encoded that pattern. The bias was invisible - buried in floating-point numbers across hidden layers.
 
@@ -3839,15 +3843,15 @@ features = [
 ]
 ```
 
-**Result:** the fairness gap closes to **0.12 percentage points**.
+**Result:** the fairness gap closes to **0.16 percentage points**.
 
 ### Summary
 
 | Approach | Fairness Gap | Reduction |
 |---|---|---|
-| Biased model | 4.51% | - |
-| Remove gender only (keep Age) | 0.23% | 95% |
-| Remove gender + proxy | 0.12% | **97.3%** |
+| Biased model | 4.03% | - |
+| Remove gender only (keep Age) | 0.23% | 94% |
+| Remove gender + proxy | 0.16% | **96.1%** |
 
 **The network's architecture didn't change. The training procedure didn't change. Only the inputs changed - and the bias disappeared.**
 
@@ -3938,7 +3942,7 @@ This is why the work in this repository matters: not to fix the math, but to fix
 
 ## Related Projects in This Repo
 
-- [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - Full hiring bias audit: 97.3% gap reduction after removing gender + age proxy
+- [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - Full hiring bias audit: 96.1% gap reduction after removing gender + age proxy
 - [`German Credit Lending/`](../German%20Credit%20Lending/) - Lending bias: 73.6% gap reduction after removing age + employment tenure proxy
 - [`Insurance Denial/`](../Insurance%20Denial/) - Healthcare bias: 60–72% reduction after removing BMI, smoking status, and diabetes status as proxies
 - [`Benefits Denial/`](../Benefits%20Denial/) - Welfare eligibility: 46–88% gap reduction across race, sex, and national origin
@@ -5482,7 +5486,7 @@ A Random Forest treats `education.num` and `relationship` identically: both are 
 
 * [`COMPAS/`](../COMPAS/) - the clearest example of a model detecting a pattern (race-correlated custody history) that mirrors a discriminatory outcome rather than a behavioral one.
 * [`Healthcare Readmission/`](../Healthcare%20Readmission/) - shows pattern detection across an entangled cluster of administrative features, where no single feature's importance score tells the full story.
-* [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - shows a clean before/after where the patterns driving 97.3% of the fairness gap were concentrated in just two features (`gender`, `age`).
+* [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - shows a clean before/after where the patterns driving 96.1% of the fairness gap were concentrated in just two features (`gender`, `age`).
 
 ## Further Reading
 
@@ -6447,7 +6451,7 @@ Summary: See how a model turns labeled examples into a decision rule by walking 
 
 ## Why It Matters
 
-87% of companies now use AI to screen job applicants before a human reads a resume. Every one of those screening models, and every credit scorer, recidivism tool, and insurance triage system in this repo, is built the same way: show the model historical inputs and historical outcomes, let it find the mapping between them, then apply that mapping to new people. The AI Fair Recruitment audit is a direct example - gender, age, experience, and test scores go in, a hire/no-hire decision comes out, and the model reproduces a 4.51 percentage point gender gap without ever being told gender should matter.
+87% of companies now use AI to screen job applicants before a human reads a resume. Every one of those screening models, and every credit scorer, recidivism tool, and insurance triage system in this repo, is built the same way: show the model historical inputs and historical outcomes, let it find the mapping between them, then apply that mapping to new people. The AI Fair Recruitment audit is a direct example - gender, age, experience, and test scores go in, a hire/no-hire decision comes out, and the model reproduces a 4.03 percentage point gender gap without ever being told gender should matter.
 
 The non-obvious part is that this is not a malfunction. Supervised learning is not designed to check whether a pattern is legitimate signal or historical prejudice - it is designed to find *any* pattern that predicts the label, and it has no way to tell the two apart. A model that "learned to discriminate" did exactly what it was built to do: it found the mapping that best explains the labels it was shown. If that mapping includes a gender penalty, the model did not invent one. It found one that was already there.
 
@@ -6490,8 +6494,8 @@ The AI Fair Recruitment dataset pairs applicant features (gender, age, years of 
 | Group | Hire Rate |
 |-------|:---------:|
 | Men | 21.62% |
-| Women | 17.10% |
-| **Fairness Gap** | **4.51%** |
+| Women | 17.59% |
+| **Fairness Gap** | **4.03%** |
 
 The model was never given a rule about gender. It inferred the gap because a gap already existed in the training labels, and inferring existing patterns is exactly what `model.fit()` does.
 
@@ -6507,10 +6511,10 @@ Retraining on experience and test score alone - the two features that plausibly 
 | Group | Hire Rate |
 |-------|:---------:|
 | Men | 11.48% |
-| Women | 11.35% |
-| **New Fairness Gap** | **0.12%** |
+| Women | 11.32% |
+| **New Fairness Gap** | **0.16%** |
 
-A 97.3% reduction, achieved without touching the learning algorithm at all. Same Random Forest, same `fit()` call, same `random_state=42` - the only thing that changed was which columns the mapping was allowed to use.
+A 96.1% reduction, achieved without touching the learning algorithm at all. Same Random Forest, same `fit()` call, same `random_state=42` - the only thing that changed was which columns the mapping was allowed to use.
 
 ## Detection Code
 
@@ -6618,7 +6622,7 @@ The entire premise of a train/test split is that held-out rows are a fair previe
 
 ## Related Projects in This Repo
 
-* [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - the primary anchor for this explainer: a hire/no-hire label learned from historical decisions, reproducing a 4.51 percentage point gender gap until gender and age are dropped from the feature set.
+* [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - the primary anchor for this explainer: a hire/no-hire label learned from historical decisions, reproducing a 4.03 percentage point gender gap until gender and age are dropped from the feature set.
 * [`German Credit Lending/`](../German%20Credit%20Lending/) - a second supervised task with a different label type (credit outcome rather than a hiring decision), showing the same mechanism reproduce an age gap through the `employment` tenure proxy.
 
 ## Further Reading
@@ -6832,7 +6836,7 @@ Splitting the 1,000 rows into five sequential windows of 200 and re-measuring th
 | 4 | 69.0% | 38.5% | 15.1% |
 | 5 | 69.5% | 35.0% | 10.2% |
 
-The original `unfair.py` audit reports a single 6.39% gap from one random 80/20 split, not statistically significant at n=1,000 (`p=0.348`). That one number sits inside a range that swings from 4.3% to 15.1% depending on which 200-row slice happens to get measured. A single audit run can land near either end of that range purely by chance of which rows fall in the test set, which is exactly the instability a rolling-window view is built to catch and a one-shot snapshot cannot.
+The original `unfair.py` audit reports a single 7.16% gap from one random 80/20 split, not statistically significant at n=1,000 (`p=0.2564`). That one number sits inside a range that swings from 4.3% to 15.1% depending on which 200-row slice happens to get measured. A single audit run can land near either end of that range purely by chance of which rows fall in the test set, which is exactly the instability a rolling-window view is built to catch and a one-shot snapshot cannot.
 
 Running PSI between the first and last windows on three features gives a concrete read on which ones actually moved:
 

@@ -26,6 +26,6 @@ python3 "AI Fair Recruitment/fair.py"     # mitigated (protected attribute + pro
 
 | Group | Gap, biased (`unfair.py`) | Gap, mitigated (`fair.py`) | Reduction |
 |-------|--------------------------:|---------------------------:|----------:|
-| Gender | 4.51% | 0.12% | 97.3% |
+| Gender | 4.03% | 0.16% | 96.1% |
 
 These match the "Results at a Glance" table in the [main README](../README.md#results-at-a-glance) and the frozen snapshot in `paper/results-frozen/`. The scripts are deterministic at `random_state=42`, so a correct local run reproduces them exactly. If your numbers differ, check the seed, the split, and your package versions first - but if they genuinely differ, open a PR updating them with your environment noted; the paper freeze that used to make these numbers off-limits to edit has lifted (see [CLAUDE.md](../CLAUDE.md)).

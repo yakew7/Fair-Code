@@ -217,7 +217,7 @@ D(f(x), f(y)) ≤ L · d(x, y)</code></pre>
 <p>Two candidates matched on the merit features the fair model retains:</p>
 <div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Feature</th><th>Candidate A (Female)</th><th>Candidate B (Male)</th></tr></thead><tbody><tr><td>Experience Years</td><td>8</td><td>8</td></tr><tr><td>Technical Test Score</td><td>84</td><td>84</td></tr><tr><td><strong>Biased model prediction</strong></td><td><strong>0 - rejected</strong></td><td><strong>1 - hired</strong></td></tr></tbody></table></div>
 <p><code>d(A, B)</code> on task-relevant features: <strong>zero</strong> - they are identical. <code>D(f(A), f(B))</code> on model output: <strong>1</strong> - opposite decisions.</p>
-<p>This violates individual fairness: equal inputs, unequal outputs. Group-level metrics catch the aggregate pattern (a 4.51pp gender hire-rate gap). Individual fairness makes explicit why: these two specific people, who are the same on every dimension that should matter, received opposite verdicts.</p>
+<p>This violates individual fairness: equal inputs, unequal outputs. Group-level metrics catch the aggregate pattern (a 4.03pp gender hire-rate gap). Individual fairness makes explicit why: these two specific people, who are the same on every dimension that should matter, received opposite verdicts.</p>
 <pre><code class="language-python">import pandas as pd
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier

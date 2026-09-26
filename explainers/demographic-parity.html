@@ -211,10 +211,10 @@
 <h3 id="real-world-proof-hiring-bias">Real-World Proof: Hiring Bias</h3>
 <p>The AI Fair Recruitment audit in this repo is a direct illustration of a demographic parity violation - and its fix.</p>
 <p>A model trained with gender and age as features assigned hire recommendations at sharply different rates:</p>
-<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Group</th><th>Hire Rate</th></tr></thead><tbody><tr><td>Male applicants</td><td>21.62%</td></tr><tr><td>Female applicants</td><td>17.10%</td></tr><tr><td><strong>Fairness Gap</strong></td><td><strong>4.51 percentage points</strong></td></tr></tbody></table></div>
-<p>(The disparate-impact ratio here is 17.10 / 21.62 = 0.79, below the 0.80 four-fifths threshold.)</p>
+<div class="explainer-table-wrap"><table class="explainer-table"><thead><tr><th>Group</th><th>Hire Rate</th></tr></thead><tbody><tr><td>Male applicants</td><td>21.62%</td></tr><tr><td>Female applicants</td><td>17.59%</td></tr><tr><td><strong>Fairness Gap</strong></td><td><strong>4.03 percentage points</strong></td></tr></tbody></table></div>
+<p>(The disparate-impact ratio here is 17.59 / 21.62 = 0.81, just above the 0.80 four-fifths threshold - close enough that it&#x27;s worth checking directly rather than assuming a pass.)</p>
 <p>The model was not told to discriminate. It learned to - by treating gender as a direct signal, since it was fed to the model as a feature. <code>AI Fair Recruitment/audit.yaml</code> also lists <code>Age</code> as a declared proxy feature to remove alongside gender, but in this dataset Age is not actually correlated with Gender (point-biserial r ≈ -0.002, p ≈ 0.42 - not significant, and dropping only Gender while keeping Age already closes the gap to about 0.2 percentage points, nearly as small as the fully-fixed model below). The gap here was overwhelmingly about gender being visible to the model directly, not about a career-gap-driven age proxy.</p>
-<p>After dropping gender and age (the protected attribute and the declared proxy), the gap closes to <strong>0.12 percentage points</strong> - a <strong>97.3% reduction</strong>. The gap wasn&#x27;t in the underlying merit of candidates - it was in which features the model was permitted to see.</p>
+<p>After dropping gender and age (the protected attribute and the declared proxy), the gap closes to <strong>0.16 percentage points</strong> - a <strong>96.1% reduction</strong>. The gap wasn&#x27;t in the underlying merit of candidates - it was in which features the model was permitted to see.</p>
 <hr>
 <h3 id="detection-code">Detection Code</h3>
 <h4 id="measure-demographic-parity-gap">Measure demographic parity gap</h4>

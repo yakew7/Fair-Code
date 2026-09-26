@@ -6,7 +6,7 @@
 
 ## Why It Matters
 
-87% of companies now use AI to screen job applicants before a human reads a resume. Every one of those screening models, and every credit scorer, recidivism tool, and insurance triage system in this repo, is built the same way: show the model historical inputs and historical outcomes, let it find the mapping between them, then apply that mapping to new people. The AI Fair Recruitment audit is a direct example - gender, age, experience, and test scores go in, a hire/no-hire decision comes out, and the model reproduces a 4.51 percentage point gender gap without ever being told gender should matter.
+87% of companies now use AI to screen job applicants before a human reads a resume. Every one of those screening models, and every credit scorer, recidivism tool, and insurance triage system in this repo, is built the same way: show the model historical inputs and historical outcomes, let it find the mapping between them, then apply that mapping to new people. The AI Fair Recruitment audit is a direct example - gender, age, experience, and test scores go in, a hire/no-hire decision comes out, and the model reproduces a 4.03 percentage point gender gap without ever being told gender should matter.
 
 The non-obvious part is that this is not a malfunction. Supervised learning is not designed to check whether a pattern is legitimate signal or historical prejudice - it is designed to find *any* pattern that predicts the label, and it has no way to tell the two apart. A model that "learned to discriminate" did exactly what it was built to do: it found the mapping that best explains the labels it was shown. If that mapping includes a gender penalty, the model did not invent one. It found one that was already there.
 
@@ -49,8 +49,8 @@ The AI Fair Recruitment dataset pairs applicant features (gender, age, years of 
 | Group | Hire Rate |
 |-------|:---------:|
 | Men | 21.62% |
-| Women | 17.10% |
-| **Fairness Gap** | **4.51%** |
+| Women | 17.59% |
+| **Fairness Gap** | **4.03%** |
 
 The model was never given a rule about gender. It inferred the gap because a gap already existed in the training labels, and inferring existing patterns is exactly what `model.fit()` does.
 
@@ -66,10 +66,10 @@ Retraining on experience and test score alone - the two features that plausibly 
 | Group | Hire Rate |
 |-------|:---------:|
 | Men | 11.48% |
-| Women | 11.35% |
-| **New Fairness Gap** | **0.12%** |
+| Women | 11.32% |
+| **New Fairness Gap** | **0.16%** |
 
-A 97.3% reduction, achieved without touching the learning algorithm at all. Same Random Forest, same `fit()` call, same `random_state=42` - the only thing that changed was which columns the mapping was allowed to use.
+A 96.1% reduction, achieved without touching the learning algorithm at all. Same Random Forest, same `fit()` call, same `random_state=42` - the only thing that changed was which columns the mapping was allowed to use.
 
 ## Detection Code
 
@@ -177,7 +177,7 @@ The entire premise of a train/test split is that held-out rows are a fair previe
 
 ## Related Projects in This Repo
 
-* [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - the primary anchor for this explainer: a hire/no-hire label learned from historical decisions, reproducing a 4.51 percentage point gender gap until gender and age are dropped from the feature set.
+* [`AI Fair Recruitment/`](../AI%20Fair%20Recruitment/) - the primary anchor for this explainer: a hire/no-hire label learned from historical decisions, reproducing a 4.03 percentage point gender gap until gender and age are dropped from the feature set.
 * [`German Credit Lending/`](../German%20Credit%20Lending/) - a second supervised task with a different label type (credit outcome rather than a hiring decision), showing the same mechanism reproduce an age gap through the `employment` tenure proxy.
 
 ## Further Reading
