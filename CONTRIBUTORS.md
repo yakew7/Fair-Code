@@ -239,7 +239,7 @@ The [Disparate Impact](explainers/disparate-impact.md) explainer ([#14](https://
 
 The [SHAP Values](explainers/shap-values.md) explainer ([#12](https://github.com/yakew7/Fair-Code/pull/12)) - how to see what actually drove a model's decision, and how to use that to catch bias.
 
-### Tanish Goyal - [@TanishGoyal-Dev](https://github.com/TanishGoyal-Dev)
+### Tanish Goyal - `TanishGoyal-Dev` (account deleted)
 
 **1 merged PR · 2 commits · first merged 2026-05-19**
 
@@ -372,7 +372,7 @@ the sibling `IsADirectoryError`, and added the test coverage the PR itself didn'
 
 **1 merged PR · 1 commit · first merged 2026-09-12**
 
-Added the same unlinked-commit-email explanation `@Ayaan-20-11`'s row already had to `@TanishGoyal-Dev`'s row in the Git identity map, so the "why doesn't this real merged PR show up in the contributors graph" answer is documented instead of silent ([#610](https://github.com/yakew7/Fair-Code/pull/610), closing issue #588).
+Added the same unlinked-commit-email explanation `@Ayaan-20-11`'s row already had to `TanishGoyal-Dev`'s row in the Git identity map, so the "why doesn't this real merged PR show up in the contributors graph" answer is documented instead of silent ([#610](https://github.com/yakew7/Fair-Code/pull/610), closing issue #588). That account has since been deleted entirely - see the Git identity map below.
 
 ### [@raonishanth2000-hub](https://github.com/raonishanth2000-hub)
 
@@ -407,7 +407,7 @@ A cross-cut of the same work, for anyone looking for who to ask about what.
 | Area | Contributors |
 |------|--------------|
 | **Audits** (`*/unfair.py`, `*/fair.py`, `audit.yaml`) | [@yakew7](https://github.com/yakew7), [@YashKewlani1](https://github.com/YashKewlani1), [@Rajveerx11](https://github.com/Rajveerx11), [@cannotdoit13](https://github.com/cannotdoit13) |
-| **Explainers** (`explainers/`) | [@yakew7](https://github.com/yakew7), [@Shreyash0712](https://github.com/Shreyash0712), [@evanjain-dot](https://github.com/evanjain-dot), [@AnayDhawan](https://github.com/AnayDhawan), [@propcgamer20-png](https://github.com/propcgamer20-png), [@Rajveerx11](https://github.com/Rajveerx11), [@TanishGoyal-Dev](https://github.com/TanishGoyal-Dev), [@shwetagupta1234](https://github.com/shwetagupta1234), [@Aarav1611](https://github.com/Aarav1611), [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan) |
+| **Explainers** (`explainers/`) | [@yakew7](https://github.com/yakew7), [@Shreyash0712](https://github.com/Shreyash0712), [@evanjain-dot](https://github.com/evanjain-dot), [@AnayDhawan](https://github.com/AnayDhawan), [@propcgamer20-png](https://github.com/propcgamer20-png), [@Rajveerx11](https://github.com/Rajveerx11), `TanishGoyal-Dev` (account deleted), [@shwetagupta1234](https://github.com/shwetagupta1234), [@Aarav1611](https://github.com/Aarav1611), [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan) |
 | **Profiler - CLI & loaders** (`faircode/`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@tomatotomata](https://github.com/tomatotomata), [@ImMortaL0P](https://github.com/ImMortaL0P), [@propcgamer20-png](https://github.com/propcgamer20-png), [@evanjain-dot](https://github.com/evanjain-dot), [@AnayDhawan](https://github.com/AnayDhawan), [@VedantMadane](https://github.com/VedantMadane), [@mahirhir](https://github.com/mahirhir), [@StudentSuite3](https://github.com/StudentSuite3), [@oxura](https://github.com/oxura), [@nitishchauhan002](https://github.com/nitishchauhan002), [@be-student](https://github.com/be-student), [@slsgzs-cloud](https://github.com/slsgzs-cloud), [@wangzhengzhuo05](https://github.com/wangzhengzhuo05), [@Rayan-and-beyond](https://github.com/Rayan-and-beyond), [@KingEmma7](https://github.com/KingEmma7) |
 | **Profiler - web** (`profiler.html`, `assets/profiler-*.js`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@ImMortaL0P](https://github.com/ImMortaL0P), [@AnayDhawan](https://github.com/AnayDhawan), [@Shreyash0712](https://github.com/Shreyash0712), [@lovishmenaria14-gif](https://github.com/lovishmenaria14-gif), [@be-student](https://github.com/be-student), [@propcgamer20-png](https://github.com/propcgamer20-png), [@wangzhengzhuo05](https://github.com/wangzhengzhuo05), [@kevin-lozada-santos](https://github.com/kevin-lozada-santos), [@ege-arhan](https://github.com/ege-arhan) |
 | **Benchmark harness & paper freeze** | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@shauryagangrade](https://github.com/shauryagangrade), [@be-student](https://github.com/be-student), [@propcgamer20-png](https://github.com/propcgamer20-png) |
@@ -450,7 +450,7 @@ makes `git shortlog -sne` reconcilable with the list above.
 | [@anujkamdar](https://github.com/anujkamdar) | `Anuj Kamdar` |
 | [@evanjain-dot](https://github.com/evanjain-dot) | `evanjain-dot` |
 | [@YashKewlani1](https://github.com/YashKewlani1) | `Aarav Sharma` |
-| [@TanishGoyal-Dev](https://github.com/TanishGoyal-Dev) | `TanishGoyal-Dev` - commit email (`tanishgoyal003@gmail.com`) is not linked to the GitHub account, so [#13](https://github.com/yakew7/Fair-Code/pull/13) doesn't register in the repo's contributors graph despite being a real merged PR |
+| `TanishGoyal-Dev` (account deleted) | The GitHub account has since been deleted (404 on github.com and via the API; [#13](https://github.com/yakew7/Fair-Code/pull/13)'s author now resolves to GitHub's "ghost" placeholder) - at the time of merge, commit email (`tanishgoyal003@gmail.com`) was also not linked to the account, so #13 never registered in the repo's contributors graph despite being a real merged PR |
 | [@shwetagupta1234](https://github.com/shwetagupta1234) | `shwetagupta1234` |
 | [@Circout-sudo](https://github.com/Circout-sudo) | `Yojeet` |
 | [@Ayaan-20-11](https://github.com/Ayaan-20-11) | `Ayaan Kapoor` - commit email is a local hostname (`ayaankapoor@Mac.lan`), not linked to the GitHub account, so [#331](https://github.com/yakew7/Fair-Code/pull/331) doesn't register in the repo's contributors graph despite being a real merged PR |
