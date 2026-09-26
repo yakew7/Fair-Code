@@ -16,10 +16,12 @@ Dependabot-managed and in scope for this same habit (#188).
 under `pull_request_target` / `workflow_run` triggers (an `allow-unsafe-pr-checkout`
 override was added, marked `[BREAKING]`).
 
-**Applicability:** `.github/workflows/first.interaction.yml` is the only workflow
-using `pull_request_target` in this repo, and it never calls `actions/checkout` -
-it only uses `actions/github-script`. No checkout step anywhere in the repo runs
-under a privileged trigger against untrusted fork code. **Not applicable.**
+**Applicability:** `.github/workflows/first.interaction.yml` uses `pull_request_target`
+but never calls `actions/checkout` - it only uses `actions/github-script`.
+`.github/workflows/pr-review-ping.yml` also triggers on `pull_request_target` and
+does call `actions/checkout@v7`, but its step doesn't override `ref:`, so it checks
+out the base branch rather than the fork PR's head - the exact scenario the
+`[BREAKING]` safety block guards against never arises here either. **Not applicable.**
 
 ## `actions/setup-python` (v5 → v7)
 
