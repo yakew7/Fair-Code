@@ -76,7 +76,7 @@ Optionally install the git hooks so the checks run automatically:
 ```bash
 pre-commit install
 ```
-With the hooks installed, the em-dash lint runs on every commit (and explainer pages rebuild when you touch `explainers/*.md`, `assets/explainers-data.json`, or `assets/explainers-ui.js`), while the full test suite runs on `git push` - but only when the push actually touches something the suite covers (`faircode/`, `scripts/`, `tests/`, a dataset CSV, an audit's `fair.py`/`unfair.py`/`audit.yaml`, `pyproject.toml`, `requirements*.txt`, `assets/profiler-engine.js`, `assets/profiler-compare.js`, or `.github/CODEOWNERS`). A prose-only push (docs, `README.md`, `explainers/*.md`, website copy) skips it entirely. When it does run, expect several seconds to tens of seconds because it includes the benchmark tests. Run `make check` any time to reproduce CI on demand regardless of what changed.
+With the hooks installed, the em-dash lint runs on every commit (and explainer pages rebuild when you touch `explainers/*.md`, `assets/explainers-data.json`, or `assets/explainers-ui.js`), while the full test suite runs on `git push` - but only when the push actually touches something the suite covers (`faircode/`, `scripts/`, `tests/`, a dataset CSV, an audit's `fair.py`/`unfair.py`/`audit.yaml`, `pyproject.toml`, `requirements*.txt`, `assets/profiler-engine.js`, `assets/profiler-compare.js`, `assets/profiler-ui.js`, or `.github/CODEOWNERS`). A prose-only push (docs, `README.md`, `explainers/*.md`, website copy) skips it entirely. When it does run, expect several seconds to tens of seconds because it includes the benchmark tests. Run `make check` any time to reproduce CI on demand regardless of what changed.
 
 ---
 
