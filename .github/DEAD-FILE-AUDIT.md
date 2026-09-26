@@ -32,7 +32,7 @@ either a standard project file or directly `<link>`/`<meta>`-referenced from `in
   `profiler-compare.js`, `profiler-engine.js`, `profiler-ui.js`, `profiler.css` - all
   `<script>`/`<link>`-referenced from `index.html`, `profiler.html`, and/or the explainer pages.
 - `explainers-ui.js` - referenced only by `index.html` (powers the explainer-card grid and
-  its client-side detail view). None of the 60 generated explainer pages load it, so its
+  its client-side detail view). None of the generated explainer pages load it, so its
   `renderDetailPage`/`renderMarkdown` path is not exercised by any real explainer page.
 - `assets/fonts/*.ttf` (+ their `OFL-*.txt` licenses) - all four font files are loaded by
   `scripts/generate_og_images.py`, not by any page's CSS - they're inputs to the OG-image
