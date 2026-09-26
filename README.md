@@ -765,7 +765,7 @@ for feat in ['Prior_Arrest_Episodes_Violent',    # chi2=540.0  p=1.0e-116
 
 # Gang-affiliated label rate by race - a discretionary record applied unevenly
 # Black: 20.0%   White: 13.3%
-print(df.groupby('Race')['Gang_Affiliated'].apply(lambda s: (s == True).mean()).round(3))
+print(df.groupby('Race')['Gang_Affiliated'].mean().round(3))
 ```
 
 #### The Fix - `fair.py`
