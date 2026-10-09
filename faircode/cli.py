@@ -47,7 +47,7 @@ from .loaders_extra import (
 # private helper follows the existing precedent in compare.py (`from .profiler
 # import _r`) and keeps profiler.py - a parity-sensitive file - untouched.
 from .profiler import _resolve_opts, parse_reference, profile
-from .provenance import build as build_provenance
+from .provenance import build as build_provenance, recorded_encoding
 from .proxy import parse_held_out_specs, proxy_hints
 from .report import (
     compare_to_csv, compare_to_html, compare_to_terminal, to_csv, to_html, to_json, to_terminal,
@@ -138,8 +138,11 @@ def _profile_provenance(args, opts, overrides):
     digests = [] if args.sample else [("dataset_hash", args.csv)]
     if args.reference:
         digests.append(("reference_hash", args.reference))
+    encodings = () if args.sample else [
+        ("encoding", recorded_encoding(args.csv, args.encoding))]
     provenance = build_provenance(digests, _resolve_opts(opts), overrides,
-                                  held_out=[("proxy_hints_with", args.proxy_hints_with)])
+                                  held_out=[("proxy_hints_with", args.proxy_hints_with)],
+                                  encodings=encodings)
     if args.sample:
         provenance["dataset_hash"] = "sha256:" + hashlib.sha256(
             build_sample_csv().encode("utf-8")).hexdigest()
@@ -151,7 +154,9 @@ def _compare_provenance(args, opts, overrides):
         [("dataset_hash_a", args.csv_a), ("dataset_hash_b", args.csv_b)],
         _resolve_opts(opts), overrides,
         held_out=[("proxy_hints_with_a", args.proxy_hints_with_a),
-                  ("proxy_hints_with_b", args.proxy_hints_with_b)])
+                  ("proxy_hints_with_b", args.proxy_hints_with_b)],
+        encodings=[("encoding_a", recorded_encoding(args.csv_a, args.encoding)),
+                   ("encoding_b", recorded_encoding(args.csv_b, args.encoding))])
 
 
 def _write_csv_export(path, text, bom=False):

@@ -46,7 +46,7 @@ from .loaders_extra import (
     read_table,
 )
 from .profiler import _resolve_opts, parse_reference, profile
-from .provenance import build as build_provenance
+from .provenance import build as build_provenance, recorded_encoding
 from .proxy import parse_held_out_specs
 from .proxy import proxy_hints as compute_proxy_hints
 from .report import compare_to_csv, to_csv
@@ -206,7 +206,9 @@ def _profile_dataset_impl(path, overrides=None, cross=None, reference_path=None,
         digests = [("dataset_hash", path)]
         if reference_path:
             digests.append(("reference_hash", reference_path))
-        result = dict(result, provenance=build_provenance(digests, _resolve_opts(opts), overrides))
+        result = dict(result, provenance=build_provenance(
+            digests, _resolve_opts(opts), overrides,
+            encodings=[("encoding", recorded_encoding(path, encoding))]))
     return result
 
 
@@ -263,7 +265,9 @@ def _compare_datasets_impl(path_a, path_b, overrides=None,
             [("dataset_hash_a", path_a), ("dataset_hash_b", path_b)],
             _resolve_opts(opts), overrides,
             held_out=[("proxy_hints_with_a", held_out_with_a),
-                      ("proxy_hints_with_b", held_out_with_b)] if proxy_hints else ())
+                      ("proxy_hints_with_b", held_out_with_b)] if proxy_hints else (),
+            encodings=[("encoding_a", recorded_encoding(path_a, encoding)),
+                       ("encoding_b", recorded_encoding(path_b, encoding))])
         result = dict(result, provenance=provenance)
     return result
 

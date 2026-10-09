@@ -446,6 +446,7 @@ edit.
   "faircode_version": "2.0.0",
   "engine": "python",                       // or "js"
   "dataset_hash": "sha256:9f86d081884c7d65...",
+  // "encoding": "latin-1",                 // only when --encoding / BOM (#858)
   "params": { "cross": null, "imbalance_flag": 3.0, "intersection_floor": 0.01,
               "min_group_size": 100, "min_share": 0.05, "missing_flag": 0.05,
               "reference_flag": 0.05 },
@@ -461,6 +462,10 @@ edit.
   differently from an LF one.
 - **`dataset_hash_a` / `dataset_hash_b`** - `compare` replaces `dataset_hash` with these two,
   matching the `a` / `b` naming the compare result already uses in section 8.
+- **`encoding`** (`encoding_a` / `encoding_b` for `compare`) - present when `--encoding` /
+  MCP `encoding` was given, or when a BOM was sniffed for that file. Omitted for the
+  plain-UTF-8 default so the existing shape is unchanged (#858). The web export will
+  record the same field once it gains an encoding picker.
 - **`reference_hash`** - present only when a section 9 baseline was supplied.
 - **`proxy_hints_with`** (`proxy_hints_with_a` / `_b` for `compare`) - present only when held-out
   files were given to `--proxy-hints-with` (section 3; the web proxy results; MCP

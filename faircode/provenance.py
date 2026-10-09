@@ -57,6 +57,21 @@ def file_digest(path):
     return "sha256:" + digest.hexdigest(), None
 
 
+def recorded_encoding(path, encoding=None) -> str | None:
+    """Encoding string for provenance, or None to omit (plain UTF-8 default).
+
+    An explicit CLI `--encoding` / MCP `encoding` is always recorded (including
+    an explicit `utf-8`). Otherwise a BOM-sniffed codec other than plain UTF-8
+    is recorded. Plain UTF-8 with no flag keeps the existing provenance shape
+    (#858).
+    """
+    if encoding:
+        return encoding
+    from .loaders import resolve_encoding
+    resolved = resolve_encoding(path, None)
+    return resolved if resolved != "utf-8" else None
+
+
 def _add_digest(block: dict, field: str, path) -> None:
     """Set `field` on `block` to the digest of `path`, or to None plus a note."""
     sha, note = file_digest(path)
@@ -94,7 +109,7 @@ def held_out_entries(specs) -> list:
     return entries
 
 
-def build(digests=(), params=None, overrides=None, held_out=()) -> dict:
+def build(digests=(), params=None, overrides=None, held_out=(), encodings=()) -> dict:
     """Assemble the provenance block attached to an exported result.
 
     `digests` is a sequence of (field_name, path) pairs, emitted in the order
@@ -106,6 +121,11 @@ def build(digests=(), params=None, overrides=None, held_out=()) -> dict:
     {path, column, sha256} after `overrides`, so the proxy results in the same
     export can be tied to the files that produced them. Omitted when empty, so
     a run without held-out files keeps its existing shape.
+
+    `encodings` is a sequence of (field_name, encoding_or_none) pairs placed
+    immediately after the digests (`encoding` for profile; `encoding_a` /
+    `encoding_b` for compare). A None value is omitted so the plain-UTF-8
+    default keeps the existing shape (#858).
     """
     block = {
         "faircode_version": __version__,
@@ -113,6 +133,9 @@ def build(digests=(), params=None, overrides=None, held_out=()) -> dict:
     }
     for field, path in digests:
         _add_digest(block, field, path)
+    for field, enc in encodings:
+        if enc is not None:
+            block[field] = enc
     block["params"] = public_params(params or {})
     block["overrides"] = dict(overrides or {})
     for field, specs in held_out:

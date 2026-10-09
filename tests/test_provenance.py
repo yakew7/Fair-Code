@@ -219,3 +219,80 @@ def test_held_out_entries_note_an_unreadable_path():
     (entry,) = held_out_entries(["no/such/file.csv=race"])
     assert entry["sha256"] is None and "no/such/file.csv" in entry["sha256_note"]
     assert entry["column"] == "race"
+
+
+# -- encoding recorded next to dataset_hash (#858) -----------------------------
+
+def test_recorded_encoding_omits_plain_utf8_default(dataset):
+    from faircode.provenance import recorded_encoding
+    assert recorded_encoding(str(dataset)) is None
+    assert recorded_encoding(str(dataset), None) is None
+
+
+def test_recorded_encoding_keeps_explicit_flag_even_utf8(dataset):
+    """An explicit --encoding is always recorded, including utf-8 itself."""
+    from faircode.provenance import recorded_encoding
+    assert recorded_encoding(str(dataset), "utf-8") == "utf-8"
+    assert recorded_encoding(str(dataset), "latin-1") == "latin-1"
+
+
+def test_recorded_encoding_keeps_bom_sniffed_codec(tmp_path):
+    bom = tmp_path / "bom.csv"
+    bom.write_bytes(b"\xef\xbb\xbfgender,region\nmale,north\nfemale,south\n")
+    from faircode.provenance import recorded_encoding
+    assert recorded_encoding(str(bom)) == "utf-8-sig"
+
+
+def test_build_inserts_encodings_after_digests(dataset):
+    block = build(
+        [("dataset_hash", str(dataset))],
+        {"min_share": 0.05},
+        {},
+        encodings=[("encoding", "latin-1"), ("skip_me", None)],
+    )
+    assert block["encoding"] == "latin-1"
+    assert "skip_me" not in block
+    keys = list(block)
+    assert keys.index("dataset_hash") < keys.index("encoding") < keys.index("params")
+
+
+def test_profile_json_records_explicit_encoding(dataset, capsys):
+    assert main(["profile", str(dataset), "--encoding", "latin-1", "--json"]) == 0
+    prov = json.loads(capsys.readouterr().out)["provenance"]
+    assert prov["encoding"] == "latin-1"
+    assert prov["dataset_hash"] == sha_of(dataset)
+
+
+def test_profile_json_omits_encoding_for_plain_utf8_default(dataset, capsys):
+    assert main(["profile", str(dataset), "--json"]) == 0
+    assert "encoding" not in json.loads(capsys.readouterr().out)["provenance"]
+
+
+def test_profile_json_records_bom_sniffed_encoding(tmp_path, capsys):
+    bom = tmp_path / "bom.csv"
+    bom.write_bytes(b"\xef\xbb\xbfgender,region\nmale,north\nfemale,south\n")
+    assert main(["profile", str(bom), "--json"]) == 0
+    prov = json.loads(capsys.readouterr().out)["provenance"]
+    assert prov["encoding"] == "utf-8-sig"
+
+
+def test_compare_json_records_encoding_per_side(dataset, tmp_path, capsys):
+    other = tmp_path / "later.csv"
+    other.write_text(ROWS + "male,south,60\n", encoding="utf-8")
+    assert main(["compare", str(dataset), str(other),
+                 "--encoding", "cp1252", "--json"]) == 0
+    prov = json.loads(capsys.readouterr().out)["provenance"]
+    assert prov["encoding_a"] == "cp1252"
+    assert prov["encoding_b"] == "cp1252"
+    assert "encoding" not in prov
+
+
+def test_compare_json_records_bom_only_on_that_side(dataset, tmp_path, capsys):
+    bom = tmp_path / "bom.csv"
+    bom.write_bytes(
+        b"\xef\xbb\xbfgender,region,age\nmale,north,34\nfemale,south,51\nfemale,north,22\n"
+    )
+    assert main(["compare", str(dataset), str(bom), "--json"]) == 0
+    prov = json.loads(capsys.readouterr().out)["provenance"]
+    assert "encoding_a" not in prov
+    assert prov["encoding_b"] == "utf-8-sig"
