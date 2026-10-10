@@ -219,6 +219,29 @@ var results = {};
   results.error_after_load = elements.benchError.textContent;
   results.error_hidden_after_load = elements.benchError.hidden;
 
+  if (process.argv[4] === 'sig-per-tab') {
+    // #864: the toggle is per tab - fairness and summary never share it.
+    function toggle(on) {
+      elements.significantOnlyInput.checked = on;
+      (elements.significantOnlyInput._listeners.change || []).forEach(function (f) { f(); });
+    }
+    toggle(true);                                   // fairness: on
+    results.fairness_on = elements.benchSummary.textContent;
+    global.__tabButtons[2].click();                 // -> summary
+    results.summary_checked = !!elements.significantOnlyInput.checked;
+    results.summary_text = elements.benchSummary.textContent;
+    results.summary_url = global.__lastUrl;
+    toggle(true);                                   // summary: on
+    global.__tabButtons[0].click();                 // -> fairness again
+    results.fairness_checked_again = !!elements.significantOnlyInput.checked;
+    results.fairness_text_again = elements.benchSummary.textContent;
+    toggle(false);                                  // fairness: off
+    global.__tabButtons[2].click();
+    results.summary_still_checked = !!elements.significantOnlyInput.checked;
+    process.stdout.write(JSON.stringify(results));
+    return;
+  }
+
   if (process.argv[4] === 'chart-theme') {
     // #813: render the same chart under each export theme and read the SVG back.
     function pick(field, value) {
@@ -639,3 +662,19 @@ def test_benchmark_dashboard_chart_theme_control_is_wired():
     for value in ("page", "light", "dark", "transparent"):
         assert f'<option value="{value}"' in html
     assert "getComputedStyle(document.documentElement)" in js
+
+
+def test_benchmark_dashboard_significance_toggle_is_per_tab():
+    """#864: ticking it on Fairness leaves Summary untouched (and vice versa)."""
+    fairness = pd.read_csv(REPO_ROOT / "results" / "results_fairness.csv")
+    summary = pd.read_csv(REPO_ROOT / "results" / "summary.csv")
+    sig_fair = int(fairness["significant"].sum())
+
+    r = _run_dom_stub("?tab=fairness", mode="sig-per-tab")
+    assert r["fairness_on"].startswith(f"{sig_fair:,} of {len(fairness):,} rows shown")
+    assert r["summary_checked"] is False
+    assert r["summary_text"].startswith(f"{len(summary):,} of {len(summary):,} rows shown")
+    assert "sig=1" not in r["summary_url"]
+    assert r["fairness_checked_again"] is True
+    assert r["fairness_text_again"].startswith(f"{sig_fair:,} of")
+    assert r["summary_still_checked"] is True
