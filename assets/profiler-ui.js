@@ -34,7 +34,8 @@
   var referenceStatus = document.getElementById('referenceStatus');
   var proxyHintsBtn = document.getElementById('proxyHintsBtn');
   var heldOutControl = window.FairCodeHeldOut.init(
-    document.getElementById('heldOutRows'), document.getElementById('heldOutAddBtn'), 'held-out');
+    document.getElementById('heldOutRows'), document.getElementById('heldOutAddBtn'), 'held-out',
+    function () { var sel = document.getElementById('encodingSelect'); return sel ? sel.value : 'auto'; });
   var thresholdControls = document.getElementById('thresholdControls');
   var thresholdInputs = thresholdControls ?
     Array.prototype.slice.call(thresholdControls.querySelectorAll('[data-opt]')) : [];
@@ -47,6 +48,9 @@
 
   var currentResult = null;
   var currentFile = null;
+  var currentEncoding = null;  // encoding the current file was decoded with (provenance, #857)
+  var pendingEncoding = null;
+  var encodingSelect = document.getElementById('encodingSelect');
   var currentHeldSpecs = []; // held-out specs behind the on-screen proxy hints (#811)
   var currentName = '';
   var currentTable = null;   // parsed table, kept so overrides can re-profile
@@ -148,9 +152,24 @@
       };
       reader.readAsArrayBuffer(file);
     } else {
-      reader.onload = function () { runText(String(reader.result), file.name, file); };
-      reader.readAsText(file);
+      reader.onload = function () {
+        try {
+          var decoded = E.decodeText(reader.result, encodingSelect ? encodingSelect.value : 'auto');
+          pendingEncoding = decoded.encoding;
+          runText(decoded.text, file.name, file);
+        } catch (err) {
+          showError('Could not decode that file: ' + err.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
     }
+  }
+
+  // Re-read the current file when the encoding changes (#857).
+  if (encodingSelect) {
+    encodingSelect.addEventListener('change', function () {
+      if (currentFile && !/\.xlsx$/i.test(currentFile.name)) readFile(currentFile);
+    });
   }
 
   function runText(text, name, file) {
@@ -163,7 +182,7 @@
       runTable(table, name, file);
       // FileReader.readAsText decodes as UTF-8; a latin-1/UTF-16 export comes
       // through with U+FFFD replacement characters, so say so (#843).
-      if (text.indexOf('\uFFFD') !== -1) {
+      if (text.indexOf('\uFFFD') !== -1 && (!encodingSelect || encodingSelect.value === 'auto' || encodingSelect.value === 'utf-8')) {
         fileStatus.textContent =
           'Some characters could not be decoded as UTF-8 and were replaced - ' +
           'the file may use another encoding (e.g. latin-1). Re-save it as UTF-8 for exact group labels.';
@@ -181,6 +200,8 @@
   // can't go stale when a later run comes from a non-file path.
   function runTable(table, name, file) {
     currentFile = file || null;
+    currentEncoding = file ? pendingEncoding : null;
+    pendingEncoding = null;
     if (!table.columns.length || !table.rows.length) {
       return showError('That file looks empty or has no data rows.');
     }
@@ -999,14 +1020,12 @@
 
   async function buildProvenance() {
     var hash = await fileDigest(currentFile);
-    var provenance = {
-      faircode_version: FAIRCODE_VERSION,
-      engine: 'js',
-      dataset_hash: hash.digest,
-      params: E.publicParams(currentOpts),
-      overrides: Object.assign({}, currentOverrides)
-    };
+    // Key order matches faircode/provenance.py: the digest, its note, then the encoding.
+    var provenance = { faircode_version: FAIRCODE_VERSION, engine: 'js', dataset_hash: hash.digest };
     if (hash.note !== null) provenance.dataset_hash_note = hash.note;
+    if (currentEncoding) provenance.encoding = currentEncoding;
+    provenance.params = E.publicParams(currentOpts);
+    provenance.overrides = Object.assign({}, currentOverrides);
     if (currentResult && currentResult.proxy_hints && currentHeldSpecs.length) {
       provenance.proxy_hints_with = await heldOutEntries(currentHeldSpecs);
     }

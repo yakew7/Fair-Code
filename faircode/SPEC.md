@@ -505,7 +505,7 @@ edit.
   differently from an LF one.
 - **`dataset_hash_a` / `dataset_hash_b`** - `compare` replaces `dataset_hash` with these two,
   matching the `a` / `b` naming the compare result already uses in section 8.
-- **`encoding`** (`encoding_a` / `encoding_b` for `compare`) - present when an explicit `--encoding` was passed or a byte-order mark (BOM) was sniffed from the file, recording the character encoding used to decode the raw bytes (e.g. `"latin-1"`, `"utf-16"`, `"utf-8-sig"`). Omitted for the plain-UTF-8 default, preserving the existing export shape.
+- **`encoding`** (`encoding_a` / `encoding_b` for `compare`) - present when an explicit `--encoding` was passed or a byte-order mark (BOM) was sniffed from the file, recording the character encoding used to decode the raw bytes (e.g. `"latin-1"`, `"utf-16"`, `"utf-8-sig"`). Omitted for the plain-UTF-8 default, preserving the existing export shape. The web profiler has the same control (#857): a "Text encoding" select next to the dropzones (Auto, UTF-8, UTF-16, Windows-1252, ISO-8859-1) decodes uploaded text files, re-reads them when changed, applies to held-out files too, and fills `encoding` / `encoding_a` / `encoding_b` with the same names (`cp1252`, `latin-1`, ... or the sniffed BOM in Auto mode). `FairCodeProfiler.decodeText(buffer, choice)` is the shared decoder.
 - **`reference_hash`** - present only when a section 9 baseline was supplied.
 - **`proxy_hints_with`** (`proxy_hints_with_a` / `_b` for `compare`) - present only when held-out
   files were given to `--proxy-hints-with` (section 3; the web proxy results; MCP

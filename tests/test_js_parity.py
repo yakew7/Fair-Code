@@ -1685,3 +1685,58 @@ def test_python_js_parity_on_parser_edge_cases(tmp_path, name, text):
     js.pop("flags", None)
     py.pop("flags", None)
     assert js == py
+
+
+def test_web_decode_text_matches_python_loaders_and_names_the_encoding(tmp_path):
+    """#857: decodeText() reads latin-1/cp1252/UTF-16/UTF-32/BOM'd UTF-8 like faircode.loaders
+    and reports the encoding provenance should record (None for plain UTF-8)."""
+    from faircode.loaders import read_table
+
+    text = "sex,race\nM,Café\nF,Señor\n"
+    cases = {
+        "latin.csv": (text.encode("latin-1"), "latin-1", "latin-1"),
+        "cp.csv": (text.encode("cp1252"), "cp1252", "cp1252"),
+        "u16.csv": (text.encode("utf-16"), "auto", "utf-16"),
+        "u16be.csv": (b"\xfe\xff" + text.encode("utf-16-be"), "auto", "utf-16"),
+        "u32.csv": (text.encode("utf-32"), "auto", "utf-32"),
+        "bom8.csv": (text.encode("utf-8-sig"), "auto", "utf-8-sig"),
+        "plain.csv": (text.encode("utf-8"), "auto", None),
+        "explicit8.csv": (text.encode("utf-8"), "utf-8", "utf-8"),
+    }
+    paths = {}
+    for name, (raw, _choice, _enc) in cases.items():
+        paths[name] = tmp_path / name
+        paths[name].write_bytes(raw)
+    spec = {name: [str(paths[name]), choice] for name, (_r, choice, _e) in cases.items()}
+    script = (
+        "require(process.argv[1]);var fs=require('fs');var E=globalThis.FairCodeProfiler;var out={};"
+        "var spec=JSON.parse(process.argv[2]);Object.keys(spec).forEach(function(n){"
+        "var b=fs.readFileSync(spec[n][0]);var ab=b.buffer.slice(b.byteOffset,b.byteOffset+b.length);"
+        "var d=E.decodeText(ab,spec[n][1]);out[n]={text:d.text,encoding:d.encoding}});"
+        "process.stdout.write(JSON.stringify(out));"
+    )
+    done = subprocess.run(
+        ["node", "-e", script, str(REPO_ROOT / "assets" / "profiler-engine.js"), json.dumps(spec)],
+        capture_output=True, text=True, encoding="utf-8", check=True)
+    out = json.loads(done.stdout)
+    for name, (_raw, choice, enc) in cases.items():
+        assert out[name]["text"] == text, name
+        assert out[name]["encoding"] == enc, name
+        py = read_table(str(paths[name]), encoding=None if choice == "auto" else choice)
+        assert list(py["race"]) == ["Café", "Señor"], name
+
+
+def test_web_encoding_picker_is_wired_and_recorded_in_provenance():
+    html = (REPO_ROOT / "profiler.html").read_text(encoding="utf-8")
+    for select_id in ("encodingSelect", "compareEncodingSelect"):
+        assert f'id="{select_id}"' in html
+    for value in ("auto", "utf-8", "utf-16", "cp1252", "latin-1"):
+        assert html.count(f'<option value="{value}"') >= 2, value
+    ui = (REPO_ROOT / "assets" / "profiler-ui.js").read_text(encoding="utf-8")
+    cmp_js = (REPO_ROOT / "assets" / "profiler-compare.js").read_text(encoding="utf-8")
+    assert "E.decodeText(reader.result" in ui and "E.decodeText(reader.result" in cmp_js
+    assert "readAsText(" not in ui.split("function readFile")[1].split("function runText")[0]
+    assert "provenance.encoding = currentEncoding" in ui
+    assert "provenance.encoding_a = slot.A.encoding" in cmp_js and "provenance.encoding_b = slot.B.encoding" in cmp_js
+    held = (REPO_ROOT / "assets" / "profiler-heldout.js").read_text(encoding="utf-8")
+    assert "decodeText" in held

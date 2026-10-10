@@ -180,6 +180,15 @@
       </div>
     </section>
     <button class="sample-btn" id="sampleBtn" type="button">Try it with a sample dataset</button>
+    <label class="encoding-picker">Text encoding (<code>--encoding</code>)
+      <select class="threshold-input" id="encodingSelect">
+              <option value="auto" selected>Auto (BOM, else UTF-8)</option>
+              <option value="utf-8">UTF-8</option>
+              <option value="utf-16">UTF-16</option>
+              <option value="cp1252">Windows-1252 (cp1252)</option>
+              <option value="latin-1">ISO-8859-1 (latin-1)</option>
+      </select>
+    </label>
 
     <p class="profiler-status" id="fileStatus" aria-live="polite" hidden></p>
     <p class="profiler-error" id="error" role="alert" hidden></p>
@@ -359,6 +368,15 @@
       </div>
       <div class="compare-actions">
         <button class="sample-btn" id="compareSampleBtn" type="button">Try with sample drift data</button>
+        <label class="encoding-picker">Text encoding (<code>--encoding</code>)
+          <select class="threshold-input" id="compareEncodingSelect">
+              <option value="auto" selected>Auto (BOM, else UTF-8)</option>
+              <option value="utf-8">UTF-8</option>
+              <option value="utf-16">UTF-16</option>
+              <option value="cp1252">Windows-1252 (cp1252)</option>
+              <option value="latin-1">ISO-8859-1 (latin-1)</option>
+          </select>
+        </label>
       </div>
 
       <details class="mapping-block" id="compareMappingBlock" hidden>

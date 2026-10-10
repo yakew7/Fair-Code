@@ -109,6 +109,53 @@
     });
     return out;
   }
+  // ── Text decoding for uploaded files (#857) ─────────────────────────────
+  // The browser counterpart of faircode/loaders.py's --encoding / BOM sniffing.
+  // `choice` is 'auto' (BOM sniff, else UTF-8) or one of the Python codec names the
+  // picker offers: 'utf-8', 'utf-16', 'cp1252', 'latin-1'. Returns the text and the
+  // encoding to record in provenance: the explicit choice, or the sniffed BOM
+  // ('utf-8-sig' / 'utf-16' / 'utf-32'), or null for plain UTF-8 (the default shape).
+  function sniffBomEncoding(b) {
+    if (b.length >= 4 && b[0] === 0xFF && b[1] === 0xFE && b[2] === 0 && b[3] === 0) return 'utf-32';
+    if (b.length >= 4 && b[0] === 0 && b[1] === 0 && b[2] === 0xFE && b[3] === 0xFF) return 'utf-32';
+    if (b.length >= 3 && b[0] === 0xEF && b[1] === 0xBB && b[2] === 0xBF) return 'utf-8-sig';
+    if (b.length >= 2 && ((b[0] === 0xFF && b[1] === 0xFE) || (b[0] === 0xFE && b[1] === 0xFF))) return 'utf-16';
+    return null;
+  }
+
+  function decodeText(buffer, choice) {
+    var bytes = new Uint8Array(buffer), explicit = choice && choice !== 'auto' ? choice : null;
+    var enc = explicit || sniffBomEncoding(bytes) || 'utf-8';
+    var text, i;
+    if (enc === 'utf-8' || enc === 'utf-8-sig') {
+      text = new TextDecoder('utf-8').decode(bytes);                 // drops a leading BOM
+    } else if (enc === 'utf-16') {
+      var be = bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF;
+      text = new TextDecoder(be ? 'utf-16be' : 'utf-16le').decode(bytes);
+    } else if (enc === 'utf-32') {
+      var view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength - (bytes.byteLength % 4));
+      var littleEndian = !(bytes.length >= 4 && bytes[0] === 0 && bytes[1] === 0 && bytes[2] === 0xFE && bytes[3] === 0xFF);
+      var parts = [];
+      for (i = 0; i + 4 <= view.byteLength; i += 4) {
+        var cp = view.getUint32(i, littleEndian);
+        if (i === 0 && cp === 0xFEFF) continue;
+        parts.push(String.fromCodePoint(cp > 0x10FFFF ? 0xFFFD : cp));
+      }
+      text = parts.join('');
+    } else if (enc === 'cp1252') {
+      text = new TextDecoder('windows-1252').decode(bytes);
+    } else if (enc === 'latin-1') {
+      var chunks = [];
+      for (i = 0; i < bytes.length; i += 8192) {
+        chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + 8192)));
+      }
+      text = chunks.join('');
+    } else {
+      throw new Error('unsupported encoding ' + enc);
+    }
+    return { text: text, encoding: explicit || (enc === 'utf-8' ? null : enc) };
+  }
+
   // Comparison / drift (SPEC section 8)
   var PSI_EPSILON = 0.0001;
   var MISSING_DRIFT_FLAG = 0.05;
@@ -1814,7 +1861,7 @@
                               // Opt-in, informational only (issue #738) - see
                               // proxyHints()'s own comment for why this is
                               // kept out of profile()/compare().
-                              proxyHints: proxyHints, proxyNotes: proxyNotes, normalizeKeyText: normalizeKeyText, normalizeKeywords: normalizeKeywords, proxyFamily: proxyFamily, parseHeldOut: parseHeldOut, buildHeldOut: buildHeldOut,
+                              proxyHints: proxyHints, proxyNotes: proxyNotes, normalizeKeyText: normalizeKeyText, normalizeKeywords: normalizeKeywords, decodeText: decodeText, proxyFamily: proxyFamily, parseHeldOut: parseHeldOut, buildHeldOut: buildHeldOut,
                               adjustPValues: adjustPValues,
                               csvField: csvField, csvRow: csvRow, provenanceCsv: provenanceCsv,
                               // publicParams: resolved knobs for an export's

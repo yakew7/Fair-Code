@@ -16,7 +16,8 @@
   var ACCEPT = '.csv,.tsv,.json,.xlsx,text/csv,application/json,' +
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-  function init(container, addBtn, label) {
+  // `getEncoding` (optional) returns the text-encoding choice of the page's picker (#857).
+  function init(container, addBtn, label, getEncoding) {
     function addRow() {
       var row = document.createElement('div');
       row.className = 'heldout-row';
@@ -83,7 +84,11 @@
         var normalize = !!inputs[3].checked;
         if (!file && !column) continue;
         if (!file || !column) throw new Error('each held-out row needs both a file and a column name');
-        var data = /\.xlsx$/i.test(file.name) ? await file.arrayBuffer() : await file.text();
+        var data;
+        if (/\.xlsx$/i.test(file.name)) data = await file.arrayBuffer();
+        else if (getEncoding && window.FairCodeProfiler && window.FairCodeProfiler.decodeText) {
+          data = window.FairCodeProfiler.decodeText(await file.arrayBuffer(), getEncoding()).text;
+        } else data = await file.text();
         specs.push({ name: file.name, column: column, key: key || undefined, normalize: (key && normalize) || undefined, data: data, file: file });
       }
       return specs;

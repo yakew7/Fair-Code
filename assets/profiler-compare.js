@@ -31,10 +31,14 @@
   var downloadCsvBtn = document.getElementById('compareDownloadCsvBtn');
   var proxyBlockEl = document.getElementById('compareProxyHintsBlock');
   var proxyBtn = document.getElementById('compareProxyHintsBtn');
+  function pickedEncoding() {
+    var sel = document.getElementById('compareEncodingSelect');
+    return sel ? sel.value : 'auto';
+  }
   var heldOutA = window.FairCodeHeldOut.init(document.getElementById('compareHeldOutRowsA'),
-    document.getElementById('compareHeldOutAddA'), 'dataset A held-out');
+    document.getElementById('compareHeldOutAddA'), 'dataset A held-out', pickedEncoding);
   var heldOutB = window.FairCodeHeldOut.init(document.getElementById('compareHeldOutRowsB'),
-    document.getElementById('compareHeldOutAddB'), 'dataset B held-out');
+    document.getElementById('compareHeldOutAddB'), 'dataset B held-out', pickedEncoding);
   var proxyResultsEl = document.getElementById('compareProxyHintsResults');
   var mappingBlock = document.getElementById('compareMappingBlock');
   var mappingList = document.getElementById('compareMappingList');
@@ -74,6 +78,7 @@
   // Loaded datasets: each { table, name } once a valid file is parsed.
   var slot = { A: null, B: null };
   var heldSpecsA = [], heldSpecsB = []; // held-out specs behind the on-screen proxy hints (#811)
+  var encodingSelect = document.getElementById('compareEncodingSelect');
   var currentCmp = null; // last successful compare() result, for export
   var currentProfiles = null; // {A, B} profile() results behind currentCmp, for proxy hints
   var currentOverrides = {}; // column -> forced kind, applied to both A and B
@@ -165,11 +170,13 @@
     var reader = new FileReader();
     reader.onerror = function () { showError('Could not read dataset ' + key + '.'); };
 
+    var slotEncoding = null;   // encoding this file was decoded with (provenance, #857)
+
     function applyTable(table) {
       if (!table.columns.length || !table.rows.length) {
         return showError('Dataset ' + key + ' looks empty or has no data rows.');
       }
-      setSlot(key, table, file.name, drop, nameEl, file);
+      setSlot(key, table, file.name, drop, nameEl, file, slotEncoding);
     }
 
     if (/\.xlsx$/i.test(file.name) || isXlsxType) {
@@ -197,7 +204,9 @@
     } else {
       reader.onload = async function () {
         try {
-          var text = String(reader.result);
+          var decoded = E.decodeText(reader.result, encodingSelect ? encodingSelect.value : 'auto');
+          slotEncoding = decoded.encoding;
+          var text = decoded.text;
           var table = (/\.json$/i.test(file.name) || file.type === 'application/json')
             ? E.parseJSON(text) : E.parseCSV(text);
           applyTable(table);
@@ -205,12 +214,12 @@
           showError('Could not read dataset ' + key + ': ' + err.message);
         }
       };
-      reader.readAsText(file);
+      reader.readAsArrayBuffer(file);
     }
   }
 
-  function setSlot(key, table, name, drop, nameEl, file) {
-    slot[key] = { table: table, name: name, file: file || null };
+  function setSlot(key, table, name, drop, nameEl, file, encoding) {
+    slot[key] = { table: table, name: name, file: file || null, encoding: encoding || null };
     nameEl.textContent = name;
     drop.classList.add('loaded');
     errorEl.hidden = true;
@@ -861,16 +870,15 @@
   async function buildCompareProvenance() {
     var hashA = await fileDigest(slot.A && slot.A.file);
     var hashB = await fileDigest(slot.B && slot.B.file);
-    var provenance = {
-      faircode_version: FAIRCODE_VERSION,
-      engine: 'js',
-      dataset_hash_a: hashA.digest,
-      dataset_hash_b: hashB.digest,
-      params: E.publicParams(currentOpts),
-      overrides: Object.assign({}, currentOverrides)
-    };
+    // Key order matches faircode/provenance.py: each digest, its note, then its encoding.
+    var provenance = { faircode_version: FAIRCODE_VERSION, engine: 'js', dataset_hash_a: hashA.digest };
     if (hashA.note !== null) provenance.dataset_hash_a_note = hashA.note;
+    if (slot.A && slot.A.encoding) provenance.encoding_a = slot.A.encoding;
+    provenance.dataset_hash_b = hashB.digest;
     if (hashB.note !== null) provenance.dataset_hash_b_note = hashB.note;
+    if (slot.B && slot.B.encoding) provenance.encoding_b = slot.B.encoding;
+    provenance.params = E.publicParams(currentOpts);
+    provenance.overrides = Object.assign({}, currentOverrides);
     if (currentCmp && currentCmp.proxy_hints_a) {
       if (heldSpecsA.length) provenance.proxy_hints_with_a = await heldOutEntries(heldSpecsA);
       if (heldSpecsB.length) provenance.proxy_hints_with_b = await heldOutEntries(heldSpecsB);
@@ -929,6 +937,18 @@
 
   wireSlot('A', dropA, fileA, nameAEl);
   wireSlot('B', dropB, fileB, nameBEl);
+
+  // Re-read both loaded text files when the encoding changes (#857).
+  if (encodingSelect) {
+    encodingSelect.addEventListener('change', function () {
+      [['A', dropA, nameAEl], ['B', dropB, nameBEl]].forEach(function (s3) {
+        var loaded = slot[s3[0]];
+        if (loaded && loaded.file && !/\.xlsx$/i.test(loaded.file.name)) {
+          readFile(s3[0], loaded.file, s3[1], s3[2]);
+        }
+      });
+    });
+  }
   sampleBtn.addEventListener('click', loadSampleComparison);
   if (new URLSearchParams(window.location.search).get('demo') === 'compare') {
     loadSampleComparison();
