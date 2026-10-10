@@ -146,7 +146,7 @@ def _build_opts(min_share=None, intersection_floor=None, imbalance_flag=None,
                 missing_flag=None, min_group_size=None, cross=None,
                 reference_path=None, max_categorical_card=None,
                 max_dimension_groups=None, encoding=None, max_age=None,
-                age_reference_year=None):
+                age_reference_year=None, keywords=None):
     opts = {
         "min_share": min_share,
         "intersection_floor": intersection_floor,
@@ -157,6 +157,7 @@ def _build_opts(min_share=None, intersection_floor=None, imbalance_flag=None,
         "max_dimension_groups": max_dimension_groups,
         "max_age": max_age,
         "age_reference_year": age_reference_year,
+        "keywords": keywords,
     }
     if cross:
         if len(cross) != 2 or not all(cross):
@@ -190,14 +191,15 @@ def _profile_dataset_impl(path, overrides=None, cross=None, reference_path=None,
                           imbalance_flag=None, missing_flag=None,
                           min_group_size=None, include_provenance=True,
                           max_categorical_card=None, max_dimension_groups=None,
-                          encoding=None, max_age=None, age_reference_year=None):
+                          encoding=None, max_age=None, age_reference_year=None,
+                          keywords=None):
     overrides = overrides or {}
     df = _read_table_or_raise(path, encoding)
     _check_overrides(overrides, df.columns)
     opts = _build_opts(min_share, intersection_floor, imbalance_flag,
                        missing_flag, min_group_size, cross, reference_path,
                        max_categorical_card, max_dimension_groups, encoding, max_age,
-                       age_reference_year)
+                       age_reference_year, keywords)
     result = profile(df, overrides, opts)
     note = _sheet_note(path)
     if note:
@@ -224,7 +226,7 @@ def _compare_datasets_impl(path_a, path_b, overrides=None,
                            max_dimension_groups=None, held_out_with_a=None,
                            held_out_with_b=None, alpha=None, correction=None,
                            encoding=None, max_age=None, age_reference_year=None,
-                           key_normalize=False, exact=False):
+                           key_normalize=False, exact=False, keywords=None):
     overrides = overrides or {}
     df_a = _read_table_or_raise(path_a, encoding)
     df_b = _read_table_or_raise(path_b, encoding)
@@ -236,7 +238,7 @@ def _compare_datasets_impl(path_a, path_b, overrides=None,
                        missing_flag, min_group_size,
                        max_categorical_card=max_categorical_card,
                        max_dimension_groups=max_dimension_groups, max_age=max_age,
-                       age_reference_year=age_reference_year)
+                       age_reference_year=age_reference_year, keywords=keywords)
     profile_a = profile(df_a, overrides, opts)
     profile_b = profile(df_b, overrides, opts)
     result = compare(profile_a, profile_b, name_a=path_a, name_b=path_b)
@@ -488,6 +490,7 @@ def build_server():
                         encoding: str | None = None,
                         max_age: float | None = None,
                         age_reference_year: int | None = None,
+                        keywords: dict[str, list[str]] | None = None,
                         format: str = "json") -> dict:
         """Profile a tabular dataset (.csv/.tsv/.xlsx/.json/.parquet) for
         demographic representation: per-dimension imbalance/missing/skew,
@@ -510,6 +513,10 @@ def build_server():
         `max_age` (default 120) sets the age above which a numeric age is treated
         as implausible - flagged and left out of the age bands rather than counted
         in the oldest band (CLI `--max-age`); on `compare_datasets` too.
+
+        `keywords` (default none) adds extra column-name vocabulary for detection,
+        `{"sex": ["sesso"], "age": ["eta"], "exact_only": ["eta"]}` (kinds: sex,
+        race, age, geography; CLI `--keywords FILE`); on `compare_datasets` too.
 
         `age_reference_year` (default off) converts whole numbers from 1900 up to
         that year in an age column to ages as of it, for birth-year columns such as
@@ -543,7 +550,8 @@ def build_server():
                 path, overrides, cross, reference_path, min_share,
                 intersection_floor, imbalance_flag, missing_flag,
                 min_group_size, include_provenance, max_categorical_card,
-                max_dimension_groups, encoding, max_age, age_reference_year), format, to_csv)
+                max_dimension_groups, encoding, max_age, age_reference_year, keywords),
+                format, to_csv)
         except (ValueError, FileNotFoundError, RuntimeError) as exc:
             raise _as_tool_error(exc) from exc
 
@@ -568,6 +576,7 @@ def build_server():
                          age_reference_year: int | None = None,
                          key_normalize: bool = False,
                          exact: bool = False,
+                         keywords: dict[str, list[str]] | None = None,
                          format: str = "json") -> dict:
         """Compare two tabular datasets (e.g. a training set and a production
         snapshot) for representation drift: which dimensions/groups appeared,
@@ -600,7 +609,7 @@ def build_server():
                 imbalance_flag, missing_flag, min_group_size, include_provenance,
                 proxy_hints, max_categorical_card, max_dimension_groups,
                 held_out_with_a, held_out_with_b, alpha, correction, encoding, max_age,
-                age_reference_year, key_normalize, exact),
+                age_reference_year, key_normalize, exact, keywords),
                 format, compare_to_csv)
         except (ValueError, FileNotFoundError, RuntimeError) as exc:
             raise _as_tool_error(exc) from exc

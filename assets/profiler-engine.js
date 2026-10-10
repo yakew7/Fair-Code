@@ -38,6 +38,7 @@
     max_dimension_groups: MAX_DIMENSION_GROUPS,
     max_age: MAX_AGE,  // ages above this are not banded; flagged instead (SPEC 2)
     age_reference_year: null,  // convert birth years in age columns to ages as of this year
+    keywords: null,   // extra column-name vocabulary {kind: [words]} for detection (SPEC 1)
     cross: null,      // [colA, colB] to force the intersection pair (SPEC 4)
     reference: null   // {column: {group: expected_share}} baseline (SPEC 8)
   };
@@ -86,6 +87,7 @@
       });
     }
     validateOpts(o);
+    o.keywords = normalizeKeywords(o.keywords);
     return o;
   }
 
@@ -133,15 +135,17 @@
   // ── Keyword lists - MUST mirror faircode/detect.py ─────────────────────
   var KEYWORDS = [
     ['sex', ['sex', 'gender',
-             'sexo', 'genero', 'geschlecht', 'sexe']],
+             'sexo', 'genero', 'geschlecht', 'sexe', 'sesso', 'geslacht']],
     ['race', ['race', 'ethnic', 'ethnicity',
-              'raza', 'etnia', 'rasse', 'ethnie', 'raca']],
+              'raza', 'etnia', 'rasse', 'ethnie', 'raca', 'razza', 'etnie', 'ras']],
     ['age', ['age', 'dob', 'yob', 'birth',
-             'edad', 'nacimiento', 'alter', 'geburt', 'idade', 'nascimento', 'naissance']],
+             'edad', 'nacimiento', 'alter', 'geburt', 'idade', 'nascimento', 'naissance',
+             'eta', 'nascita', 'leeftijd', 'geboorte']],
     ['geography', ['region', 'state', 'zip', 'zipcode', 'postal', 'country',
                    'county', 'city', 'location', 'province',
                    'estado', 'pais', 'provincia', 'ciudad', 'bundesland', 'land', 'stadt',
-                   'plz', 'ville', 'pays', 'departement', 'cidade', 'regiao', 'municipio']]
+                   'plz', 'ville', 'pays', 'departement', 'cidade', 'regiao', 'municipio',
+                   'regione', 'paese', 'citta', 'comune', 'stad', 'gemeente', 'provincie']]
   ];
 
   var DATE_RE = /[0-9]{1,4}[/-][0-9]{1,2}[/-][0-9]{1,4}/;
@@ -487,11 +491,48 @@
   var EXACT_ONLY_KEYWORDS = {
     race: 1, state: 1, city: 1, region: 1, country: 1,
     genero: 1, alter: 1, land: 1, raza: 1, raca: 1, rasse: 1, pais: 1, pays: 1, estado: 1,
-    ville: 1, stadt: 1
+    ville: 1, stadt: 1, razza: 1, paese: 1, citta: 1, stad: 1, ras: 1, eta: 1
   };
 
-  function tokenMatches(token, keyword) {
-    if (keyword.length < 4 || EXACT_ONLY_KEYWORDS.hasOwnProperty(keyword)) return token === keyword;
+  // Validate and normalise the user's extra detection vocabulary; mirrors
+  // faircode/detect.py normalize_keywords (#856). Returns null when empty.
+  var KEYWORD_KINDS = ['sex', 'race', 'age', 'geography'];
+  function normalizeKeywords(raw) {
+    if (raw === null || raw === undefined) return null;
+    if (typeof raw !== 'object' || Array.isArray(raw)) {
+      throw new Error('keywords must be an object mapping a kind to a list of words');
+    }
+    var allowed = KEYWORD_KINDS.concat(['exact_only']);
+    var given = Object.keys(raw);
+    if (!given.length) return null;
+    var unknown = given.filter(function (k) { return allowed.indexOf(k) === -1; });
+    if (unknown.length) {
+      throw new Error('keywords has unknown key(s): ' + unknown.join(', ') + '; allowed: ' + allowed.join(', '));
+    }
+    var out = {};
+    allowed.forEach(function (key) {
+      if (!Object.prototype.hasOwnProperty.call(raw, key)) return;
+      var words = raw[key];
+      if (!Array.isArray(words)) throw new Error('keywords.' + key + ' must be a list of words');
+      var normalised = [];
+      words.forEach(function (word) {
+        if (typeof word !== 'string' || !word.trim()) {
+          throw new Error('keywords.' + key + ' entries must be non-empty strings');
+        }
+        var text = word.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+        if (!/^[a-z0-9]+$/.test(text)) {
+          throw new Error('keywords.' + key + ' entry ' + JSON.stringify(word) + ' must be a single word of letters and digits');
+        }
+        if (normalised.indexOf(text) === -1) normalised.push(text);
+      });
+      out[key] = normalised;
+    });
+    return Object.keys(out).length ? out : null;
+  }
+
+  function tokenMatches(token, keyword, extraExact) {
+    if (keyword.length < 4 || EXACT_ONLY_KEYWORDS.hasOwnProperty(keyword) ||
+        (extraExact && extraExact.indexOf(keyword) !== -1)) return token === keyword;
     return token.indexOf(keyword) === 0; // prefix match
   }
 
@@ -517,16 +558,18 @@
     return false;
   }
 
-  function classifyName(name) {
+  function classifyName(name, keywords) {
+    keywords = normalizeKeywords(keywords);
+    var extra = keywords || {}, extraExact = extra.exact_only || [];
     var toks = tokens(name);
     for (var p = 0; p < NON_GEOGRAPHY_PHRASES.length; p++) {
       if (hasConsecutivePhrase(toks, NON_GEOGRAPHY_PHRASES[p])) return null;
     }
     for (var k = 0; k < KEYWORDS.length; k++) {
-      var kind = KEYWORDS[k][0], words = KEYWORDS[k][1];
+      var kind = KEYWORDS[k][0], words = KEYWORDS[k][1].concat(extra[KEYWORDS[k][0]] || []);
       for (var t = 0; t < toks.length; t++) {
         for (var w = 0; w < words.length; w++) {
-          if (tokenMatches(toks[t], words[w])) return kind;
+          if (tokenMatches(toks[t], words[w], extraExact)) return kind;
         }
       }
     }
@@ -542,7 +585,8 @@
     return Object.keys(seen).length;
   }
 
-  function detectColumns(table, overrides, maxCategoricalCard) {
+  function detectColumns(table, overrides, maxCategoricalCard, keywords) {
+    keywords = normalizeKeywords(keywords);
     overrides = overrides || {};
     if (maxCategoricalCard === null || maxCategoricalCard === undefined) {
       maxCategoricalCard = MAX_CATEGORICAL_CARD;
@@ -554,7 +598,7 @@
         if (VALID_KINDS[forced]) detected.push({ name: col, kind: forced });
         return; // any other value (e.g. 'ignore') excludes the column
       }
-      var kind = classifyName(col);
+      var kind = classifyName(col, keywords);
       if (kind !== null) { detected.push({ name: col, kind: kind }); return; }
       var n = nunique(table.rows, col);
       if (n >= 2 && n <= maxCategoricalCard) {
@@ -1404,7 +1448,7 @@
   function profile(table, overrides, opts) {
     overrides = overrides || {};
     var o = resolveOpts(opts);
-    var detected = detectColumns(table, overrides, o.max_categorical_card);
+    var detected = detectColumns(table, overrides, o.max_categorical_card, o.keywords);
     var dimensions = detected.map(function (d) {
       return dimension(table, d.name, d.kind, o.min_share, o.min_group_size, o.max_age, o.age_reference_year);
     });
@@ -1770,7 +1814,7 @@
                               // Opt-in, informational only (issue #738) - see
                               // proxyHints()'s own comment for why this is
                               // kept out of profile()/compare().
-                              proxyHints: proxyHints, proxyNotes: proxyNotes, normalizeKeyText: normalizeKeyText, proxyFamily: proxyFamily, parseHeldOut: parseHeldOut, buildHeldOut: buildHeldOut,
+                              proxyHints: proxyHints, proxyNotes: proxyNotes, normalizeKeyText: normalizeKeyText, normalizeKeywords: normalizeKeywords, proxyFamily: proxyFamily, parseHeldOut: parseHeldOut, buildHeldOut: buildHeldOut,
                               adjustPValues: adjustPValues,
                               csvField: csvField, csvRow: csvRow, provenanceCsv: provenanceCsv,
                               // publicParams: resolved knobs for an export's

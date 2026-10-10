@@ -1009,6 +1009,7 @@ faircode compare train.csv prod.csv --map gndr=sex # --map/threshold flags apply
 faircode compare train.csv prod.csv --fail-on-drift # fail CI if any dimension drifted
 faircode compare train.csv prod.csv --proxy-hints  # chi-squared proxy hints for both datasets
 faircode profile data.csv --map gndr=sex           # fix a missed column
+faircode profile data.csv --keywords words.json    # teach detection extra column names, e.g. {"sex": ["sesso"]}
 faircode profile data.csv --cross race,age         # choose the intersection pair
 faircode profile data.csv --reference census.csv   # score vs a population baseline
 faircode profile data.csv --proxy-hints            # chi-squared proxy hints (needs scipy)

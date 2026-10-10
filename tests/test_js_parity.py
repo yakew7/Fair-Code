@@ -336,8 +336,8 @@ def test_python_js_public_params_parity_for_a_defaulted_run():
     assert json.loads(completed.stdout) == expected
     assert set(expected) == {
         "cross", "imbalance_flag", "intersection_floor", "max_categorical_card",
-        "age_reference_year", "max_age", "max_dimension_groups", "min_group_size", "min_share",
-        "missing_flag", "reference_flag",
+        "age_reference_year", "keywords", "max_age", "max_dimension_groups", "min_group_size",
+        "min_share", "missing_flag", "reference_flag",
     }
     assert "reference" not in expected
 
@@ -459,6 +459,54 @@ def test_python_js_compare_parity_for_quality_flags_and_renames(tmp_path):
     for needle in ("implausible age values differ", "look like the same dimension"):
         assert [f for f in py_flags if needle in f] == [f for f in js_flags if needle in f] != []
     assert python_result["possible_renames"][0]["b"] == "ethnicity"
+
+
+def test_python_js_parity_for_extra_keywords_and_italian_dutch_terms(tmp_path):
+    """#856: the user vocabulary (normalised, exact_only, validation errors) and the new
+    Italian/Dutch built-ins behave identically in both engines."""
+    from faircode.detect import classify_name, normalize_keywords
+
+    extra = {"sex": ["GNDR", "Jenis"], "race": ["EtnGrp"], "age": ["Umur"], "exact_only": ["umur"]}
+    names = ["sesso", "Età", "razza", "leeftijd", "geslacht", "geboortedatum", "regione", "paese",
+             "gndr", "jenis", "umur", "umuraa", "jenis_x", "etngrp", "other"]
+    script = (
+        "require(process.argv[1]);var E=globalThis.FairCodeProfiler;var out={};"
+        "var names=JSON.parse(process.argv[2]),extra=JSON.parse(process.argv[3]);"
+        "names.forEach(function(n){"
+        "out[n]=[E.profile({columns:[n],rows:[{[n]:'a'},{[n]:'b'}]},{},{}).dimensions[0].kind,"
+        "E.profile({columns:[n],rows:[{[n]:'a'},{[n]:'b'}]},{},{keywords:extra}).dimensions[0].kind]});"
+        "out.__norm=E.normalizeKeywords(extra);"
+        "var bad=[{x:[1]},{sex:'a'},{sex:['a b']},[1],{sex:['']}];out.__errors=bad.map(function(b){"
+        "try{E.normalizeKeywords(b);return null}catch(e){return e.message}});"
+        "process.stdout.write(JSON.stringify(out));"
+    )
+    done = subprocess.run(
+        ["node", "-e", script, str(REPO_ROOT / "assets" / "profiler-engine.js"),
+         json.dumps(names), json.dumps(extra)],
+        capture_output=True, text=True, encoding="utf-8", check=True)
+    js = json.loads(done.stdout)
+    for n in names:
+        assert js[n] == [classify_name(n) or "categorical", classify_name(n, extra) or "categorical"], n
+    assert js["__norm"] == normalize_keywords(extra) == {
+        "sex": ["gndr", "jenis"], "race": ["etngrp"], "age": ["umur"], "exact_only": ["umur"]}
+    py_errors = []
+    for b in ({"x": [1]}, {"sex": "a"}, {"sex": ["a b"]}, [1], {"sex": [""]}):
+        try:
+            normalize_keywords(b)
+            py_errors.append(None)
+        except ValueError as exc:
+            py_errors.append(str(exc))
+    assert js["__errors"] == py_errors and all(py_errors)
+    assert js["umuraa"] == ["categorical", "categorical"]   # exact_only: no prefix match
+
+
+def test_keywords_textarea_is_wired_into_both_web_views():
+    html = (REPO_ROOT / "profiler.html").read_text(encoding="utf-8")
+    assert 'id="keywordsInput"' in html and 'id="compareKeywordsInput"' in html
+    assert html.count('data-opt-json="keywords"') == 2
+    for name in ("profiler-ui.js", "profiler-compare.js"):
+        js = (REPO_ROOT / "assets" / name).read_text(encoding="utf-8")
+        assert "[data-opt-json]" in js and "JSON.parse(raw)" in js
 
 
 def test_python_js_profiler_parity_with_overrides_cross_and_thresholds(tmp_path):

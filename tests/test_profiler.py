@@ -655,3 +655,43 @@ def test_age_reference_year_is_validated_and_ignores_non_integer_values():
             profile(df, None, {"age_reference_year": bad})
     frac = pd.DataFrame({"sex": ["M", "F"], "age": [1985.5, 30]})
     assert _age_dim(profile(frac, None, {"age_reference_year": 2026}))["implausible_values"] == 1
+
+
+# --- #856: user-extensible detection vocabulary --------------------------------------------
+
+def test_keywords_option_adds_vocabulary_after_the_built_ins():
+    from faircode.detect import classify_name
+    assert classify_name("gndr") is None
+    assert classify_name("gndr", {"sex": ["GNDR"]}) == "sex"
+    assert classify_name("sex_code", {"sex": ["gndr"]}) == "sex"           # built-ins still win/match
+    result = profile(pd.DataFrame({"gndr": ["a", "b"] * 3, "umr": [20, 30, 40, 50, 60, 70]}), None,
+                     {"keywords": {"sex": ["gndr"], "age": ["umr"]}})
+    assert {d["name"]: d["kind"] for d in result["dimensions"]} == {"gndr": "sex", "umr": "age"}
+    assert not any("No column name matched" in f for f in result["flags"])
+
+
+def test_keywords_exact_only_and_prefix_rules():
+    from faircode.detect import classify_name
+    assert classify_name("umuraa", {"age": ["umur"]}) == "age"                      # 4+ chars: prefix
+    assert classify_name("umuraa", {"age": ["umur"], "exact_only": ["umur"]}) is None
+    assert classify_name("umur", {"age": ["umur"], "exact_only": ["umur"]}) == "age"
+
+
+def test_keywords_are_validated_and_recorded_in_provenance_params():
+    from faircode.profiler import _resolve_opts
+    from faircode.provenance import public_params
+    for bad in ({"colour": ["x"]}, {"sex": "x"}, {"sex": ["two words"]}, {"sex": [""]}, ["x"]):
+        with pytest.raises(ValueError, match="keywords"):
+            profile(pd.DataFrame({"a": ["x", "y"]}), None, {"keywords": bad})
+    assert public_params(_resolve_opts({"keywords": {"sex": ["Gndr", "GNDR"]}}))["keywords"] == {"sex": ["gndr"]}
+    assert public_params(_resolve_opts(None))["keywords"] is None
+
+
+def test_italian_and_dutch_built_ins():
+    from faircode.detect import classify_name
+    for name, kind in (("sesso", "sex"), ("Geslacht", "sex"), ("razza", "race"), ("Età", "age"),
+                       ("leeftijd", "age"), ("geboortedatum", "age"), ("regione", "geography"),
+                       ("paese", "geography"), ("gemeente", "geography")):
+        assert classify_name(name) == kind, name
+    for name in ("beta", "rassegna", "stadium", "etagere"):
+        assert classify_name(name) is None, name

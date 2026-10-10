@@ -460,3 +460,8 @@
   cursor: pointer; padding: 2px 8px; }
 .heldout-remove:hover { border-color: var(--accent); color: var(--accent); }
 .proxy-heldout .proxy-hints-btn { margin: 4px 0 10px; }
+
+/* Extra column-name keywords (--keywords, #856): a wide JSON textarea in the thresholds grid. */
+.keywords-label { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 4px; }
+.keywords-input { width: 100%; min-height: 3em; font-family: var(--mono); resize: vertical; }
+.keywords-input[aria-invalid="true"] { border-color: var(--accent); }

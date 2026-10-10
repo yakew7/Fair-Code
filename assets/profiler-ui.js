@@ -600,6 +600,13 @@
       input.value = '';
       input.classList.remove('overridden');
     });
+    if (thresholdControls) {
+      Array.prototype.forEach.call(thresholdControls.querySelectorAll('[data-opt-json]'), function (area) {
+        area.value = '';
+        area.classList.remove('overridden');
+        area.removeAttribute('aria-invalid');
+      });
+    }
   }
 
   thresholdInputs.forEach(function (input) {
@@ -631,6 +638,36 @@
           delete currentOpts[opt];
         }
         input.classList.toggle('overridden', hadPrevious);
+        reprofile(false);
+      }
+    });
+  });
+
+
+  // Extra detection vocabulary (--keywords, #856): a JSON textarea. Invalid JSON is
+  // flagged and ignored; a vocabulary the engine rejects is reverted like a bad threshold.
+  Array.prototype.slice.call(
+    thresholdControls ? thresholdControls.querySelectorAll('[data-opt-json]') : []
+  ).forEach(function (area) {
+    area.addEventListener('input', function () {
+      var opt = area.dataset.optJson, raw = area.value.trim();
+      var hadPrevious = Object.prototype.hasOwnProperty.call(currentOpts, opt);
+      var previous = currentOpts[opt];
+      if (raw === '') {
+        delete currentOpts[opt];
+        area.classList.remove('overridden');
+        area.removeAttribute('aria-invalid');
+      } else {
+        var parsed;
+        try { parsed = JSON.parse(raw); } catch (err) { area.setAttribute('aria-invalid', 'true'); return; }
+        area.removeAttribute('aria-invalid');
+        currentOpts[opt] = parsed;
+        area.classList.add('overridden');
+      }
+      if (!reprofile(false)) {
+        if (hadPrevious) currentOpts[opt] = previous; else delete currentOpts[opt];
+        area.setAttribute('aria-invalid', 'true');
+        area.classList.toggle('overridden', hadPrevious);
         reprofile(false);
       }
     });

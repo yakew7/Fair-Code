@@ -12,7 +12,7 @@ import re
 
 import pandas as pd
 
-from .detect import MAX_CATEGORICAL_CARD, VALID_KINDS, detect_columns
+from .detect import MAX_CATEGORICAL_CARD, VALID_KINDS, detect_columns, normalize_keywords
 
 # ── Defaults (SPEC section 7) ───────────────────────────────────────────────
 MIN_SHARE_THRESHOLD = 0.05
@@ -68,6 +68,7 @@ _DEFAULT_OPTS = {
     "max_dimension_groups": MAX_DIMENSION_GROUPS,
     "max_age": MAX_AGE,  # ages above this are not banded; flagged instead (SPEC 2)
     "age_reference_year": None,  # convert birth years in age columns to ages as of this year
+    "keywords": None,    # extra column-name vocabulary {kind: [words]} for detection (SPEC 1)
     "cross": None,       # [colA, colB] to force the intersection pair (SPEC 4)
     "reference": None,   # {column: {group: expected_share}} baseline (SPEC 8)
 }
@@ -100,6 +101,7 @@ def _validate_opts(o: dict) -> None:
     max_age = o.get("max_age")
     if max_age is not None and not max_age > 0:
         raise ValueError(f"max_age must be > 0, got {max_age!r}")
+    o["keywords"] = normalize_keywords(o.get("keywords"))
     ref_year = o.get("age_reference_year")
     if ref_year is not None and (ref_year != int(ref_year) or ref_year < BIRTH_YEAR_MIN):
         raise ValueError(
@@ -567,7 +569,8 @@ def profile(df: pd.DataFrame, overrides=None, opts=None) -> dict:
     """
     overrides = overrides or {}
     o = _resolve_opts(opts)
-    detected = detect_columns(df, overrides, max_categorical_card=o["max_categorical_card"])
+    detected = detect_columns(df, overrides, max_categorical_card=o["max_categorical_card"],
+                              keywords=o["keywords"])
     dimensions = [_dimension(df, d["name"], d["kind"], o["min_share"], o["min_group_size"],
                              o["max_age"], o["age_reference_year"])
                   for d in detected]

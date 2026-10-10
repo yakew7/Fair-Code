@@ -1291,3 +1291,23 @@ def test_profile_nested_json_flattens_and_profiles(tmp_path, capsys):
     assert "sex" in captured.out
     assert "loc.state" in captured.out
 
+
+
+def test_keywords_file_flag_types_columns_and_records_vocabulary(tmp_path, capsys):
+    data = tmp_path / "d.csv"
+    data.write_text("gndr,umr\n" + "\n".join(f"{'a' if i % 2 else 'b'},{20 + i}" for i in range(20)) + "\n")
+    words = tmp_path / "kw.json"
+    words.write_text('{"sex": ["gndr"], "age": ["umr"]}', encoding="utf-8")
+    assert main(["profile", str(data), "--keywords", str(words), "--json"]) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert {d["name"]: d["kind"] for d in result["dimensions"]} == {"gndr": "sex", "umr": "age"}
+    assert result["provenance"]["params"]["keywords"] == {"sex": ["gndr"], "age": ["umr"]}
+
+    bad = tmp_path / "bad.json"
+    bad.write_text("{not json", encoding="utf-8")
+    with pytest.raises(SystemExit) as exc:
+        main(["profile", str(data), "--keywords", str(bad)])
+    assert exc.value.code == 2 and "not valid JSON" in capsys.readouterr().err
+    words.write_text('{"colour": ["x"]}', encoding="utf-8")
+    assert main(["profile", str(data), "--keywords", str(words)]) == 2
+    assert "unknown key(s): colour" in capsys.readouterr().err

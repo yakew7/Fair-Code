@@ -29,6 +29,7 @@ import codecs
 import functools
 import hashlib
 import io
+import json
 import sys
 
 import pandas as pd
@@ -123,6 +124,22 @@ def _build_held_out(specs, df, encoding=None, normalize_keys=False):
                                     normalize_keys=normalize_keys)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
+        raise SystemExit(2)
+
+
+def _load_keywords(path):
+    """Read a --keywords JSON file ({"sex": ["sesso"], "exact_only": [...]}, see
+    detect.normalize_keywords), or print a plain error and exit 2 (#856)."""
+    if path is None:
+        return None
+    try:
+        with open(path, "r", encoding="utf-8-sig") as fh:
+            return json.load(fh)
+    except OSError as exc:
+        print(f"error: could not read --keywords file {path}: {exc}", file=sys.stderr)
+        raise SystemExit(2)
+    except (ValueError, UnicodeDecodeError) as exc:
+        print(f"error: --keywords file {path} is not valid JSON: {exc}", file=sys.stderr)
         raise SystemExit(2)
 
 
@@ -314,6 +331,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="numeric ages above N are treated as implausible (flagged and "
                         "left out of the age bands) instead of landing in the oldest "
                         "band (default: profiler.MAX_AGE, 120)")
+    p.add_argument("--keywords", metavar="FILE",
+                   help="JSON file of extra column-name keywords for detection, e.g. "
+                        '{"sex": ["sesso"], "age": ["eta"], "exact_only": ["eta"]} '
+                        "(kinds: sex, race, age, geography; matched like the built-in words)")
     p.add_argument("--age-reference-year", type=int, metavar="YEAR",
                    help="treat whole numbers from 1900 up to YEAR in an age column as "
                         "birth years and convert them to ages as of YEAR (default: off)")
@@ -390,6 +411,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="numeric ages above N are treated as implausible (flagged and "
                         "left out of the age bands) instead of landing in the oldest "
                         "band (default: profiler.MAX_AGE, 120)")
+    c.add_argument("--keywords", metavar="FILE",
+                   help="JSON file of extra column-name keywords for detection, e.g. "
+                        '{"sex": ["sesso"], "age": ["eta"], "exact_only": ["eta"]} '
+                        "(kinds: sex, race, age, geography; matched like the built-in words)")
     c.add_argument("--age-reference-year", type=int, metavar="YEAR",
                    help="treat whole numbers from 1900 up to YEAR in an age column as "
                         "birth years and convert them to ages as of YEAR (default: off)")
@@ -503,6 +528,7 @@ def main(argv: list[str] | None = None) -> int:
             "max_dimension_groups": args.max_dimension_groups,
             "max_age": args.max_age,
             "age_reference_year": args.age_reference_year,
+            "keywords": _load_keywords(args.keywords),
         }
         if args.cross:
             parts = [c.strip() for c in args.cross.split(",")]
@@ -647,6 +673,7 @@ def main(argv: list[str] | None = None) -> int:
             "max_dimension_groups": args.max_dimension_groups,
             "max_age": args.max_age,
             "age_reference_year": args.age_reference_year,
+            "keywords": _load_keywords(args.keywords),
         }
         _warn_encoding_ignored([args.csv_a, args.csv_b], args.encoding)
         df_a = _read_or_exit(args.csv_a, args.encoding)
