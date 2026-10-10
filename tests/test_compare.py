@@ -149,3 +149,57 @@ def test_unmeasured_profile_has_no_score_delta():
     assert cmp["score_delta"] is None
     assert cmp["b"]["dimensions_detected"] is False
     assert not any("overall representation score dropped" in f for f in cmp["flags"])
+
+
+# --- #868 / #866 ---------------------------------------------------------------------------
+
+def _cmp(a, b, **kw):
+    from faircode.compare import compare
+    from faircode.profiler import profile
+    return compare(profile(a), profile(b), "a.csv", "b.csv", **kw)
+
+
+def test_compare_flags_implausible_ages_that_differ_between_datasets():
+    import pandas as pd
+    a = pd.DataFrame({"sex": ["M", "F"] * 4, "age": [25, 30, 41, 55, 62, 19, 33, 70]})
+    b = pd.DataFrame({"sex": ["M", "F"] * 4, "age": [25, 30, 41, 200, 62, 19, 150, 70]})
+    result = _cmp(a, b)
+    age = next(d for d in result["dimensions"] if d["name"] == "age")
+    assert (age["implausible_a"], age["implausible_b"]) == (0, 2)
+    assert any("implausible age values differ (0 in a.csv, 2 in b.csv)" in f for f in result["flags"])
+    # equal counts, or none at all, add neither the keys nor a flag
+    same = _cmp(b, b)
+    assert not any("implausible" in f for f in same["flags"])
+    clean = next(d for d in _cmp(a, a)["dimensions"] if d["name"] == "age")
+    assert "implausible_a" not in clean
+
+
+def test_compare_notes_a_side_where_nothing_was_recognised_by_name():
+    import pandas as pd
+    plain = pd.DataFrame({"colA": ["x", "y"] * 4, "colB": ["p", "q"] * 4})
+    named = pd.DataFrame({"sex": ["M", "F"] * 4, "colB": ["p", "q"] * 4})
+    flags = _cmp(plain, named)["flags"]
+    assert any(f.startswith("a.csv: no column name was recognised") and "--map COL=KIND" in f
+               for f in flags)
+    assert not any(f.startswith("b.csv: no column name") for f in flags)
+
+
+def test_compare_suggests_a_renamed_dimension_without_pairing_it():
+    import pandas as pd
+    a = pd.DataFrame({"sex": ["M", "F"] * 4, "race": ["White", "Black", "Asian", "White"] * 2})
+    b = pd.DataFrame({"sex": ["M", "F"] * 4, "ethnicity": ["White", "Black", "Asian", "White"] * 2})
+    result = _cmp(a, b)
+    assert result["possible_renames"] == [{"a": "race", "b": "ethnicity", "overlap": 1.0}]
+    assert any("'race' (a.csv) and 'ethnicity' (b.csv) look like the same dimension" in f
+               for f in result["flags"])
+    assert [d["name"] for d in result["dimensions"]] == ["sex"]   # never auto-paired
+    assert result["drift_detected"] is True
+
+
+def test_compare_does_not_suggest_unrelated_or_different_kind_dimensions():
+    import pandas as pd
+    a = pd.DataFrame({"sex": ["M", "F"] * 4, "race": ["White", "Black"] * 4})
+    b = pd.DataFrame({"sex": ["M", "F"] * 4, "region": ["North", "South"] * 4})
+    assert "possible_renames" not in _cmp(a, b)
+    c = pd.DataFrame({"sex": ["M", "F"] * 4, "colX": ["White", "Black"] * 4})   # categorical, not race
+    assert "possible_renames" not in _cmp(a, c)

@@ -440,6 +440,27 @@ def test_python_js_parity_for_birth_year_conversion(tmp_path):
     assert [f for f in py_flags if "implausible" in f] == [f for f in js_flags if "implausible" in f]
 
 
+def test_python_js_compare_parity_for_quality_flags_and_renames(tmp_path):
+    """#868/#866: implausible-age carry-over, the no-kind-detected note and rename
+    suggestions are produced identically by both engines."""
+    path_a = tmp_path / "a.csv"
+    path_b = tmp_path / "b.csv"
+    path_a.write_text("sex,age,race\n" + "\n".join(
+        f"{'M' if i % 2 else 'F'},{[25, 30, 41, 55][i % 4]},{['White', 'Black', 'Asian'][i % 3]}" for i in range(48)) + "\n")
+    path_b.write_text("sex,age,ethnicity\n" + "\n".join(
+        f"{'M' if i % 2 else 'F'},{[25, 200, 41, 150][i % 4]},{['White', 'Black', 'Asian'][i % 3]}" for i in range(48)) + "\n")
+    python_result = compare(profile(pd.read_csv(path_a)), profile(pd.read_csv(path_b)), "a.csv", "b.csv")
+    completed = subprocess.run(
+        ["node", "scripts/engine-js.js", "compare", str(path_a), str(path_b)],
+        capture_output=True, text=True, encoding="utf-8", check=True)
+    javascript_result = json.loads(completed.stdout)
+    py_flags, js_flags = python_result.pop("flags"), javascript_result.pop("flags")
+    assert javascript_result == dict(python_result)
+    for needle in ("implausible age values differ", "look like the same dimension"):
+        assert [f for f in py_flags if needle in f] == [f for f in js_flags if needle in f] != []
+    assert python_result["possible_renames"][0]["b"] == "ethnicity"
+
+
 def test_python_js_profiler_parity_with_overrides_cross_and_thresholds(tmp_path):
     """Non-default options - --map/--cross/--reference/thresholds - only ever
     had cross-engine parity coverage for their default-off path (issue #376).

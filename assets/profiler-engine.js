@@ -1624,6 +1624,35 @@
     };
   }
 
+  // Mirrors faircode/compare.py RENAME_MIN_OVERLAP / _possible_renames (#866).
+  var RENAME_MIN_OVERLAP = 0.5;
+
+  function possibleRenames(resultA, resultB, removed, added) {
+    var byA = {}, byB = {}, taken = {}, pairs = [];
+    resultA.dimensions.forEach(function (d) { byA[d.name] = d; });
+    resultB.dimensions.forEach(function (d) { byB[d.name] = d; });
+    removed.forEach(function (nameA) {
+      var labelsA = {};
+      byA[nameA].groups.forEach(function (g) { labelsA[g.label] = 1; });
+      var best = null, bestOverlap = 0;
+      added.forEach(function (nameB) {
+        if (taken[nameB] || byB[nameB].kind !== byA[nameA].kind) return;
+        var labelsB = {}, union = {}, inter = 0;
+        byB[nameB].groups.forEach(function (g) { labelsB[g.label] = 1; });
+        Object.keys(labelsA).forEach(function (l) { union[l] = 1; if (labelsB[l]) inter++; });
+        Object.keys(labelsB).forEach(function (l) { union[l] = 1; });
+        var size = Object.keys(union).length;
+        var overlap = size ? inter / size : 0;
+        if (overlap > bestOverlap) { best = nameB; bestOverlap = overlap; }
+      });
+      if (best !== null && bestOverlap >= RENAME_MIN_OVERLAP) {
+        taken[best] = 1;
+        pairs.push({ a: nameA, b: best, overlap: Math.round(bestOverlap * 10000) / 10000 });
+      }
+    });
+    return pairs;
+  }
+
   function compare(resultA, resultB, nameA, nameB) {
     nameA = nameA || 'A'; nameB = nameB || 'B';
     var dimsA = {}, dimsB = {};
@@ -1640,6 +1669,12 @@
     var dimensions = shared.map(function (n) {
       return compareDimension(dimsA[n], dimsB[n]);
     });
+    // Data-quality carry-over (#868): optional keys, only when either side has any.
+    dimensions.forEach(function (cd) {
+      var impA = dimsA[cd.name].implausible_values || 0, impB = dimsB[cd.name].implausible_values || 0;
+      if (impA || impB) { cd.implausible_a = impA; cd.implausible_b = impB; }
+    });
+    var renames = possibleRenames(resultA, resultB, removed, added);
     var scoreDelta = (resultA.overall_score === null || resultB.overall_score === null)
       ? null : resultB.overall_score - resultA.overall_score;
 
@@ -1662,6 +1697,11 @@
                    (cd.missing_pct_a * 100).toFixed(1) + '% → ' +
                    (cd.missing_pct_b * 100).toFixed(1) + '%');
         driftDetected = true;
+      }
+      if ((cd.implausible_a || 0) !== (cd.implausible_b || 0)) {
+        flags.push(cd.name + ': implausible age values differ (' + cd.implausible_a + ' in ' + nameA +
+                   ', ' + cd.implausible_b + ' in ' + nameB + ') - they were treated as missing in ' +
+                   'each, so check the age shares for artefacts');
       }
       if (cd.kind_mismatch) {
         if (cd.kind_a !== cd.kind_b) {
@@ -1696,8 +1736,19 @@
     });
     added.forEach(function (n) { flags.push("dimension '" + n + "' is present only in " + nameB); driftDetected = true; });
     removed.forEach(function (n) { flags.push("dimension '" + n + "' is present only in " + nameA); driftDetected = true; });
+    renames.forEach(function (r) {
+      flags.push("'" + r.a + "' (" + nameA + ") and '" + r.b + "' (" + nameB + ') look like the same dimension (' +
+                 (r.overlap * 100).toFixed(0) + '% of their group labels overlap) - rename one column ' +
+                 'so the names match to compare them');
+    });
+    [[nameA, resultA], [nameB, resultB]].forEach(function (pair) {
+      if ((pair[1].flags || []).indexOf(NO_KIND_DETECTED_FLAG) !== -1) {
+        flags.push(pair[0] + ': no column name was recognised as sex, race, age or geography, so every ' +
+                   'dimension is a plain categorical - map columns with --map COL=KIND');
+      }
+    });
 
-    return {
+    var out = {
       a: { name: nameA, n_rows: resultA.n_rows,
            overall_score: resultA.overall_score, grade: resultA.grade,
            dimensions_detected: resultA.dimensions_detected, note: resultA.note },
@@ -1708,6 +1759,8 @@
       added_dimensions: added, removed_dimensions: removed, flags: flags,
       drift_detected: driftDetected
     };
+    if (renames.length) out.possible_renames = renames;
+    return out;
   }
 
   global.FairCodeProfiler = { parseCSV: parseCSV, parseJSON: parseJSON, parseXLSX: parseXLSX,

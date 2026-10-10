@@ -407,6 +407,22 @@ Rounding uses the same half-up helper as the rest of the spec (`Math.round` / `f
 are already-rounded `missing_pct` values straight from each side's own profile); score deltas are
 integers.
 
+**Data-quality carry-over (#868).** Compare reads each side's profile, so two optional pieces of
+that profile surface in the drift report. A shared age dimension gets `implausible_a` /
+`implausible_b` (each side's `implausible_values`, section 2) - present only when either is above
+zero - and a flag "age: implausible age values differ (N in A, M in B) ..." when they differ, since
+a changed count of values dropped from the bands can look like drift in the `75+` share. And when a
+side's profile ended with the "no column name matched sex, race, age or geography" flag (section 1),
+compare adds "NAME: no column name was recognised ..." for that side. Neither sets `drift_detected`.
+
+**Probable renames (#866).** Dimensions are matched by name. For each dimension present only in A,
+compare looks for a B-only dimension of the *same kind* whose group labels overlap (Jaccard) at least
+`RENAME_MIN_OVERLAP` = 0.5, greedily in A order, each B-only dimension used once, and reports
+`possible_renames: [{ "a": "race", "b": "ethnicity", "overlap": 1.0 }]` (key present only when
+non-empty, `overlap` to 4 dp) plus a flag "'race' (A) and 'ethnicity' (B) look like the same
+dimension ... rename one column so the names match to compare them". It is a suggestion only: nothing
+is compared across the pair, and `drift_detected` is already true from the one-sided dimensions.
+
 ---
 
 ## 9. Reference baseline
