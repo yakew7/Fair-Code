@@ -997,6 +997,7 @@ faircode profile data.csv --csv out.csv --csv-bom          # UTF-8 BOM so Excel 
 faircode profile data.csv --max-categorical-card 40 --max-dimension-groups 100   # widen what counts as a dimension
 faircode profile latin1.csv --encoding latin-1     # non-UTF-8 text (a UTF-8/16/32 BOM is detected automatically)
 faircode profile data.csv --max-age 100            # ages above 100 are flagged as implausible, not banded into 75+
+faircode profile yob.csv --age-reference-year 2026 # read birth years (1985...) as ages as of 2026
 faircode profile data.csv --proxy-hints --proxy-alpha 0.01 --proxy-correction holm   # stricter proxy check
 faircode profile data.csv --fail-under 70          # fail CI if score is below 70
 faircode profile data.csv --min-group-size 50      # warn on subgroups under 50 rows

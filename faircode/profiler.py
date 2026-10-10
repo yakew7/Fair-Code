@@ -25,6 +25,7 @@ DATE_SAMPLE_SIZE = 200  # deterministic whole-column sample for date detection
 MAX_DIMENSION_GROUPS = 50  # drop identifier/date-like columns (geography exempt)
 MIN_GROUP_SIZE = 100  # warn when a subgroup has fewer than N rows (default: 100)
 MAX_AGE = 120  # numeric ages above this are reported as implausible, not banded (SPEC 2)
+BIRTH_YEAR_MIN = 1900  # with age_reference_year, whole numbers from here up to it are birth years
 
 # ASCII digits only, like the JS engine (#836): Python's `\d` also matches
 # Arabic-Indic/fullwidth digits, which the browser regex does not.
@@ -66,6 +67,7 @@ _DEFAULT_OPTS = {
     "max_categorical_card": MAX_CATEGORICAL_CARD,
     "max_dimension_groups": MAX_DIMENSION_GROUPS,
     "max_age": MAX_AGE,  # ages above this are not banded; flagged instead (SPEC 2)
+    "age_reference_year": None,  # convert birth years in age columns to ages as of this year
     "cross": None,       # [colA, colB] to force the intersection pair (SPEC 4)
     "reference": None,   # {column: {group: expected_share}} baseline (SPEC 8)
 }
@@ -98,6 +100,10 @@ def _validate_opts(o: dict) -> None:
     max_age = o.get("max_age")
     if max_age is not None and not max_age > 0:
         raise ValueError(f"max_age must be > 0, got {max_age!r}")
+    ref_year = o.get("age_reference_year")
+    if ref_year is not None and (ref_year != int(ref_year) or ref_year < BIRTH_YEAR_MIN):
+        raise ValueError(
+            f"age_reference_year must be a whole year >= {BIRTH_YEAR_MIN}, got {ref_year!r}")
 
 
 def _resolve_opts(opts) -> dict:
@@ -159,15 +165,25 @@ def _age_to_numeric(value):
     return numeric if numeric is not None and numeric >= AGE_BANDS[0] else None
 
 
-def _age_numbers(values, max_age=MAX_AGE):
+def _age_numbers(values, max_age=MAX_AGE, reference_year=None):
     """Per-cell numeric ages with implausible ones removed, plus how many there were.
 
     An age above `max_age` (150, 200, a mistyped birth year) or a negative
     sentinel (-1, -9) is a data-quality problem, not a valid age band: it
     comes back as None and is counted in the second return value so the
     profile can flag it (#840, #863).
+
+    With `reference_year`, a whole number from 1900 up to that year is read as
+    a birth year and becomes `reference_year - value` before the checks, so a
+    `yob` column profiles as ages instead of all implausible (#862).
     """
     raw_nums = [_raw_age_to_numeric(v) for v in values]
+    if reference_year is not None:
+        raw_nums = [
+            float(reference_year - n)
+            if n is not None and BIRTH_YEAR_MIN <= n <= reference_year and n == int(n) else n
+            for n in raw_nums
+        ]
     has_negative = any(n is not None and n < AGE_BANDS[0] for n in raw_nums)
     implausible = sum(
         1 for n in raw_nums if n is not None and (n < AGE_BANDS[0] or n > max_age)
@@ -276,13 +292,13 @@ def _analyze_groups(labels_counts: dict, n_total: int, null_count: int,
 
 def _dimension(df: pd.DataFrame, name: str, kind: str,
                min_share=MIN_SHARE_THRESHOLD, min_group_size=MIN_GROUP_SIZE,
-               max_age=MAX_AGE) -> dict:
+               max_age=MAX_AGE, age_reference_year=None) -> dict:
     col = df[name]
     n_total = len(df)
     skewness = None
 
     if kind == "age" and not _looks_like_dates(col):
-        nums, implausible, has_negative = _age_numbers(col, max_age)
+        nums, implausible, has_negative = _age_numbers(col, max_age, age_reference_year)
         numeric_vals = [n for n in nums if n is not None]
         # Numeric age → bands; if nothing parsed numerically, fall back to raw.
         if numeric_vals or implausible:
@@ -334,7 +350,7 @@ def _pick_cross(dims: list[dict], cross) -> tuple:
 
 def _intersections(df: pd.DataFrame, dims: list[dict],
                    intersection_floor=INTERSECTION_FLOOR, cross=None,
-                   max_age=MAX_AGE) -> list[dict]:
+                   max_age=MAX_AGE, age_reference_year=None) -> list[dict]:
     if len(dims) < 2:
         return []
     a, b = _pick_cross(dims, cross)
@@ -343,7 +359,7 @@ def _intersections(df: pd.DataFrame, dims: list[dict],
 
     def labelize(name, kind):
         if kind == "age" and not _looks_like_dates(df[name]):
-            nums, implausible, *_ = _age_numbers(df[name], max_age)
+            nums, implausible, *_ = _age_numbers(df[name], max_age, age_reference_year)
             if implausible or any(n is not None for n in nums):
                 # Non-numeric age sentinels ("unknown", "prefer not to say")
                 # get their own categorical label here too, matching
@@ -553,7 +569,7 @@ def profile(df: pd.DataFrame, overrides=None, opts=None) -> dict:
     o = _resolve_opts(opts)
     detected = detect_columns(df, overrides, max_categorical_card=o["max_categorical_card"])
     dimensions = [_dimension(df, d["name"], d["kind"], o["min_share"], o["min_group_size"],
-                             o["max_age"])
+                             o["max_age"], o["age_reference_year"])
                   for d in detected]
     # Drop identifier/date-like columns that exploded into many groups; geography
     # (cities, regions) legitimately has high cardinality, so it is exempt - as is
@@ -570,7 +586,7 @@ def profile(df: pd.DataFrame, overrides=None, opts=None) -> dict:
             raise ValueError(
                 "cross column(s) don't match any profiled dimension: " + ", ".join(unknown))
     intersections = _intersections(df, detected, o["intersection_floor"], o["cross"],
-                                   o["max_age"])
+                                   o["max_age"], o["age_reference_year"])
 
     ref_flags = []
     if o["reference"]:

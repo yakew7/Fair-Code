@@ -20,6 +20,7 @@
   var MAX_CATEGORICAL_CARD = 20;
   var MAX_DIMENSION_GROUPS = 50;
   var MIN_GROUP_SIZE = 100;  // warn when a subgroup has fewer than N rows (SPEC 3)
+  var BIRTH_YEAR_MIN = 1900;  // with age_reference_year, whole numbers from here up to it are birth years
   var MAX_AGE = 120;         // numeric ages above this are implausible, not banded (SPEC 2)
   var REFERENCE_DEVIATION_FLAG = 0.05;
   // Kinds a manual override may force a column to; mirror faircode/detect.py.
@@ -36,6 +37,7 @@
     max_categorical_card: MAX_CATEGORICAL_CARD,
     max_dimension_groups: MAX_DIMENSION_GROUPS,
     max_age: MAX_AGE,  // ages above this are not banded; flagged instead (SPEC 2)
+    age_reference_year: null,  // convert birth years in age columns to ages as of this year
     cross: null,      // [colA, colB] to force the intersection pair (SPEC 4)
     reference: null   // {column: {group: expected_share}} baseline (SPEC 8)
   };
@@ -68,6 +70,10 @@
     }
     if (o.max_age !== null && o.max_age !== undefined && !(o.max_age > 0)) {
       throw new Error('max_age must be > 0, got ' + o.max_age);
+    }
+    var refYear = o.age_reference_year;
+    if (refYear !== null && refYear !== undefined && (refYear !== Math.floor(refYear) || refYear < BIRTH_YEAR_MIN)) {
+      throw new Error('age_reference_year must be a whole year >= ' + BIRTH_YEAR_MIN + ', got ' + refYear);
     }
   }
 
@@ -585,10 +591,15 @@
 
   // Mirrors faircode.profiler._age_numbers (#840, #863): per-cell numeric ages with those
   // above maxAge or negative removed (null), plus how many there were and if any were negative.
-  function ageNumbers(rows, name, maxAge) {
+  function ageNumbers(rows, name, maxAge, referenceYear) {
     var nums = [], implausible = 0, hasNegative = false;
     for (var i = 0; i < rows.length; i++) {
       var n = rawAgeToNumeric(rows[i][name]);
+      // A whole number from 1900 up to referenceYear is a birth year (#862).
+      if (referenceYear !== null && referenceYear !== undefined && n !== null &&
+          n >= BIRTH_YEAR_MIN && n <= referenceYear && n === Math.floor(n)) {
+        n = referenceYear - n;
+      }
       if (n !== null && (n < AGE_BANDS[0] || n > maxAge)) {
         implausible++;
         if (n < AGE_BANDS[0]) hasNegative = true;
@@ -749,12 +760,12 @@
     };
   }
 
-  function dimension(table, name, kind, minShareThreshold, minGroupSize, maxAge) {
+  function dimension(table, name, kind, minShareThreshold, minGroupSize, maxAge, referenceYear) {
     var rows = table.rows, nTotal = rows.length, i, v;
     if (maxAge === undefined) maxAge = MAX_AGE;
 
     if (kind === 'age' && !looksLikeDates(rows, name)) {
-      var parsedAges = ageNumbers(rows, name, maxAge);
+      var parsedAges = ageNumbers(rows, name, maxAge, referenceYear);
       var nums = parsedAges.nums, numericVals = [];
       for (i = 0; i < nTotal; i++) {
         if (nums[i] !== null) numericVals.push(nums[i]);
@@ -804,11 +815,11 @@
   }
 
   // ── Intersectional gaps (SPEC section 4) ───────────────────────────────
-  function labelize(table, name, kind, maxAge) {
+  function labelize(table, name, kind, maxAge, referenceYear) {
     var rows = table.rows, out = [], i;
     if (maxAge === undefined) maxAge = MAX_AGE;
     if (kind === 'age' && !looksLikeDates(rows, name)) {
-      var parsedAges = ageNumbers(rows, name, maxAge);
+      var parsedAges = ageNumbers(rows, name, maxAge, referenceYear);
       var any = parsedAges.implausible > 0;
       for (i = 0; i < rows.length && !any; i++) {
         if (parsedAges.nums[i] !== null) any = true;
@@ -840,14 +851,14 @@
     return [dims[0], dims[1]];
   }
 
-  function intersections(table, dims, intersectionFloor, cross, maxAge) {
+  function intersections(table, dims, intersectionFloor, cross, maxAge, referenceYear) {
     if (dims.length < 2) return [];
     if (intersectionFloor === undefined) intersectionFloor = INTERSECTION_FLOOR;
     var pair = pickCross(dims, cross), a = pair[0], b = pair[1];
     var nTotal = table.rows.length;
     var floor = intersectionFloor * nTotal;
-    var la = labelize(table, a.name, a.kind, maxAge);
-    var lb = labelize(table, b.name, b.kind, maxAge);
+    var la = labelize(table, a.name, a.kind, maxAge, referenceYear);
+    var lb = labelize(table, b.name, b.kind, maxAge, referenceYear);
 
     var ct = Object.create(null), aVals = Object.create(null), bVals = Object.create(null), i, key;
     for (i = 0; i < nTotal; i++) {
@@ -1062,12 +1073,12 @@
     return h.p_adjusted !== undefined && h.n_tests !== undefined ? ' (m=' + h.n_tests + ' pairs)' : '';
   }
 
-  function proxyHints(table, dimensions, alpha, heldOut, multiCorrection, maxAge) {
+  function proxyHints(table, dimensions, alpha, heldOut, multiCorrection, maxAge, referenceYear) {
     if (alpha === undefined) alpha = PROXY_ALPHA;
     if (!(alpha > 0 && alpha <= 1)) throw new Error('alpha must be in (0, 1], got ' + alpha);
     if (multiCorrection) adjustPValues([], multiCorrection); // validates the method name
     var labelized = {}, i, j, k;
-    dimensions.forEach(function (d) { labelized[d.name] = labelize(table, d.name, d.kind, maxAge); });
+    dimensions.forEach(function (d) { labelized[d.name] = labelize(table, d.name, d.kind, maxAge, referenceYear); });
     Object.keys(heldOut || {}).forEach(function (name) { labelized[name] = heldOut[name]; });
     var names = Object.keys(labelized);
     var nTotal = table.rows.length;
@@ -1292,7 +1303,7 @@
     var o = resolveOpts(opts);
     var detected = detectColumns(table, overrides, o.max_categorical_card);
     var dimensions = detected.map(function (d) {
-      return dimension(table, d.name, d.kind, o.min_share, o.min_group_size, o.max_age);
+      return dimension(table, d.name, d.kind, o.min_share, o.min_group_size, o.max_age, o.age_reference_year);
     });
     var forced = {};
     Object.keys(overrides).forEach(function (col) {
@@ -1311,7 +1322,7 @@
         throw new Error("cross column(s) don't match any profiled dimension: " + unknownCross.join(", "));
       }
     }
-    var inters = intersections(table, detected, o.intersection_floor, o.cross, o.max_age);
+    var inters = intersections(table, detected, o.intersection_floor, o.cross, o.max_age, o.age_reference_year);
 
     var refFlags = [];
     if (o.reference) {

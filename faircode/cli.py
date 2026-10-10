@@ -303,6 +303,9 @@ def main(argv: list[str] | None = None) -> int:
                    help="numeric ages above N are treated as implausible (flagged and "
                         "left out of the age bands) instead of landing in the oldest "
                         "band (default: profiler.MAX_AGE, 120)")
+    p.add_argument("--age-reference-year", type=int, metavar="YEAR",
+                   help="treat whole numbers from 1900 up to YEAR in an age column as "
+                        "birth years and convert them to ages as of YEAR (default: off)")
     p.add_argument("--encoding", metavar="NAME",
                    help="text encoding of the dataset (and any held-out/reference files), "
                         "e.g. latin-1, cp1252, utf-16 (default: a UTF-8/16/32 byte-order "
@@ -368,6 +371,9 @@ def main(argv: list[str] | None = None) -> int:
                    help="numeric ages above N are treated as implausible (flagged and "
                         "left out of the age bands) instead of landing in the oldest "
                         "band (default: profiler.MAX_AGE, 120)")
+    c.add_argument("--age-reference-year", type=int, metavar="YEAR",
+                   help="treat whole numbers from 1900 up to YEAR in an age column as "
+                        "birth years and convert them to ages as of YEAR (default: off)")
     c.add_argument("--fail-on-drift", action="store_true",
                    help="exit 1 when any dimension shows drift or the overall score drops")
     c.add_argument("--encoding", metavar="NAME",
@@ -471,6 +477,7 @@ def main(argv: list[str] | None = None) -> int:
             "max_categorical_card": args.max_categorical_card,
             "max_dimension_groups": args.max_dimension_groups,
             "max_age": args.max_age,
+            "age_reference_year": args.age_reference_year,
         }
         if args.cross:
             parts = [c.strip() for c in args.cross.split(",")]
@@ -502,7 +509,8 @@ def main(argv: list[str] | None = None) -> int:
             held_out = _build_held_out(args.proxy_hints_with, df, args.encoding)
             try:
                 result["proxy_hints"] = proxy_hints(df, result["dimensions"], alpha=_alpha(args), correction=args.proxy_correction, held_out=held_out,
-                                                max_age=_resolve_opts(opts)["max_age"])
+                                                max_age=_resolve_opts(opts)["max_age"],
+                                                age_reference_year=_resolve_opts(opts)["age_reference_year"])
             except RuntimeError as exc:
                 print(f"error: {exc}", file=sys.stderr)
                 return 2
@@ -606,6 +614,7 @@ def main(argv: list[str] | None = None) -> int:
             "max_categorical_card": args.max_categorical_card,
             "max_dimension_groups": args.max_dimension_groups,
             "max_age": args.max_age,
+            "age_reference_year": args.age_reference_year,
         }
         _warn_encoding_ignored([args.csv_a, args.csv_b], args.encoding)
         df_a = _read_or_exit(args.csv_a, args.encoding)
@@ -636,9 +645,11 @@ def main(argv: list[str] | None = None) -> int:
             held_out_b = _build_held_out(args.proxy_hints_with_b, df_b, args.encoding)
             try:
                 result["proxy_hints_a"] = proxy_hints(df_a, profile_a["dimensions"], alpha=_alpha(args), correction=args.proxy_correction, held_out=held_out_a,
-                                                        max_age=_resolve_opts(opts)["max_age"])
+                                                        max_age=_resolve_opts(opts)["max_age"],
+                                                age_reference_year=_resolve_opts(opts)["age_reference_year"])
                 result["proxy_hints_b"] = proxy_hints(df_b, profile_b["dimensions"], alpha=_alpha(args), correction=args.proxy_correction, held_out=held_out_b,
-                                                        max_age=_resolve_opts(opts)["max_age"])
+                                                        max_age=_resolve_opts(opts)["max_age"],
+                                                age_reference_year=_resolve_opts(opts)["age_reference_year"])
             except RuntimeError as exc:
                 print(f"error: {exc}", file=sys.stderr)
                 return 2

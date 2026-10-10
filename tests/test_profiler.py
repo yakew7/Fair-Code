@@ -625,3 +625,33 @@ def test_no_recognised_kind_suggests_map():
     # a hand-mapped run has already made the decision
     assert not any("No column name matched" in f
                    for f in profile(df, {"colA": "sex"})["flags"])
+
+
+# --- #862: birth-year columns -------------------------------------------------------
+
+def _dim(result, name):
+    return next(d for d in result["dimensions"] if d["name"] == name)
+
+
+def test_age_reference_year_converts_birth_years_to_ages():
+    df = pd.DataFrame({"sex": ["M", "F"] * 4,
+                       "yob": [1985, 1990, 1972, 2001, 1950, 2010, 40, 2090]})
+    age = _dim(profile(df, None, {"age_reference_year": 2026}), "yob")
+    labels = {g["label"]: g["count"] for g in age["groups"]}
+    assert sum(labels.values()) == 7
+    assert age["implausible_values"] == 1          # 2090 is after the reference year
+    assert "75+" in labels                          # 1950 -> 76, a real age, banded
+
+
+def test_birth_years_stay_implausible_without_a_reference_year():
+    df = pd.DataFrame({"sex": ["M", "F"] * 2, "yob": [1985, 1990, 1972, 2001]})
+    assert _dim(profile(df), "yob")["n_groups"] == 0
+
+
+def test_age_reference_year_is_validated_and_ignores_non_integer_values():
+    df = pd.DataFrame({"sex": ["M", "F"] * 2, "yob": [1985, 1990, 1972, 2001]})
+    for bad in (1850, 2026.5):
+        with pytest.raises(ValueError, match="age_reference_year"):
+            profile(df, None, {"age_reference_year": bad})
+    frac = pd.DataFrame({"sex": ["M", "F"], "age": [1985.5, 30]})
+    assert _age_dim(profile(frac, None, {"age_reference_year": 2026}))["implausible_values"] == 1

@@ -92,6 +92,12 @@ Age columns come in three shapes - normalize to numeric bands:
   dimension plus a flag - it must never inflate the `75+` band (#840). It is also left out of the
   skewness, the intersections and the proxy tests. If every value is implausible the dimension has
   no groups ("not measured").
+- **Birth years (opt-in)**: with `age_reference_year` (`--age-reference-year YEAR`, MCP
+  `age_reference_year`, a web input; default off), a *whole number* from `BIRTH_YEAR_MIN` (1900) up to
+  that year in an age column is read as a birth year and becomes `YEAR - value` before the checks
+  above, so a `yob` column profiles as ages (#862). A year after `YEAR`, or a fractional value, is
+  left alone and is therefore implausible. `YEAR` must be a whole number >= 1900; it is recorded in
+  `provenance.params`.
 - **Interval string** (e.g. `[70-80)`): take the lower bound via the first signed number.
 - **Negative numeric or signed-string sentinel** (e.g. `-1`, `-9`, `"unknown: -999"`): treat as missing, report under `implausible_values` with a sentinel data-quality flag (#863); it must never fall through to the `75+` band.
 - **Anything else**: treat as categorical (skip numeric handling).
@@ -291,7 +297,7 @@ how many groups were omitted; the structured result remains complete.
 The flagging thresholds are overridable per run without editing source: `profile(df, opts={...})`
 in Python, `profile(table, overrides, opts)` in JS, and `--min-share` / `--intersection-floor` /
 `--imbalance-flag` / `--missing-flag` / `--min-group-size` / `--max-categorical-card` /
-`--max-dimension-groups` / `--max-age` on the CLI. Omitted knobs fall back to the defaults below.
+`--max-dimension-groups` / `--max-age` / `--age-reference-year` on the CLI. Omitted knobs fall back to the defaults below.
 
 | Constant               | Default | Used by                          |
 |------------------------|:-------:|----------------------------------|
@@ -304,6 +310,7 @@ in Python, `profile(table, overrides, opts)` in JS, and `--min-share` / `--inter
 | `MISSING_FLAG`         | 0.05    | missing-data flag                |
 | `AGE_BANDS`            | 0,18,30,45,60,75 | age band edges          |
 | `MAX_AGE`              | 120     | numeric ages above this are implausible, not banded (§2) |
+| `BIRTH_YEAR_MIN`       | 1900    | earliest value read as a birth year under `age_reference_year` (§2) |
 | `DATE_SAMPLE_SIZE`     | 200          | whole-column date-detection sample cap |
 | `PSI_EPSILON`          | 0.0001  | share floor in PSI (§8)          |
 | `PSI_MODERATE`         | 0.10    | PSI ≥ this → moderate drift (§8) |

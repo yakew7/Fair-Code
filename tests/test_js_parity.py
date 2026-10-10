@@ -336,8 +336,8 @@ def test_python_js_public_params_parity_for_a_defaulted_run():
     assert json.loads(completed.stdout) == expected
     assert set(expected) == {
         "cross", "imbalance_flag", "intersection_floor", "max_categorical_card",
-        "max_age", "max_dimension_groups", "min_group_size", "min_share", "missing_flag",
-        "reference_flag",
+        "age_reference_year", "max_age", "max_dimension_groups", "min_group_size", "min_share",
+        "missing_flag", "reference_flag",
     }
     assert "reference" not in expected
 
@@ -418,6 +418,26 @@ def test_python_js_parity_for_non_english_column_names(tmp_path):
     assert "--map COL=KIND" in python_result["flags"][-1]
     python_result.pop("flags"); javascript_result.pop("flags")
     assert javascript_result == python_result
+
+
+def test_python_js_parity_for_birth_year_conversion(tmp_path):
+    """#862: age_reference_year turns birth years into ages identically in both engines,
+    including the intersection, and a future year stays implausible."""
+    path = tmp_path / "yob.csv"
+    path.write_text("sex,yob\n" + "\n".join(
+        f"{'M' if i % 2 else 'F'},{[1985, 1990, 1972, 2001, 1950, 2010, 40, 2090][i % 8]}" for i in range(64)) + "\n")
+    opts_file = tmp_path / "opts.json"
+    opts_file.write_text(json.dumps({"overrides": {}, "opts": {"age_reference_year": 2026}}))
+    python_result = dict(profile(pd.read_csv(path), None, {"age_reference_year": 2026}))
+    completed = subprocess.run(
+        ["node", "scripts/engine-js.js", "profile", str(path), str(opts_file)],
+        capture_output=True, text=True, encoding="utf-8", check=True)
+    javascript_result = json.loads(completed.stdout)
+    py_flags, js_flags = python_result.pop("flags"), javascript_result.pop("flags")
+    assert javascript_result == python_result
+    yob = next(d for d in python_result["dimensions"] if d["name"] == "yob")
+    assert yob["implausible_values"] == 8 and yob["n_groups"] >= 4  # only 2090 is implausible
+    assert [f for f in py_flags if "implausible" in f] == [f for f in js_flags if "implausible" in f]
 
 
 def test_python_js_profiler_parity_with_overrides_cross_and_thresholds(tmp_path):
@@ -1127,7 +1147,7 @@ def test_compare_view_download_csv_and_proxy_controls_are_wired():
             assert f"getElementById('{element_id}')" in js, element_id
     assert "downloadCsvBtn.addEventListener('click', downloadCompareCsvReport)" in js
     assert "proxyBtn.addEventListener('click', renderCompareProxyHints)" in js
-    assert "E.proxyHints(slot.A.table, currentProfiles.A.dimensions, alpha, heldA, correction, currentOpts.max_age)" in js
+    assert "E.proxyHints(slot.A.table, currentProfiles.A.dimensions, alpha, heldA, correction, currentOpts.max_age, currentOpts.age_reference_year)" in js
     assert 'id="compareProxyCorrectionInput"' in html
 
 

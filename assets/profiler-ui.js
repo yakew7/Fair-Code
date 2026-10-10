@@ -42,7 +42,7 @@
   // hardcoded copy in profiler.html that could silently drift from them.
   thresholdInputs.forEach(function (input) {
     var def = E.DEFAULT_OPTS && E.DEFAULT_OPTS[input.dataset.opt];
-    if (def !== undefined) input.placeholder = String(def);
+    if (def !== undefined && def !== null) input.placeholder = String(def);
   });
 
   var currentResult = null;
@@ -453,7 +453,7 @@
       return;
     }
     var hints = E.proxyHints(currentTable, currentResult.dimensions, alpha, heldOut,
-      document.getElementById('proxyCorrectionInput').value || null, currentOpts.max_age);
+      document.getElementById('proxyCorrectionInput').value || null, currentOpts.max_age, currentOpts.age_reference_year);
     // Attach to the result so Download report / Copy as JSON / Download CSV
     // include what's on screen (issue #758).
     currentResult.proxy_hints = hints;

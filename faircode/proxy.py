@@ -51,10 +51,10 @@ def adjust_p_values(p_values, method):
     raise ValueError(f"correction must be one of {PROXY_CORRECTIONS}, got {method!r}")
 
 
-def _labelize(df, name, kind, max_age=MAX_AGE):
+def _labelize(df, name, kind, max_age=MAX_AGE, age_reference_year=None):
     """Same value normalization the intersection crosstab uses (age → bands)."""
     if kind == "age" and not _looks_like_dates(df[name]):
-        nums, implausible, *_ = _age_numbers(df[name], max_age)
+        nums, implausible, *_ = _age_numbers(df[name], max_age, age_reference_year)
         if implausible or any(n is not None for n in nums):
             # Non-numeric age sentinels ("unknown", "prefer not to say") get
             # their own categorical label here too, matching _dimension()'s
@@ -191,7 +191,7 @@ def parse_held_out_specs(specs, df: pd.DataFrame, read_table, *, flag="--proxy-h
 
 def proxy_hints(df: pd.DataFrame, dimensions: list, alpha=PROXY_ALPHA,
                 held_out: dict | None = None, correction: str | None = None,
-                max_age=MAX_AGE) -> list:
+                max_age=MAX_AGE, age_reference_year=None) -> list:
     """Chi-squared test of independence over every pair of detected dimensions.
 
     Returns pairs with p < alpha, most-significant first, each with its p-value
@@ -233,7 +233,7 @@ def proxy_hints(df: pd.DataFrame, dimensions: list, alpha=PROXY_ALPHA,
             "proxy hints need scipy (install with: pip install faircode[proxy])"
         ) from exc
 
-    labelized = {d["name"]: _labelize(df, d["name"], d["kind"], max_age) for d in dimensions}
+    labelized = {d["name"]: _labelize(df, d["name"], d["kind"], max_age, age_reference_year) for d in dimensions}
     for name, series in (held_out or {}).items():
         labelized[name] = series.astype("object")
 
