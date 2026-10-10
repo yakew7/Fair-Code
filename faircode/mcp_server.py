@@ -203,10 +203,13 @@ def _profile_dataset_impl(path, overrides=None, cross=None, reference_path=None,
     if enc_notes:
         result["notes"] = enc_notes
     if include_provenance:
+        from .provenance import sniff_effective_encoding
         digests = [("dataset_hash", path)]
         if reference_path:
             digests.append(("reference_hash", reference_path))
-        result = dict(result, provenance=build_provenance(digests, _resolve_opts(opts), overrides))
+        enc = encoding or sniff_effective_encoding(path)
+        result = dict(result, provenance=build_provenance(digests, _resolve_opts(opts), overrides,
+                                                          encodings={"dataset_hash": enc} if enc else None))
     return result
 
 
@@ -259,11 +262,20 @@ def _compare_datasets_impl(path_a, path_b, overrides=None,
         result["proxy_hints_b"] = compute_proxy_hints(df_b, profile_b["dimensions"],
                                                       held_out=held_b, **kw)
     if include_provenance:
+        from .provenance import sniff_effective_encoding
+        enc_a = encoding or sniff_effective_encoding(path_a)
+        enc_b = encoding or sniff_effective_encoding(path_b)
+        encs = {}
+        if enc_a:
+            encs["dataset_hash_a"] = enc_a
+        if enc_b:
+            encs["dataset_hash_b"] = enc_b
         provenance = build_provenance(
             [("dataset_hash_a", path_a), ("dataset_hash_b", path_b)],
             _resolve_opts(opts), overrides,
             held_out=[("proxy_hints_with_a", held_out_with_a, list(df_a.columns)),
-                      ("proxy_hints_with_b", held_out_with_b, list(df_b.columns))] if proxy_hints else ())
+                      ("proxy_hints_with_b", held_out_with_b, list(df_b.columns))] if proxy_hints else (),
+            encodings=encs if encs else None)
         result = dict(result, provenance=provenance)
     return result
 
@@ -314,11 +326,14 @@ def _proxy_hints_impl(path, overrides=None, held_out_with=None, alpha=None,
     if enc_notes:
         output["notes"] = enc_notes
     if include_provenance:
+        from .provenance import sniff_effective_encoding
+        enc = encoding or sniff_effective_encoding(path)
         output["provenance"] = build_provenance(
             [("dataset_hash", path)],
             params={"alpha": PROXY_ALPHA if alpha is None else alpha, "correction": correction},
             overrides=overrides,
             held_out=[("proxy_hints_with", held_out_with)] if held_out_with else (),
+            encodings={"dataset_hash": enc} if enc else None,
         )
     return output
 

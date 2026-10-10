@@ -96,12 +96,36 @@ def held_out_entries(specs, profiled_columns=None) -> list:
     return entries
 
 
-def build(digests=(), params=None, overrides=None, held_out=()) -> dict:
+def sniff_effective_encoding(path: str | None, explicit_encoding: str | None = None) -> str | None:
+    """Return explicit encoding or sniffed BOM encoding, or None for plain UTF-8 default.
+
+    When `explicit_encoding` is provided (e.g. from --encoding), it is recorded.
+    Otherwise, if the file starts with a known byte-order mark (BOM), the BOM
+    encoding is recorded. For the plain UTF-8 default without a BOM, returns
+    None so the provenance block keeps its existing shape (§10).
+    """
+    if explicit_encoding:
+        return explicit_encoding
+    if not path or path in (None, "", "-"):
+        return None
+    try:
+        from .loaders import sniff_bom_encoding
+        with open(path, "rb") as fh:
+            return sniff_bom_encoding(fh.read(4))
+    except OSError:
+        return None
+
+
+def build(digests=(), params=None, overrides=None, held_out=(), encodings=None) -> dict:
     """Assemble the provenance block attached to an exported result.
 
     `digests` is a sequence of (field_name, path) pairs, emitted in the order
     given and immediately after the version fields, so the thing that
     identifies the run reads first.
+
+    `encodings` is an optional mapping of field_name to encoding string
+    (e.g. {"dataset_hash": "latin-1"} or {"dataset_hash_a": "utf-16"}), placed
+    immediately beside the corresponding digest field.
 
     `held_out` is a sequence of (field_name, specs) or
     (field_name, specs, profiled_columns) triples for the files given to
@@ -118,6 +142,9 @@ def build(digests=(), params=None, overrides=None, held_out=()) -> dict:
     }
     for field, path in digests:
         _add_digest(block, field, path)
+        if encodings and field in encodings and encodings[field]:
+            enc_key = "encoding" if field == "dataset_hash" else field.replace("dataset_hash_", "encoding_")
+            block[enc_key] = encodings[field]
     block["params"] = public_params(params or {})
     block["overrides"] = dict(overrides or {})
     for item in held_out:

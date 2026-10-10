@@ -135,12 +135,17 @@ def _alpha(args):
 
 
 def _profile_provenance(args, opts, overrides, df=None):
+    from .provenance import sniff_effective_encoding
     digests = [] if args.sample else [("dataset_hash", args.csv)]
     if args.reference:
         digests.append(("reference_hash", args.reference))
     columns = None if df is None else list(df.columns)
+    enc = getattr(args, "encoding", None)
+    if not enc and getattr(args, "csv", None) and not getattr(args, "sample", False):
+        enc = sniff_effective_encoding(args.csv)
     provenance = build_provenance(digests, _resolve_opts(opts), overrides,
-                                  held_out=[("proxy_hints_with", args.proxy_hints_with, columns)])
+                                  held_out=[("proxy_hints_with", args.proxy_hints_with, columns)],
+                                  encodings={"dataset_hash": enc} if enc else None)
     if args.sample:
         provenance["dataset_hash"] = "sha256:" + hashlib.sha256(
             build_sample_csv().encode("utf-8")).hexdigest()
@@ -148,13 +153,23 @@ def _profile_provenance(args, opts, overrides, df=None):
 
 
 def _compare_provenance(args, opts, overrides, df_a=None, df_b=None):
+    from .provenance import sniff_effective_encoding
     cols_a = None if df_a is None else list(df_a.columns)
     cols_b = None if df_b is None else list(df_b.columns)
+    enc = getattr(args, "encoding", None)
+    enc_a = enc or sniff_effective_encoding(getattr(args, "csv_a", None))
+    enc_b = enc or sniff_effective_encoding(getattr(args, "csv_b", None))
+    encs = {}
+    if enc_a:
+        encs["dataset_hash_a"] = enc_a
+    if enc_b:
+        encs["dataset_hash_b"] = enc_b
     return build_provenance(
         [("dataset_hash_a", args.csv_a), ("dataset_hash_b", args.csv_b)],
         _resolve_opts(opts), overrides,
         held_out=[("proxy_hints_with_a", args.proxy_hints_with_a, cols_a),
-                  ("proxy_hints_with_b", args.proxy_hints_with_b, cols_b)])
+                  ("proxy_hints_with_b", args.proxy_hints_with_b, cols_b)],
+        encodings=encs if encs else None)
 
 
 def _write_csv_export(path, text, bom=False):
