@@ -1085,10 +1085,68 @@
   // makes the chi-squared p-value unreliable. Must mirror proxy.py.
   var LOW_EXPECTED_COUNT = 5, LOW_EXPECTED_SHARE = 0.2;
 
+  // Exact-test fallback for small-cell tables (#861); mirrors faircode/proxy.py
+  // (PERMUTATIONS, PERMUTATION_SEED, PERMUTATION_MAX_ROWS, _mulberry32).
+  var PERMUTATIONS = 1000, PERMUTATION_SEED = 42, PERMUTATION_MAX_ROWS = 5000;
+
+  function mulberry32(seed) {
+    var a = seed | 0;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // Two-sided Fisher exact p for [[a, b], [c, d]], matching scipy.stats.fisher_exact:
+  // the sum of every table probability not above the observed one (relative 1e-7).
+  function fisherExact2x2(a, b, c, d) {
+    var n1 = a + b, m1 = a + c, n = a + b + c + d;
+    var logFact = [0], i;
+    for (i = 1; i <= n; i++) logFact.push(logFact[i - 1] + Math.log(i));
+    function logChoose(nn, kk) { return logFact[nn] - logFact[kk] - logFact[nn - kk]; }
+    function pmf(x) { return Math.exp(logChoose(m1, x) + logChoose(n - m1, n1 - x) - logChoose(n, n1)); }
+    var lo = Math.max(0, n1 - (n - m1)), hi = Math.min(n1, m1);
+    var pObs = pmf(a), p = 0;
+    for (var x = lo; x <= hi; x++) {
+      var px = pmf(x);
+      if (px <= pObs * (1 + 1e-7)) p += px;
+    }
+    return Math.min(1, p);
+  }
+
+  function permutationPValue(rowIdx, colIdx, nRows, nCols) {
+    var n = rowIdx.length, rowTot = [], colTot = [], i, r, c;
+    for (r = 0; r < nRows; r++) rowTot.push(0);
+    for (c = 0; c < nCols; c++) colTot.push(0);
+    for (i = 0; i < n; i++) { rowTot[rowIdx[i]]++; colTot[colIdx[i]]++; }
+    var expected = [];
+    for (r = 0; r < nRows; r++) for (c = 0; c < nCols; c++) expected.push(rowTot[r] * colTot[c] / n);
+    function statistic(cols) {
+      var counts = [], k, s = 0;
+      for (k = 0; k < nRows * nCols; k++) counts.push(0);
+      for (k = 0; k < n; k++) counts[rowIdx[k] * nCols + cols[k]]++;
+      for (k = 0; k < counts.length; k++) s += (counts[k] - expected[k]) * (counts[k] - expected[k]) / expected[k];
+      return s;
+    }
+    var observed = statistic(colIdx), rand = mulberry32(PERMUTATION_SEED), cols = colIdx.slice(), hits = 0;
+    for (var b = 0; b < PERMUTATIONS; b++) {
+      for (i = n - 1; i > 0; i--) {
+        var j = Math.floor(rand() * (i + 1)), tmp = cols[i];
+        cols[i] = cols[j]; cols[j] = tmp;
+      }
+      if (statistic(cols) >= observed - 1e-9) hits++;
+    }
+    return (1 + hits) / (PERMUTATIONS + 1);
+  }
+
   // Suffix for a hint's text line, mirroring report.py's _hint_notes() minus the
   // adjusted p-value (each renderer formats that itself).
   function proxyNotes(h) {
-    return h.low_expected ? ', small cells (p-value unreliable)' : '';
+    if (!h.low_expected) return '';
+    return (h.p_method === 'fisher' || h.p_method === 'permutation')
+      ? ', small cells (' + h.p_method + ' exact p)' : ', small cells (p-value unreliable)';
   }
 
   // " (m=N pairs)" - the family size an adjusted p was computed over (#821).
@@ -1096,7 +1154,7 @@
     return h.p_adjusted !== undefined && h.n_tests !== undefined ? ' (m=' + h.n_tests + ' pairs)' : '';
   }
 
-  function proxyHints(table, dimensions, alpha, heldOut, multiCorrection, maxAge, referenceYear) {
+  function proxyHints(table, dimensions, alpha, heldOut, multiCorrection, maxAge, referenceYear, exact) {
     if (alpha === undefined) alpha = PROXY_ALPHA;
     if (!(alpha > 0 && alpha <= 1)) throw new Error('alpha must be in (0, 1], got ' + alpha);
     if (multiCorrection) adjustPValues([], multiCorrection); // validates the method name
@@ -1156,14 +1214,38 @@
         var kMinusOne = Math.min(aKeys.length, bKeys.length) - 1;
         var cramersV = (n && kMinusOne) ? Math.sqrt(chi2 / (n * kMinusOne)) : 0;
         var lowShare = lowCells / (aKeys.length * bKeys.length);
-        tested.push({
+        var hint = {
           a: nameA, b: nameB,
           p_value: pValue,
           cramers_v: Math.round(cramersV * 10000) / 10000,
           chi2: Math.round(chi2 * 100) / 100,
           low_expected_share: Math.round(lowShare * 10000) / 10000,
           low_expected: lowShare > LOW_EXPECTED_SHARE
-        });
+        };
+        if (exact) {
+          hint.p_method = 'chi2';
+          if (hint.low_expected) {
+            if (aKeys.length === 2 && bKeys.length === 2) {
+              var cell = function (av, bv) { return ct[av + '\0' + bv] || 0; };
+              hint.p_chi2 = pValue;
+              hint.p_value = fisherExact2x2(cell(aKeys[0], bKeys[0]), cell(aKeys[0], bKeys[1]),
+                                            cell(aKeys[1], bKeys[0]), cell(aKeys[1], bKeys[1]));
+              hint.p_method = 'fisher';
+            } else if (n <= PERMUTATION_MAX_ROWS) {
+              var aIndex = Object.create(null), bIndex = Object.create(null), rowIdx = [], colIdx = [];
+              aKeys.forEach(function (v, vi) { aIndex[v] = vi; });
+              bKeys.forEach(function (v, vi) { bIndex[v] = vi; });
+              for (k = 0; k < nTotal; k++) {
+                if (la[k] === null || lb[k] === null) continue;
+                rowIdx.push(aIndex[la[k]]); colIdx.push(bIndex[lb[k]]);
+              }
+              hint.p_chi2 = pValue;
+              hint.p_value = permutationPValue(rowIdx, colIdx, aKeys.length, bKeys.length);
+              hint.p_method = 'permutation';
+            }
+          }
+        }
+        tested.push(hint);
       }
     }
     tested.forEach(function (h) { h.n_tests = tested.length; });
@@ -1173,9 +1255,7 @@
       var adjusted = adjustPValues(tested.map(function (h) { return h.p_value; }), multiCorrection);
       tested.forEach(function (h, idx) {
         if (adjusted[idx] < alpha) {
-          hints.push({ a: h.a, b: h.b, p_value: h.p_value, cramers_v: h.cramers_v,
-                       chi2: h.chi2, n_tests: h.n_tests, low_expected_share: h.low_expected_share,
-                       low_expected: h.low_expected, p_adjusted: adjusted[idx] });
+          hints.push(Object.assign({}, h, { p_adjusted: adjusted[idx] }));
         }
       });
     }

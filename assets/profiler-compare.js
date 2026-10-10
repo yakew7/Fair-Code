@@ -688,9 +688,10 @@
     [['proxy_hints_a', 'A'], ['proxy_hints_b', 'B']].forEach(function (k) {
       if (cmp[k[0]] && cmp[k[0]].length) {
         var adj = cmp[k[0]].some(function (h) { return h.p_adjusted !== undefined; });
-        out += csvRow([]) + csvRow(['dataset', 'proxy_hint_a', 'proxy_hint_b', 'p_value', 'cramers_v'].concat(adj ? ['p_adjusted'] : [], ['n_tests', 'low_expected']));
+        var meth = cmp[k[0]].some(function (h) { return h.p_method !== undefined; });
+        out += csvRow([]) + csvRow(['dataset', 'proxy_hint_a', 'proxy_hint_b', 'p_value', 'cramers_v'].concat(adj ? ['p_adjusted'] : [], meth ? ['p_method'] : [], ['n_tests', 'low_expected']));
         cmp[k[0]].forEach(function (h) {
-          out += csvRow([k[1], h.a, h.b, h.p_value, h.cramers_v].concat(adj ? [h.p_adjusted] : [], [h.n_tests, !!h.low_expected]));
+          out += csvRow([k[1], h.a, h.b, h.p_value, h.cramers_v].concat(adj ? [h.p_adjusted] : [], meth ? [h.p_method] : [], [h.n_tests, !!h.low_expected]));
         });
       }
     });
@@ -735,6 +736,7 @@
     var alpha = readProxyAlpha(document.getElementById('compareProxyAlphaInput'), proxyResultsEl);
     if (alpha === null) return;
     var correction = document.getElementById('compareProxyCorrectionInput').value || null;
+    var exact = document.getElementById('compareProxyExactInput').checked;
     var heldA = null, heldB = null, heldNotes = [];
     try {
       var specsA = await heldOutA.collect(), specsB = await heldOutB.collect();
@@ -748,8 +750,8 @@
       proxyResultsEl.innerHTML = '<p class="profiler-error">' + esc(err.message) + '</p>';
       return;
     }
-    currentCmp.proxy_hints_a = E.proxyHints(slot.A.table, currentProfiles.A.dimensions, alpha, heldA, correction, currentOpts.max_age, currentOpts.age_reference_year);
-    currentCmp.proxy_hints_b = E.proxyHints(slot.B.table, currentProfiles.B.dimensions, alpha, heldB, correction, currentOpts.max_age, currentOpts.age_reference_year);
+    currentCmp.proxy_hints_a = E.proxyHints(slot.A.table, currentProfiles.A.dimensions, alpha, heldA, correction, currentOpts.max_age, currentOpts.age_reference_year, exact);
+    currentCmp.proxy_hints_b = E.proxyHints(slot.B.table, currentProfiles.B.dimensions, alpha, heldB, correction, currentOpts.max_age, currentOpts.age_reference_year, exact);
     proxyResultsEl.innerHTML = [['proxy_hints_a', 'A'], ['proxy_hints_b', 'B']].map(function (k) {
       var hints = currentCmp[k[0]];
       return '<h4 class="proxy-hint-side">Dataset ' + k[1] + '</h4>' + (hints.length

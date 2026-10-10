@@ -999,6 +999,7 @@ faircode profile latin1.csv --encoding latin-1     # non-UTF-8 text (a UTF-8/16/
 faircode profile data.csv --max-age 100            # ages above 100 are flagged as implausible, not banded into 75+
 faircode profile yob.csv --age-reference-year 2026 # read birth years (1985...) as ages as of 2026
 faircode profile data.csv --proxy-hints --proxy-alpha 0.01 --proxy-correction holm   # stricter proxy check
+faircode profile data.csv --proxy-hints --proxy-exact   # exact p-values for tables with small expected cells
 faircode profile data.csv --fail-under 70          # fail CI if score is below 70
 faircode profile data.csv --min-group-size 50      # warn on subgroups under 50 rows
 faircode compare train.csv prod.csv                # representation drift, A → B (PSI)

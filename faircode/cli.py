@@ -285,6 +285,10 @@ def main(argv: list[str] | None = None) -> int:
                         "the dataset; PATH's rows must align 1:1 with the profiled "
                         "dataset, or be joined on a key column present in both files "
                         "with :KEY (repeatable, needs --proxy-hints)")
+    p.add_argument("--proxy-exact", action="store_true",
+                   help="for proxy hints whose chi-squared table has small expected cells, "
+                        "use Fisher's exact test (2x2) or a seeded permutation p-value "
+                        "instead (adds p_method to each hint; needs --proxy-hints)")
     p.add_argument("--proxy-key-normalize", action="store_true",
                    help="make --proxy-hints-with join keys (PATH=COLUMN:KEY) match case-insensitively, "
                         "ignoring surrounding spaces and leading zeros (default: exact text; "
@@ -357,6 +361,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="force a column's dimension when auto-detection misses it "
                         "(applied to both datasets); KIND is one of " +
                         ", ".join(_MAP_CHOICES) + " (repeatable)")
+    c.add_argument("--proxy-exact", action="store_true",
+                   help="for proxy hints whose chi-squared table has small expected cells, "
+                        "use Fisher's exact test (2x2) or a seeded permutation p-value "
+                        "instead (adds p_method to each hint; needs --proxy-hints)")
     c.add_argument("--proxy-key-normalize", action="store_true",
                    help="make --proxy-hints-with-a/-b join keys (PATH=COLUMN:KEY) match case-insensitively, "
                         "ignoring surrounding spaces and leading zeros (default: exact text; "
@@ -434,6 +442,9 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         if args.proxy_key_normalize and not args.proxy_hints:
             print("error: --proxy-key-normalize needs --proxy-hints", file=sys.stderr)
+            return 2
+        if args.proxy_exact and not args.proxy_hints:
+            print("error: --proxy-exact needs --proxy-hints", file=sys.stderr)
             return 2
         if args.csv_provenance and not args.csv_out:
             print("error: --csv-provenance needs --csv", file=sys.stderr)
@@ -524,7 +535,8 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 result["proxy_hints"] = proxy_hints(df, result["dimensions"], alpha=_alpha(args), correction=args.proxy_correction, held_out=held_out,
                                                 max_age=_resolve_opts(opts)["max_age"],
-                                                age_reference_year=_resolve_opts(opts)["age_reference_year"])
+                                                age_reference_year=_resolve_opts(opts)["age_reference_year"],
+                                                exact=args.proxy_exact)
             except RuntimeError as exc:
                 print(f"error: {exc}", file=sys.stderr)
                 return 2
@@ -589,6 +601,9 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         if args.proxy_key_normalize and not args.proxy_hints:
             print("error: --proxy-key-normalize needs --proxy-hints", file=sys.stderr)
+            return 2
+        if args.proxy_exact and not args.proxy_hints:
+            print("error: --proxy-exact needs --proxy-hints", file=sys.stderr)
             return 2
         if args.csv_provenance and not args.csv_out:
             print("error: --csv-provenance needs --csv", file=sys.stderr)
@@ -663,10 +678,12 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 result["proxy_hints_a"] = proxy_hints(df_a, profile_a["dimensions"], alpha=_alpha(args), correction=args.proxy_correction, held_out=held_out_a,
                                                         max_age=_resolve_opts(opts)["max_age"],
-                                                age_reference_year=_resolve_opts(opts)["age_reference_year"])
+                                                age_reference_year=_resolve_opts(opts)["age_reference_year"],
+                                                exact=args.proxy_exact)
                 result["proxy_hints_b"] = proxy_hints(df_b, profile_b["dimensions"], alpha=_alpha(args), correction=args.proxy_correction, held_out=held_out_b,
                                                         max_age=_resolve_opts(opts)["max_age"],
-                                                age_reference_year=_resolve_opts(opts)["age_reference_year"])
+                                                age_reference_year=_resolve_opts(opts)["age_reference_year"],
+                                                exact=args.proxy_exact)
             except RuntimeError as exc:
                 print(f"error: {exc}", file=sys.stderr)
                 return 2

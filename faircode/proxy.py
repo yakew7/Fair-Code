@@ -31,6 +31,62 @@ LOW_EXPECTED_SHARE = 0.2
 PROXY_CORRECTIONS = ("bonferroni", "holm")
 
 
+# Exact-test fallback for small-cell tables (#861). A 2x2 table gets Fisher's exact
+# test; a larger one gets a seeded Monte-Carlo permutation estimate of the
+# chi-squared statistic, capped at PERMUTATION_MAX_ROWS observations so it stays
+# fast. Mirrored (including the PRNG) in assets/profiler-engine.js.
+PERMUTATIONS = 1000
+PERMUTATION_SEED = 42
+PERMUTATION_MAX_ROWS = 5000
+_MASK32 = 0xFFFFFFFF
+
+
+def _mulberry32(seed):
+    """Deterministic 32-bit PRNG, ported verbatim to JS (so both engines agree)."""
+    state = seed & _MASK32
+
+    def next_float():
+        nonlocal state
+        state = (state + 0x6D2B79F5) & _MASK32
+        t = ((state ^ (state >> 15)) * (1 | state)) & _MASK32
+        t = ((t + (((t ^ (t >> 7)) * (61 | t)) & _MASK32)) ^ t) & _MASK32
+        return ((t ^ (t >> 14)) & _MASK32) / 4294967296
+
+    return next_float
+
+
+def permutation_p_value(row_idx, col_idx, n_rows, n_cols, permutations=PERMUTATIONS,
+                        seed=PERMUTATION_SEED):
+    """Monte-Carlo p-value for independence: shuffle the column labels with a
+    seeded Fisher-Yates, recompute the plain chi-squared statistic each time, and
+    return (1 + #{stat >= observed}) / (permutations + 1)."""
+    n = len(row_idx)
+    row_tot = [0] * n_rows
+    col_tot = [0] * n_cols
+    for r, c in zip(row_idx, col_idx):
+        row_tot[r] += 1
+        col_tot[c] += 1
+    expected = [row_tot[r] * col_tot[c] / n for r in range(n_rows) for c in range(n_cols)]
+
+    def statistic(cols):
+        counts = [0] * (n_rows * n_cols)
+        for r, c in zip(row_idx, cols):
+            counts[r * n_cols + c] += 1
+        return sum((o - e) ** 2 / e for o, e in zip(counts, expected))
+
+    observed = statistic(col_idx)
+    rand = _mulberry32(seed)
+    cols = list(col_idx)
+    hits = 0
+    for _ in range(permutations):
+        for i in range(n - 1, 0, -1):
+            j = int(rand() * (i + 1))
+            cols[i], cols[j] = cols[j], cols[i]
+        if statistic(cols) >= observed - 1e-9:
+            hits += 1
+    return (1 + hits) / (permutations + 1)
+
+
 def adjust_p_values(p_values, method):
     """Family-wise error correction over every tested pair (#806).
 
@@ -225,7 +281,7 @@ def parse_held_out_specs(specs, df: pd.DataFrame, read_table, *, flag="--proxy-h
 
 def proxy_hints(df: pd.DataFrame, dimensions: list, alpha=PROXY_ALPHA,
                 held_out: dict | None = None, correction: str | None = None,
-                max_age=MAX_AGE, age_reference_year=None) -> list:
+                max_age=MAX_AGE, age_reference_year=None, exact=False) -> list:
     """Chi-squared test of independence over every pair of detected dimensions.
 
     Returns pairs with p < alpha, most-significant first, each with its p-value
@@ -251,6 +307,12 @@ def proxy_hints(df: pd.DataFrame, dimensions: list, alpha=PROXY_ALPHA,
     other, treated as plain categorical values (no age-band normalization,
     since there's no detected `kind` for a column that was never profiled).
 
+    `exact` (default False) opts in to an exact-test fallback for `low_expected`
+    tables (#861): a 2x2 table's `p_value` becomes Fisher's exact p, a larger one's
+    a seeded permutation estimate (tables over 5000 observations keep the
+    chi-squared p). Every hint then carries `p_method` ("chi2", "fisher" or
+    "permutation"); a replaced p-value keeps the original as `p_chi2`.
+
     `correction` (None, "bonferroni" or "holm") opts in to a multiple-comparison
     adjustment across every testable pair (#806): a pair is reported only if its
     adjusted p-value is below `alpha`, and each hint then also carries
@@ -261,7 +323,7 @@ def proxy_hints(df: pd.DataFrame, dimensions: list, alpha=PROXY_ALPHA,
     if correction is not None and correction not in PROXY_CORRECTIONS:
         raise ValueError(f"correction must be one of {PROXY_CORRECTIONS}, got {correction!r}")
     try:
-        from scipy.stats import chi2_contingency
+        from scipy.stats import chi2_contingency, fisher_exact
     except ImportError as exc:  # pragma: no cover - depends on optional extra
         raise RuntimeError(
             "proxy hints need scipy (install with: pip install faircode[proxy])"
@@ -284,14 +346,28 @@ def proxy_hints(df: pd.DataFrame, dimensions: list, alpha=PROXY_ALPHA,
             n = int(ct.to_numpy().sum())
             k = min(ct.shape) - 1
             cramers_v = math.sqrt(chi2 / (n * k)) if n and k else 0.0
-            tested.append({
+            hint = {
                 "a": name_a, "b": name_b,
                 "p_value": p_value,
                 "cramers_v": round(cramers_v, 4),
                 "chi2": round(float(chi2), 2),
                 "low_expected_share": round(low_share, 4),
                 "low_expected": low_share > LOW_EXPECTED_SHARE,
-            })
+            }
+            if exact:
+                hint["p_method"] = "chi2"
+                if hint["low_expected"]:
+                    if ct.shape == (2, 2):
+                        hint["p_chi2"], hint["p_value"] = float(p_value), float(fisher_exact(ct.to_numpy())[1])
+                        hint["p_method"] = "fisher"
+                    elif n <= PERMUTATION_MAX_ROWS:
+                        keep = labelized[name_a].notna().to_numpy() & labelized[name_b].notna().to_numpy()
+                        row_idx = pd.factorize(labelized[name_a][keep])[0].tolist()
+                        col_idx = pd.factorize(labelized[name_b][keep])[0].tolist()
+                        hint["p_chi2"] = float(p_value)
+                        hint["p_value"] = permutation_p_value(row_idx, col_idx, ct.shape[0], ct.shape[1])
+                        hint["p_method"] = "permutation"
+            tested.append(hint)
     for h in tested:
         h["n_tests"] = len(tested)
     if correction is None:

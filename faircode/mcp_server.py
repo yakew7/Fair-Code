@@ -224,7 +224,7 @@ def _compare_datasets_impl(path_a, path_b, overrides=None,
                            max_dimension_groups=None, held_out_with_a=None,
                            held_out_with_b=None, alpha=None, correction=None,
                            encoding=None, max_age=None, age_reference_year=None,
-                           key_normalize=False):
+                           key_normalize=False, exact=False):
     overrides = overrides or {}
     df_a = _read_table_or_raise(path_a, encoding)
     df_b = _read_table_or_raise(path_b, encoding)
@@ -259,6 +259,7 @@ def _compare_datasets_impl(path_a, path_b, overrides=None,
         kw["correction"] = correction
         kw["max_age"] = _resolve_opts(opts)["max_age"]
         kw["age_reference_year"] = _resolve_opts(opts)["age_reference_year"]
+        kw["exact"] = exact
         held_a = parse_held_out_specs(held_out_with_a, df_a, read_held, flag="held_out_with_a",
                                       normalize_keys=key_normalize) if held_out_with_a else None
         held_b = parse_held_out_specs(held_out_with_b, df_b, read_held, flag="held_out_with_b",
@@ -288,7 +289,7 @@ def _compare_datasets_impl(path_a, path_b, overrides=None,
 
 def _proxy_hints_impl(path, overrides=None, held_out_with=None, alpha=None,
                       correction=None, encoding=None, include_provenance=True,
-                      key_normalize=False):
+                      key_normalize=False, exact=False):
     """`overrides` forces a column's detected kind the same way profile()'s
     own `overrides` does; no other threshold knob affects this tool -
     proxy_hints() (faircode/proxy.py) tests every detected dimension
@@ -325,6 +326,7 @@ def _proxy_hints_impl(path, overrides=None, held_out_with=None, alpha=None,
                                     normalize_keys=key_normalize) if held_out_with else None
     kw = {} if alpha is None else {"alpha": alpha}
     kw["correction"] = correction
+    kw["exact"] = exact
     output = {"hints": compute_proxy_hints(df, result["dimensions"], held_out=held_out, **kw)}
     notes = [n for n in (_sheet_note(path),) if n]
     notes += [n for spec in (held_out_with or []) for n in (_sheet_note(spec.partition("=")[0]),) if n]
@@ -513,6 +515,10 @@ def build_server():
         that year in an age column to ages as of it, for birth-year columns such as
         `yob` (CLI `--age-reference-year`); on `compare_datasets` too.
 
+        `exact` (default false, CLI `--proxy-exact`) replaces the chi-squared p-value
+        of a small-expected-cell hint with Fisher's exact test (2x2) or a seeded
+        permutation p-value, and adds `p_method` to every hint.
+
         `key_normalize` (default false) makes `PATH=COLUMN:KEY` join keys match
         case-insensitively, ignoring surrounding spaces and leading zeros; a key
         may be composite (`id+visit`). Same on `proxy_hints` (CLI
@@ -561,6 +567,7 @@ def build_server():
                          max_age: float | None = None,
                          age_reference_year: int | None = None,
                          key_normalize: bool = False,
+                         exact: bool = False,
                          format: str = "json") -> dict:
         """Compare two tabular datasets (e.g. a training set and a production
         snapshot) for representation drift: which dimensions/groups appeared,
@@ -593,7 +600,7 @@ def build_server():
                 imbalance_flag, missing_flag, min_group_size, include_provenance,
                 proxy_hints, max_categorical_card, max_dimension_groups,
                 held_out_with_a, held_out_with_b, alpha, correction, encoding, max_age,
-                age_reference_year, key_normalize),
+                age_reference_year, key_normalize, exact),
                 format, compare_to_csv)
         except (ValueError, FileNotFoundError, RuntimeError) as exc:
             raise _as_tool_error(exc) from exc
@@ -605,7 +612,8 @@ def build_server():
                     correction: str | None = None,
                     encoding: str | None = None,
                     include_provenance: bool = True,
-                    key_normalize: bool = False) -> dict:
+                    key_normalize: bool = False,
+                    exact: bool = False) -> dict:
         """Flag pairs of detected demographic columns that are strongly
         statistically associated (chi-squared test of independence, p < `alpha`,
         default 0.05, in (0, 1])
@@ -637,7 +645,7 @@ def build_server():
         """
         try:
             return _proxy_hints_impl(path, overrides, held_out_with, alpha, correction, encoding,
-                                     include_provenance, key_normalize)
+                                     include_provenance, key_normalize, exact)
         except (ValueError, FileNotFoundError, RuntimeError) as exc:
             raise _as_tool_error(exc) from exc
 

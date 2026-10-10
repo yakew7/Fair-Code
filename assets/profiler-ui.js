@@ -453,7 +453,8 @@
       return;
     }
     var hints = E.proxyHints(currentTable, currentResult.dimensions, alpha, heldOut,
-      document.getElementById('proxyCorrectionInput').value || null, currentOpts.max_age, currentOpts.age_reference_year);
+      document.getElementById('proxyCorrectionInput').value || null, currentOpts.max_age, currentOpts.age_reference_year,
+      document.getElementById('proxyExactInput').checked);
     // Attach to the result so Download report / Copy as JSON / Download CSV
     // include what's on screen (issue #758).
     currentResult.proxy_hints = hints;
@@ -876,9 +877,10 @@
     }
     if (r.proxy_hints && r.proxy_hints.length) {
       var adj = r.proxy_hints.some(function (h) { return h.p_adjusted !== undefined; });
-      out += csvRow([]) + csvRow(['proxy_hint_a', 'proxy_hint_b', 'p_value', 'cramers_v'].concat(adj ? ['p_adjusted'] : [], ['n_tests', 'low_expected']));
+      var meth = r.proxy_hints.some(function (h) { return h.p_method !== undefined; });
+      out += csvRow([]) + csvRow(['proxy_hint_a', 'proxy_hint_b', 'p_value', 'cramers_v'].concat(adj ? ['p_adjusted'] : [], meth ? ['p_method'] : [], ['n_tests', 'low_expected']));
       r.proxy_hints.forEach(function (h) {
-        out += csvRow([h.a, h.b, h.p_value, h.cramers_v].concat(adj ? [h.p_adjusted] : [], [h.n_tests, !!h.low_expected]));
+        out += csvRow([h.a, h.b, h.p_value, h.cramers_v].concat(adj ? [h.p_adjusted] : [], meth ? [h.p_method] : [], [h.n_tests, !!h.low_expected]));
       });
     }
     if (provenance) out += csvRow([]) + E.provenanceCsv(provenance);

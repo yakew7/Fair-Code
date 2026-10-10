@@ -869,14 +869,14 @@ def test_python_js_sample_dataset_is_byte_identical():
     assert completed.stdout == build_sample_csv()
 
 
-def _run_js_proxy_hints(csv_path, alpha=0.05):
+def _run_js_proxy_hints(csv_path, alpha=0.05, exact=False):
     script = (
         "require(process.argv[1]);"
         "var fs=require('fs');"
         "var table=globalThis.FairCodeProfiler.parseCSV(fs.readFileSync(process.argv[2],'utf-8'));"
         "var r=globalThis.FairCodeProfiler.profile(table,{},{});"
         "var hints=globalThis.FairCodeProfiler.proxyHints(table,r.dimensions,"
-        + repr(alpha) + ");"
+        + repr(alpha) + ",null,null,undefined,undefined," + ("true" if exact else "false") + ");"
         "process.stdout.write(JSON.stringify(hints));"
     )
     completed = subprocess.run(
@@ -1147,7 +1147,7 @@ def test_compare_view_download_csv_and_proxy_controls_are_wired():
             assert f"getElementById('{element_id}')" in js, element_id
     assert "downloadCsvBtn.addEventListener('click', downloadCompareCsvReport)" in js
     assert "proxyBtn.addEventListener('click', renderCompareProxyHints)" in js
-    assert "E.proxyHints(slot.A.table, currentProfiles.A.dimensions, alpha, heldA, correction, currentOpts.max_age, currentOpts.age_reference_year)" in js
+    assert "E.proxyHints(slot.A.table, currentProfiles.A.dimensions, alpha, heldA, correction, currentOpts.max_age, currentOpts.age_reference_year, exact)" in js
     assert 'id="compareProxyCorrectionInput"' in html
 
 
@@ -1455,6 +1455,44 @@ def test_build_held_out_joins_on_a_key_like_python(tmp_path):
     assert "duplicate" in out["dup"]
     assert "no row for 2 key(s)" in out["unmatched"]
     assert "rows must align 1:1" in out["positional"]
+
+
+def test_python_js_exact_p_values_agree_for_small_cell_tables(tmp_path):
+    """#861: with exact on, a sparse 2x2 gets Fisher's exact p and a sparse 6x2 a seeded
+    permutation p - identical PRNG stream, so both engines return the same numbers."""
+    pytest.importorskip("scipy")
+    from faircode.detect import detect_columns
+    from faircode.proxy import proxy_hints
+
+    rows = ["sex,race"]
+    # 2x2, small: sex x group
+    for i in range(14):
+        rows.append(f"{'male' if i < 5 else 'female'},{'x' if (i % 7) < 3 else 'y'}")
+    csv = tmp_path / "small2x2.csv"
+    csv.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    df = pd.read_csv(csv)
+    dims = [{"name": d["name"], "kind": d["kind"]} for d in detect_columns(df)]
+    py = proxy_hints(df, dims, alpha=1.0, exact=True)
+    js = _run_js_proxy_hints(csv, alpha=1.0, exact=True)
+    assert len(py) == len(js) == 1 and py[0]["p_method"] == js[0]["p_method"] == "fisher"
+    assert py[0]["p_value"] == pytest.approx(js[0]["p_value"], rel=1e-9)
+    assert py[0]["p_chi2"] == pytest.approx(js[0]["p_chi2"], rel=1e-6)
+
+    rows = ["sex,race"]
+    races = ["White", "Black", "Asian", "Latino", "Other", "Native"]
+    for i in range(24):
+        rows.append(f"{'male' if i % 2 == 0 else 'female'},{races[(i // 2 + i) % 6]}")
+    csv2 = tmp_path / "sparse6x2.csv"
+    csv2.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    df2 = pd.read_csv(csv2)
+    py2 = proxy_hints(df2, dims, alpha=1.0, exact=True)
+    js2 = _run_js_proxy_hints(csv2, alpha=1.0, exact=True)
+    assert py2[0]["p_method"] == js2[0]["p_method"] == "permutation"
+    assert py2[0]["p_value"] == js2[0]["p_value"]          # same seeded stream, same count
+
+    # off by default: no p_method key, p-values untouched
+    assert "p_method" not in proxy_hints(df2, dims, alpha=1.0)[0]
+    assert "p_method" not in _run_js_proxy_hints(csv2, alpha=1.0)[0]
 
 
 def test_build_held_out_composite_and_normalised_keys_match_python(tmp_path):

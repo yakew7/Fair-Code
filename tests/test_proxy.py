@@ -397,3 +397,53 @@ def test_cli_key_normalize_flag_and_provenance(tmp_path, capsys):
     entry = result["provenance"]["proxy_hints_with"][0]
     assert entry["key"] == "id" and entry["key_normalize"] is True
     assert main(["profile", str(tmp_path / "d.csv"), "--proxy-key-normalize"]) == 2
+
+
+# --- #861: exact-test fallback ------------------------------------------------------------
+
+def test_exact_replaces_p_for_small_2x2_tables_with_fishers_test():
+    from scipy.stats import fisher_exact
+    df = pd.DataFrame({"sex": ["M"] * 5 + ["F"] * 9,
+                       "race": ["x"] * 4 + ["y"] * 1 + ["x"] * 1 + ["y"] * 8})
+    dims = [{"name": "sex", "kind": "sex"}, {"name": "race", "kind": "race"}]
+    (plain,) = proxy_hints(df, dims, alpha=1.0)
+    (exact,) = proxy_hints(df, dims, alpha=1.0, exact=True)
+    assert plain["low_expected"] and "p_method" not in plain
+    assert exact["p_method"] == "fisher" and exact["p_chi2"] == pytest.approx(plain["p_value"])
+    assert exact["p_value"] == pytest.approx(fisher_exact([[4, 1], [1, 8]])[1])
+
+
+def test_exact_uses_a_seeded_permutation_for_larger_tables_and_leaves_dense_ones_alone():
+    from faircode.proxy import PERMUTATIONS, permutation_p_value
+    sparse = pd.DataFrame({"sex": ["M", "F"] * 12, "race": list("abcdef") * 4})
+    dims = [{"name": "sex", "kind": "sex"}, {"name": "race", "kind": "race"}]
+    (h,) = proxy_hints(sparse, dims, alpha=1.0, exact=True)
+    assert h["p_method"] == "permutation" and 1 / (PERMUTATIONS + 1) <= h["p_value"] <= 1
+    assert proxy_hints(sparse, dims, alpha=1.0, exact=True)[0]["p_value"] == h["p_value"]  # deterministic
+    assert permutation_p_value([0, 1] * 12, [0, 1, 2, 3, 4, 5] * 4, 2, 6) == h["p_value"]
+
+    dense = pd.DataFrame({"sex": ["M", "F"] * 60, "race": ["a", "b"] * 60})
+    (d,) = proxy_hints(dense, dims, alpha=1.0, exact=True)
+    assert d["p_method"] == "chi2" and "p_chi2" not in d
+
+
+def test_exact_flag_notes_and_csv_column(tmp_path, capsys):
+    import csv as _csv
+    import io as _io
+    from faircode.report import _write_proxy_rows, _hint_notes
+    hint = {"a": "sex", "b": "race", "p_value": 0.01, "cramers_v": 0.4, "p_method": "fisher",
+            "low_expected": True, "n_tests": 1}
+    assert "fisher exact p" in _hint_notes(hint)
+    buf = _io.StringIO()
+    _write_proxy_rows(_csv.writer(buf), [hint])
+    assert "p_method" in buf.getvalue().splitlines()[0]
+    from faircode.cli import main
+    path = tmp_path / "d.csv"
+    path.write_text("sex,race\n" + "\n".join(f"{'M' if i < 5 else 'F'},{'x' if i in (0, 1, 2, 3, 5) else 'y'}"
+                                              for i in range(14)) + "\n")
+    assert main(["profile", str(path), "--proxy-exact"]) == 2
+    assert "--proxy-exact needs --proxy-hints" in capsys.readouterr().err
+    assert main(["profile", str(path), "--proxy-hints", "--proxy-alpha", "1", "--proxy-exact", "--json",
+                 "--no-provenance"]) == 0
+    import json as _json
+    assert _json.loads(capsys.readouterr().out)["proxy_hints"][0]["p_method"] == "fisher"

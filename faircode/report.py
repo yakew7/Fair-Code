@@ -84,14 +84,18 @@ def _hint_notes(h) -> str:
     """Suffix for a proxy hint line: ", adj p=..." when it carries a
     multiple-comparison adjusted p-value (#806), and ", small cells" when
     over 20% of its expected counts are under 5 so the chi-squared p-value is
-    unreliable (#810)."""
+    unreliable (#810); with `--proxy-exact` the note names the exact method that
+    replaced the p-value instead (#861)."""
     text = ""
     if "p_adjusted" in h:
         text = f", adj p={h['p_adjusted']:.4g}"
         if "n_tests" in h:
             text += f" (m={h['n_tests']} pairs)"
     if h.get("low_expected"):
-        text += ", small cells (p-value unreliable)"
+        if h.get("p_method") in ("fisher", "permutation"):
+            text += f", small cells ({h['p_method']} exact p)"
+        else:
+            text += ", small cells (p-value unreliable)"
     return text
 
 
@@ -100,11 +104,15 @@ def _write_proxy_rows(writer, hints, side=None) -> None:
     one row per hint (a `dataset` column is added only for compare's A/B)."""
     prefix = ["dataset"] if side else []
     adjusted = any("p_adjusted" in h for h in hints)
+    method = any("p_method" in h for h in hints)
     writer.writerow(prefix + ["proxy_hint_a", "proxy_hint_b", "p_value", "cramers_v"]
-                    + (["p_adjusted"] if adjusted else []) + ["n_tests", "low_expected"])
+                    + (["p_adjusted"] if adjusted else []) + (["p_method"] if method else [])
+                    + ["n_tests", "low_expected"])
     for h in hints:
         writer.writerow(([side] if side else []) + [h["a"], h["b"], h["p_value"], h["cramers_v"]]
-                        + ([h.get("p_adjusted")] if adjusted else []) + [h.get("n_tests"), h.get("low_expected", False)])
+                        + ([h.get("p_adjusted")] if adjusted else [])
+                        + ([h.get("p_method")] if method else [])
+                        + [h.get("n_tests"), h.get("low_expected", False)])
 
 
 def to_csv(result: dict, provenance: dict | None = None) -> str:

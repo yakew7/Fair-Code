@@ -169,6 +169,14 @@ carries `low_expected_share` (share of cells with expected count < 5, 4 dp) and 
 (`true` when that share exceeds 0.2). The terminal/HTML/web output marks such a hint "small cells",
 and the CSV proxy section gains a `low_expected` column. The p-value is still computed and reported.
 
+**Exact fallback (#861).** `--proxy-exact` (MCP `exact`, a web checkbox) replaces the chi-squared
+p-value of a `low_expected` hint: a 2x2 table gets Fisher's exact test (two-sided, as
+`scipy.stats.fisher_exact`), a larger table a seeded Monte-Carlo permutation p-value - 1000 shuffles
+of the column labels with the `mulberry32` PRNG (seed 42, Fisher-Yates), `(1 + hits) / 1001`, so both
+engines return the identical number; tables over 5000 observations keep the chi-squared p. Every
+hint then carries `p_method` (`chi2`, `fisher` or `permutation`) and a replaced p-value keeps the
+original as `p_chi2`; the CSV proxy section gains a `p_method` column. Off by default.
+
 **Family size (#821).** Every hint also carries `n_tests`, the number of pairs actually tested
 (a pair with a constant column is skipped and does not count), so `p_adjusted` can be re-derived
 from the export (Bonferroni: `min(1, p · n_tests)`). Adjusted hints print "(m=N pairs)" in the
