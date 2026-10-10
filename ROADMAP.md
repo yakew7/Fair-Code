@@ -27,7 +27,7 @@ Fair Code is an open-source responsible AI platform explaining algorithmic bias,
 
 | Stars | Contributors | Forks | Watching | Social Reach | Countries | Audits | Explainers | CI |
 |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| 49 | 49 | 53 | 8 | 30K+ | 20 | 7 | 62 | ✅ every push/PR |
+| 49 | 50 | 55 | 8 | 30K+ | 20 | 7 | 62 | ✅ every push/PR |
 
 > The earlier paper freeze has lifted - the real paper, with fresh results, is now planned for next
 > year. `paper/results-frozen/` (tag `v1.0-paper`, commit `bbef2ba`) is kept as a reference snapshot.
@@ -136,7 +136,7 @@ Each audit follows the same pipeline: train a biased model → measure the fairn
 
 ## Phase 4 - Contributor Expansion 🔄 In Progress
 
-**Status: Goal exceeded - 49 external contributors, past the original 15+ target**
+**Status: Goal exceeded - 50 external contributors, past the original 15+ target**
 
 Goal: grow to 15+ contributors with quality-controlled contributions.
 
@@ -147,7 +147,7 @@ Goal: grow to 15+ contributors with quality-controlled contributions.
 - [x] CI pipeline (all audit scripts run on push/PR)
 - [x] Good-first-issue and help-wanted labels
 - [x] First-interaction workflow (greets new contributors)
-- [ ] Target: 10–15 labelled issues open at all times (currently 16 - a moving snapshot, not a maintained invariant; no automated mechanism keeps it true over time)
+- [ ] Target: 10–15 labelled issues open at all times (currently 18 - a moving snapshot, not a maintained invariant; no automated mechanism keeps it true over time)
 - [x] Contributor list in README
 - [x] METRICS.md tracking contributor growth weekly
 
@@ -173,12 +173,13 @@ Go deeper on measurement - fairness dashboards, interactive notebooks, and stati
 - [x] Proxy-hint trustworthiness: small-expected-cell warnings (#810), the number of pairs tested behind `p_adjusted` (#821), held-out files recorded in provenance (#811), an optional join key instead of row order (#822), and ignored-sheet notes for held-out workbooks on the web (#816)
 - [x] Input robustness and data quality: `--encoding` plus BOM sniffing (#843), terminal-safe output (#845), implausible-age flagging with `--max-age` (#840), Spanish/German/French/Portuguese column names (#847), and `compare --csv` rows for one-sided dimensions (#842)
 - [x] Benchmark dashboard polish: a significance filter on the roll-up tab (#819) and chart export that follows the page theme with Light/Dark/Transparent options (#813)
-- [ ] Detection: stop `estado_civil` being typed as geography (#855) and let users extend the keyword vocabulary (`--keywords`, #856)
-- [ ] Encodings end to end: a web encoding picker (#857) and the encoding recorded in provenance (#858)
-- [ ] Proxy follow-ups: composite/normalised held-out keys (#859), provenance on the MCP `proxy_hints` tool (#860), an exact-test fallback for small cells (#861)
-- [ ] Age handling: convert birth-year columns to ages (#862) and flag negative age sentinels (#863)
-- [ ] CLI gaps: wire the `--csv-bom` flag (#867), surface per-profile data-quality flags in `compare` (#868), keep colon-named held-out columns working (#869), and warn when `--encoding` is ignored (#870)
-- [ ] Dashboard and compare: a per-tab significance toggle (#864), a colour-blind-safe chart cue (#865), and rename suggestions for one-sided dimensions in `compare` (#866)
+- [x] Detection and encodings: `estado_civil` no longer typed as geography (#855), user-extensible vocabulary via `--keywords` plus Italian/Dutch built-ins (#856), a web encoding picker (#857) and the encoding recorded in provenance (#858)
+- [x] Proxy follow-ups: composite and normalised held-out keys (#859), provenance on the MCP `proxy_hints` tool (#860), an exact-test fallback for small cells (#861), colon-named held-out columns (#869)
+- [x] Age handling: birth-year conversion with `--age-reference-year` (#862) and negative-sentinel flagging (#863)
+- [x] Dashboard and compare: a per-tab significance toggle (#864), a hatch cue and colour-blind palette (#865), rename suggestions (#866) and data-quality flags (#868) in `compare`, `--csv-bom` (#867) and an ignored-`--encoding` notice (#870)
+- [ ] Proxy and MCP follow-ups: the MCP `proxy_hints` tool honouring `max_age`/`age_reference_year`/`keywords` (#883), Unicode-safe key normalisation (#884), a visible note when `--proxy-exact` is capped (#885), faster permutation p-values (#886), per-spec key normalisation on the CLI (#895), held-out encodings in provenance (#892)
+- [ ] Compare and web polish: renames in the compare CSV (#896) and from column-name similarity (#887), keywords textarea persistence and error text (#888, #889), the reference baseline honouring the encoding picker (#890)
+- [ ] Dashboard and tooling: Export colours in the deep link (#893), a key for the hatched bars (#894), and a `slow` marker so the benchmark tests do not dominate local runs (#891)
 
 ---
 

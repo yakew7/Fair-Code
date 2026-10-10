@@ -3,8 +3,8 @@
 # Fair Code - Metrics Tracker
 
 ![Stars](https://img.shields.io/badge/Stars-49-brightgreen?style=flat-square&logo=github)
-![Contributors](https://img.shields.io/badge/Contributors-49-blue?style=flat-square)
-![Forks](https://img.shields.io/badge/Forks-53-orange?style=flat-square)
+![Contributors](https://img.shields.io/badge/Contributors-50-blue?style=flat-square)
+![Forks](https://img.shields.io/badge/Forks-55-orange?style=flat-square)
 ![Watching](https://img.shields.io/badge/Watching-8-yellow?style=flat-square)
 ![Explainers](https://img.shields.io/badge/Explainers-62-blueviolet?style=flat-square)
 ![Countries](https://img.shields.io/badge/Countries-20-informational?style=flat-square)
@@ -45,7 +45,7 @@ Weekly snapshot of project health. Updated every Friday.
 | 2026-W37 | 46 | 33 | 8 | 29 | 30K+ total | 20 | 29 | 7 total |
 | 2026-W39 | 48 | 45 | 8 | 40 | 30K+ total | 20 | 25 | 7 total |
 | 2026-W40 | 49 | 50 | 8 | 45 | 30K+ total | 20 | 41 | 7 total |
-| 2026-W41 | 49 | 53 | 8 | 49 | 30K+ total | 20 | 42 | 7 total |
+| 2026-W41 | 49 | 55 | 8 | 50 | 30K+ total | 20 | 58 | 7 total |
 
 > **2026-W27 - v1.2.0 shipped:** Open Dataset Profiler (CLI + client-side web tool) released; 23 explainers total.
 >
@@ -102,6 +102,9 @@ Weekly snapshot of project health. Updated every Friday.
 >
 > **2026-W41 (later) - the 12 remaining non-explainer issues closed, 12 fresh ones opened, and three more contributors credited:** every unassigned non-explainer issue was fixed and committed on its own (#810, #811, #813, #816, #819, #821, #822, #840, #842, #843, #845, #847): proxy hints now flag small expected cells, record how many pairs were tested and which held-out files (and join key) produced them; `--encoding`/BOM sniffing and a terminal that escapes control characters harden input and output; ages above `--max-age` are flagged instead of banded into `75+`; Spanish/German/French/Portuguese column names are detected; `compare --csv` lists one-sided dimensions; and the benchmark dashboard gained a summary-tab significance filter and theme-aware chart export. #848 stayed untouched because it is assigned. A follow-up fix made `--encoding` apply to `.json` files too, after a repro showed the first version blamed the wrong codec. The backlog was then replenished with 12 independently reproduced issues (#855-#866, none of them explainers), three pinned: the `estado_civil` mis-detection (#855), a user-extensible detection vocabulary (#856) and birth-year age conversion (#862). Credited in `CONTRIBUTORS.md` this note: [@Aditya3021](https://github.com/Aditya3021) (#849), [@happymode-25](https://github.com/happymode-25) (#850) and [@minutechreview](https://github.com/minutechreview) (#851, #852), plus [@Tiyatrotist](https://github.com/Tiyatrotist)'s run of twelve merged PRs, which the file had recorded as one. **Contributors `46 -> 49`**, forks `51 -> 53` (live GitHub numbers); issues closed this week `14 -> 42` (everything closed since 2026-10-05, a GitHub search count that includes the 12 above). Stars, watching, countries and social reach unchanged or not re-measured.
 
+>
+> **2026-W41 (weekend) - the second sweep: 9 more non-explainer issues closed, 14 fresh ones opened, one new contributor:** every unassigned non-explainer issue was fixed again (#856, #857, #859, #861, #862, #864, #865, #866, #868): `--keywords` and Italian/Dutch terms for column detection, a web text-encoding picker recorded in provenance, composite and normalised held-out join keys, `--proxy-exact` (Fisher/permutation p-values with a shared seeded PRNG so both engines agree), `--age-reference-year` for birth-year columns, compare data-quality flags and rename suggestions, and a per-tab significance toggle plus hatched, colour-blind-safe dashboard bars. #848 stayed untouched because it is assigned. Contributors fixed seven of the follow-ups opened the day before - [@Detoy](https://github.com/Detoy) (#855 via #876, #867 via #877, #869 via #878, #870 via #871) and [@Tiyatrotist](https://github.com/Tiyatrotist) (#858, #860, #863 via #882, #880, #881) - so the replenishment is 14 new issues (#883-#896): MCP, key-normalisation, exact-test and web follow-ups, a dashboard key and a slow-test marker, none of them explainers, three pinned (#883, #884, #885). **Contributors `49 -> 50`** (Detoy's first merged PR, counted from `CONTRIBUTORS.md`), forks `53 -> 55`; issues closed this week `42 -> 58` (a GitHub search count since 2026-10-05). Stars, watching, countries and social reach unchanged or not re-measured.
+
 ---
 
 ## Targets
@@ -109,12 +112,12 @@ Weekly snapshot of project health. Updated every Friday.
 | Metric | Current | Target | Timeline |
 |--------|--------:|-------:|----------|
 | Stars | 49 | 50+ | End of 2026 |
-| Forks | 53 | 60+ | End of 2026 |
+| Forks | 55 | 60+ | End of 2026 |
 | Watching | 8 | 12+ | End of 2026 |
-| Contributors | 49 | 20+ | End of 2026 |
+| Contributors | 50 | 20+ | End of 2026 |
 | Social reach | 30K+ | 40K+ | End of 2026 |
 | Countries reached | 20 | 20+ | End of 2026 |
-| Issues closed | 42 (this week, since 2026-10-05) | Track weekly | Ongoing |
+| Issues closed | 58 (this week, since 2026-10-05) | Track weekly | Ongoing |
 | Code audits | 7 | 8+ | End of 2026 |
 | Explainers | 62 | 65+ | End of 2026 |
 
@@ -134,4 +137,4 @@ Weekly snapshot of project health. Updated every Friday.
 
 *Resume-ready line (fill in at application time):*
 
-> Created and scaled Fair Code, an open-source responsible AI platform explaining algorithmic bias through code audits, healthcare-bias case studies, beginner explainers, and contributor-led GitHub documentation; grew the project to **49 stars**, **49 contributors**, **53 forks**, **30K+ social views**, and website visitors from **20 countries**.
+> Created and scaled Fair Code, an open-source responsible AI platform explaining algorithmic bias through code audits, healthcare-bias case studies, beginner explainers, and contributor-led GitHub documentation; grew the project to **49 stars**, **50 contributors**, **55 forks**, **30K+ social views**, and website visitors from **20 countries**.
