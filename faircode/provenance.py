@@ -75,11 +75,12 @@ def public_params(resolved: dict) -> dict:
     return {k: v for k, v in sorted(resolved.items()) if k not in _OPAQUE_PARAMS}
 
 
-def held_out_entries(specs, profiled_columns=None) -> list:
+def held_out_entries(specs, profiled_columns=None, key_normalize=False) -> list:
     """Provenance entries for repeated PATH=COLUMN held-out specs (#811).
 
     One {path, column, sha256} per spec (plus `key` when a join key was given), in the order given; an unreadable path
     (or stdin) gets a null `sha256` and a `sha256_note`, like every other digest.
+    `key_normalize` adds `key_normalize: true` to entries that have a join key (#859).
     `profiled_columns` is forwarded to split_held_out_spec so a colon in a
     column name is resolved the same way as the live parse (#869).
     """
@@ -91,6 +92,8 @@ def held_out_entries(specs, profiled_columns=None) -> list:
         entry = {"path": path, "column": column}
         if key is not None:
             entry["key"] = key
+            if key_normalize:
+                entry["key_normalize"] = True
         _add_digest(entry, "sha256", path)
         entries.append(entry)
     return entries
@@ -116,7 +119,8 @@ def sniff_effective_encoding(path: str | None, explicit_encoding: str | None = N
         return None
 
 
-def build(digests=(), params=None, overrides=None, held_out=(), encodings=None) -> dict:
+def build(digests=(), params=None, overrides=None, held_out=(), encodings=None,
+          key_normalize=False) -> dict:
     """Assemble the provenance block attached to an exported result.
 
     `digests` is a sequence of (field_name, path) pairs, emitted in the order
@@ -154,5 +158,5 @@ def build(digests=(), params=None, overrides=None, held_out=(), encodings=None) 
             field, specs = item
             columns = None
         if specs:
-            block[field] = held_out_entries(specs, columns)
+            block[field] = held_out_entries(specs, columns, key_normalize)
     return block

@@ -189,7 +189,7 @@ count is a hard error rather than a silently wrong result - but a same-length fi
 order would still be accepted, so a spec may instead be `PATH=COLUMN:KEY` (#822): rows are then
 matched on the `KEY` column, which must exist in both files and be unique and non-empty in both,
 and every key in the profiled dataset must appear in the held-out file (extra held-out rows are
-ignored). Keys are compared as text. When `COLUMN` itself contains a colon (common in survey
+ignored). Keys are compared as text; the key may be **composite** (`PATH=COLUMN:id+visit`, every part a column of both files, joined on the combined value), and the opt-in `--proxy-key-normalize` (MCP `key_normalize`, a per-row "Normalise key" checkbox on the web) trims, lower-cases and drops leading zeros of all-digit values on both sides before matching (#859). The provenance entry then also carries `key_normalize: true`. When `COLUMN` itself contains a colon (common in survey
 exports like `race:self_reported`), either backslash-escape the literal colon (`PATH=a\:b`) or
 rely on the fallback (#869): a trailing `:KEY` is only treated as a join key when `KEY` names a
 real column of the profiled dataset - otherwise the whole right-hand side is the held-out column

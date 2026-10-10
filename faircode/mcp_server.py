@@ -223,7 +223,8 @@ def _compare_datasets_impl(path_a, path_b, overrides=None,
                            proxy_hints=False, max_categorical_card=None,
                            max_dimension_groups=None, held_out_with_a=None,
                            held_out_with_b=None, alpha=None, correction=None,
-                           encoding=None, max_age=None, age_reference_year=None):
+                           encoding=None, max_age=None, age_reference_year=None,
+                           key_normalize=False):
     overrides = overrides or {}
     df_a = _read_table_or_raise(path_a, encoding)
     df_b = _read_table_or_raise(path_b, encoding)
@@ -258,10 +259,10 @@ def _compare_datasets_impl(path_a, path_b, overrides=None,
         kw["correction"] = correction
         kw["max_age"] = _resolve_opts(opts)["max_age"]
         kw["age_reference_year"] = _resolve_opts(opts)["age_reference_year"]
-        held_a = parse_held_out_specs(held_out_with_a, df_a, read_held,
-                                      flag="held_out_with_a") if held_out_with_a else None
-        held_b = parse_held_out_specs(held_out_with_b, df_b, read_held,
-                                      flag="held_out_with_b") if held_out_with_b else None
+        held_a = parse_held_out_specs(held_out_with_a, df_a, read_held, flag="held_out_with_a",
+                                      normalize_keys=key_normalize) if held_out_with_a else None
+        held_b = parse_held_out_specs(held_out_with_b, df_b, read_held, flag="held_out_with_b",
+                                      normalize_keys=key_normalize) if held_out_with_b else None
         result["proxy_hints_a"] = compute_proxy_hints(df_a, profile_a["dimensions"],
                                                       held_out=held_a, **kw)
         result["proxy_hints_b"] = compute_proxy_hints(df_b, profile_b["dimensions"],
@@ -286,7 +287,8 @@ def _compare_datasets_impl(path_a, path_b, overrides=None,
 
 
 def _proxy_hints_impl(path, overrides=None, held_out_with=None, alpha=None,
-                      correction=None, encoding=None, include_provenance=True):
+                      correction=None, encoding=None, include_provenance=True,
+                      key_normalize=False):
     """`overrides` forces a column's detected kind the same way profile()'s
     own `overrides` does; no other threshold knob affects this tool -
     proxy_hints() (faircode/proxy.py) tests every detected dimension
@@ -319,7 +321,8 @@ def _proxy_hints_impl(path, overrides=None, held_out_with=None, alpha=None,
     _check_overrides(overrides, df.columns)
     result = profile(df, overrides)
     held_out = parse_held_out_specs(held_out_with, df, functools.partial(_read_table_or_raise, encoding=encoding),
-                                    flag="held_out_with") if held_out_with else None
+                                    flag="held_out_with",
+                                    normalize_keys=key_normalize) if held_out_with else None
     kw = {} if alpha is None else {"alpha": alpha}
     kw["correction"] = correction
     output = {"hints": compute_proxy_hints(df, result["dimensions"], held_out=held_out, **kw)}
@@ -337,7 +340,8 @@ def _proxy_hints_impl(path, overrides=None, held_out_with=None, alpha=None,
             [("dataset_hash", path)],
             params={"alpha": PROXY_ALPHA if alpha is None else alpha, "correction": correction},
             overrides=overrides,
-            held_out=[("proxy_hints_with", held_out_with)] if held_out_with else (),
+            held_out=[("proxy_hints_with", held_out_with, list(df.columns))] if held_out_with else (),
+            key_normalize=key_normalize,
             encodings={"dataset_hash": enc} if enc else None,
         )
     return output
@@ -509,6 +513,11 @@ def build_server():
         that year in an age column to ages as of it, for birth-year columns such as
         `yob` (CLI `--age-reference-year`); on `compare_datasets` too.
 
+        `key_normalize` (default false) makes `PATH=COLUMN:KEY` join keys match
+        case-insensitively, ignoring surrounding spaces and leading zeros; a key
+        may be composite (`id+visit`). Same on `proxy_hints` (CLI
+        `--proxy-key-normalize`).
+
         `encoding` names the text encoding of delimited files (e.g. "latin-1",
         "cp1252", "utf-16"); default is a UTF-8/16/32 byte-order mark if present,
         else utf-8. Same on `compare_datasets` and `proxy_hints`.
@@ -551,6 +560,7 @@ def build_server():
                          encoding: str | None = None,
                          max_age: float | None = None,
                          age_reference_year: int | None = None,
+                         key_normalize: bool = False,
                          format: str = "json") -> dict:
         """Compare two tabular datasets (e.g. a training set and a production
         snapshot) for representation drift: which dimensions/groups appeared,
@@ -583,7 +593,7 @@ def build_server():
                 imbalance_flag, missing_flag, min_group_size, include_provenance,
                 proxy_hints, max_categorical_card, max_dimension_groups,
                 held_out_with_a, held_out_with_b, alpha, correction, encoding, max_age,
-                age_reference_year),
+                age_reference_year, key_normalize),
                 format, compare_to_csv)
         except (ValueError, FileNotFoundError, RuntimeError) as exc:
             raise _as_tool_error(exc) from exc
@@ -594,7 +604,8 @@ def build_server():
                     alpha: float | None = None,
                     correction: str | None = None,
                     encoding: str | None = None,
-                    include_provenance: bool = True) -> dict:
+                    include_provenance: bool = True,
+                    key_normalize: bool = False) -> dict:
         """Flag pairs of detected demographic columns that are strongly
         statistically associated (chi-squared test of independence, p < `alpha`,
         default 0.05, in (0, 1])
@@ -625,7 +636,8 @@ def build_server():
         tie the hints back to the exact dataset and parameters that produced them (#860).
         """
         try:
-            return _proxy_hints_impl(path, overrides, held_out_with, alpha, correction, encoding, include_provenance)
+            return _proxy_hints_impl(path, overrides, held_out_with, alpha, correction, encoding,
+                                     include_provenance, key_normalize)
         except (ValueError, FileNotFoundError, RuntimeError) as exc:
             raise _as_tool_error(exc) from exc
 

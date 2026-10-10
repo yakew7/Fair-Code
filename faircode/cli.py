@@ -97,7 +97,7 @@ def _check_map_columns(overrides, known_columns):
         raise SystemExit(2)
 
 
-def _build_held_out(specs, df, encoding=None):
+def _build_held_out(specs, df, encoding=None, normalize_keys=False):
     """Parse repeated --proxy-hints-with PATH=COLUMN flags via proxy.py's
     shared parse_held_out_specs, printing a plain error and raising
     SystemExit(2) on any parse failure, missing column, or row-count
@@ -119,7 +119,8 @@ def _build_held_out(specs, df, encoding=None):
                     file=sys.stderr,
                 )
     try:
-        return parse_held_out_specs(specs, df, functools.partial(_read_or_exit, encoding=encoding))
+        return parse_held_out_specs(specs, df, functools.partial(_read_or_exit, encoding=encoding),
+                                    normalize_keys=normalize_keys)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         raise SystemExit(2)
@@ -145,7 +146,8 @@ def _profile_provenance(args, opts, overrides, df=None):
         enc = sniff_effective_encoding(args.csv)
     provenance = build_provenance(digests, _resolve_opts(opts), overrides,
                                   held_out=[("proxy_hints_with", args.proxy_hints_with, columns)],
-                                  encodings={"dataset_hash": enc} if enc else None)
+                                  encodings={"dataset_hash": enc} if enc else None,
+                                  key_normalize=args.proxy_key_normalize)
     if args.sample:
         provenance["dataset_hash"] = "sha256:" + hashlib.sha256(
             build_sample_csv().encode("utf-8")).hexdigest()
@@ -169,7 +171,8 @@ def _compare_provenance(args, opts, overrides, df_a=None, df_b=None):
         _resolve_opts(opts), overrides,
         held_out=[("proxy_hints_with_a", args.proxy_hints_with_a, cols_a),
                   ("proxy_hints_with_b", args.proxy_hints_with_b, cols_b)],
-        encodings=encs if encs else None)
+        encodings=encs if encs else None,
+        key_normalize=args.proxy_key_normalize)
 
 
 def _write_csv_export(path, text, bom=False):
@@ -282,6 +285,10 @@ def main(argv: list[str] | None = None) -> int:
                         "the dataset; PATH's rows must align 1:1 with the profiled "
                         "dataset, or be joined on a key column present in both files "
                         "with :KEY (repeatable, needs --proxy-hints)")
+    p.add_argument("--proxy-key-normalize", action="store_true",
+                   help="make --proxy-hints-with join keys (PATH=COLUMN:KEY) match case-insensitively, "
+                        "ignoring surrounding spaces and leading zeros (default: exact text; "
+                        "needs --proxy-hints)")
     p.add_argument("--min-share", type=float, metavar="F",
                    help="under-representation threshold (default 0.05)")
     p.add_argument("--intersection-floor", type=float, metavar="F",
@@ -350,6 +357,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="force a column's dimension when auto-detection misses it "
                         "(applied to both datasets); KIND is one of " +
                         ", ".join(_MAP_CHOICES) + " (repeatable)")
+    c.add_argument("--proxy-key-normalize", action="store_true",
+                   help="make --proxy-hints-with-a/-b join keys (PATH=COLUMN:KEY) match case-insensitively, "
+                        "ignoring surrounding spaces and leading zeros (default: exact text; "
+                        "needs --proxy-hints)")
     c.add_argument("--min-share", type=float, metavar="F",
                    help="under-representation threshold (default 0.05)")
     c.add_argument("--intersection-floor", type=float, metavar="F",
@@ -420,6 +431,9 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         if args.proxy_correction and not args.proxy_hints:
             print("error: --proxy-correction needs --proxy-hints", file=sys.stderr)
+            return 2
+        if args.proxy_key_normalize and not args.proxy_hints:
+            print("error: --proxy-key-normalize needs --proxy-hints", file=sys.stderr)
             return 2
         if args.csv_provenance and not args.csv_out:
             print("error: --csv-provenance needs --csv", file=sys.stderr)
@@ -506,7 +520,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
 
         if args.proxy_hints or args.proxy_hints_with:
-            held_out = _build_held_out(args.proxy_hints_with, df, args.encoding)
+            held_out = _build_held_out(args.proxy_hints_with, df, args.encoding, args.proxy_key_normalize)
             try:
                 result["proxy_hints"] = proxy_hints(df, result["dimensions"], alpha=_alpha(args), correction=args.proxy_correction, held_out=held_out,
                                                 max_age=_resolve_opts(opts)["max_age"],
@@ -572,6 +586,9 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         if args.proxy_correction and not args.proxy_hints:
             print("error: --proxy-correction needs --proxy-hints", file=sys.stderr)
+            return 2
+        if args.proxy_key_normalize and not args.proxy_hints:
+            print("error: --proxy-key-normalize needs --proxy-hints", file=sys.stderr)
             return 2
         if args.csv_provenance and not args.csv_out:
             print("error: --csv-provenance needs --csv", file=sys.stderr)
@@ -641,8 +658,8 @@ def main(argv: list[str] | None = None) -> int:
         result = compare(profile_a, profile_b, name_a=args.csv_a, name_b=args.csv_b)
 
         if args.proxy_hints or args.proxy_hints_with_a or args.proxy_hints_with_b:
-            held_out_a = _build_held_out(args.proxy_hints_with_a, df_a, args.encoding)
-            held_out_b = _build_held_out(args.proxy_hints_with_b, df_b, args.encoding)
+            held_out_a = _build_held_out(args.proxy_hints_with_a, df_a, args.encoding, args.proxy_key_normalize)
+            held_out_b = _build_held_out(args.proxy_hints_with_b, df_b, args.encoding, args.proxy_key_normalize)
             try:
                 result["proxy_hints_a"] = proxy_hints(df_a, profile_a["dimensions"], alpha=_alpha(args), correction=args.proxy_correction, held_out=held_out_a,
                                                         max_age=_resolve_opts(opts)["max_age"],

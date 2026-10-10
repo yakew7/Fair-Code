@@ -338,3 +338,62 @@ def test_held_out_colon_column_cli_repro(tmp_path):
     result = _json.loads(out.getvalue())
     assert result["provenance"]["proxy_hints_with"][0]["column"] == "a:b"
     assert "key" not in result["provenance"]["proxy_hints_with"][0]
+
+
+# --- #859: composite keys and key normalisation ---------------------------------------
+
+def _composite_frames():
+    df = pd.DataFrame({"id": ["007", "007", "B2"], "visit": ["v1", "v2", "v1"], "zip": list("aab")})
+    held = pd.DataFrame({"id": [" 7", "7", "b2"], "visit": ["V2", "V1", "v1"], "race": list("xyz")})
+    return df, held
+
+
+def test_composite_key_joins_on_every_part():
+    from faircode.proxy import parse_held_out_specs
+    df = pd.DataFrame({"id": [1, 1, 2], "visit": ["a", "b", "a"], "zip": list("xyz")})
+    held = pd.DataFrame({"id": [2, 1, 1], "visit": ["a", "b", "a"], "race": ["Z", "Y", "X"]})
+    out = parse_held_out_specs(["h.csv=race:id+visit"], df, lambda _p: held)
+    assert list(out["race"]) == ["X", "Y", "Z"]
+
+
+def test_keys_are_exact_text_unless_normalised():
+    from faircode.proxy import parse_held_out_specs
+    df, held = _composite_frames()
+    with pytest.raises(ValueError, match="no row for"):
+        parse_held_out_specs(["h.csv=race:id+visit"], df, lambda _p: held)
+    out = parse_held_out_specs(["h.csv=race:id+visit"], df, lambda _p: held, normalize_keys=True)
+    assert list(out["race"]) == ["y", "x", "z"]
+
+
+def test_normalisation_can_expose_duplicates_and_bad_composites_are_rejected():
+    from faircode.proxy import normalize_key_text, parse_held_out_specs
+    df = pd.DataFrame({"id": ["a", "A"], "zip": ["x", "y"]})
+    held = pd.DataFrame({"id": ["a", "A"], "race": ["p", "q"]})
+    assert normalize_key_text("  0042 ") == "42" and normalize_key_text("000") == "0"
+    with pytest.raises(ValueError, match="duplicate"):
+        parse_held_out_specs(["h.csv=race:id"], df, lambda _p: held, normalize_keys=True)
+    # an unrecognised key suffix is read as part of the column name (#869), so it fails there
+    with pytest.raises(ValueError, match="not found in h.csv"):
+        parse_held_out_specs(["h.csv=race:id+nope"], df, lambda _p: held)
+
+
+def test_cli_key_normalize_flag_and_provenance(tmp_path, capsys):
+    import json as _json
+    from faircode.cli import main
+    pd.DataFrame({"id": [" A1", "B2"] * 100, "zip_code": ["1"] * 100 + ["2"] * 100}).drop_duplicates().to_csv(
+        tmp_path / "d.csv", index=False)
+    df = pd.DataFrame({"id": [f"A{i}" for i in range(200)], "zip_code": ["1"] * 100 + ["2"] * 100})
+    df.to_csv(tmp_path / "d.csv", index=False)
+    held = pd.DataFrame({"id": [f" a{i} " for i in range(200)], "race": ["A"] * 100 + ["B"] * 100})
+    held.to_csv(tmp_path / "h.csv", index=False)
+    argv = ["profile", str(tmp_path / "d.csv"), "--proxy-hints", "--json",
+            "--proxy-hints-with", f"{tmp_path / 'h.csv'}=race:id"]
+    with pytest.raises(SystemExit):
+        main(argv)
+    capsys.readouterr()
+    assert main(argv + ["--proxy-key-normalize"]) == 0
+    result = _json.loads(capsys.readouterr().out)
+    assert any({h["a"], h["b"]} == {"zip_code", "race"} for h in result["proxy_hints"])
+    entry = result["provenance"]["proxy_hints_with"][0]
+    assert entry["key"] == "id" and entry["key_normalize"] is True
+    assert main(["profile", str(tmp_path / "d.csv"), "--proxy-key-normalize"]) == 2

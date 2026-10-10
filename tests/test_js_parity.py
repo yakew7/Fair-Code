@@ -1457,6 +1457,42 @@ def test_build_held_out_joins_on_a_key_like_python(tmp_path):
     assert "rows must align 1:1" in out["positional"]
 
 
+def test_build_held_out_composite_and_normalised_keys_match_python(tmp_path):
+    """#859: PATH=COLUMN:id+visit joins on two columns, and opt-in normalisation
+    (trim, case, leading zeros) matches in both engines; exact matching stays the default."""
+    from faircode.proxy import parse_held_out_specs
+
+    main_csv = tmp_path / "main.csv"
+    main_csv.write_text("id,visit,zip\n007,v1,111\n007,v2,111\nB2,v1,222\nB2,v2,222\n", encoding="utf-8")
+    held_csv = tmp_path / "held.csv"
+    held_csv.write_text("id,visit,race\n 7,V2,y\n7,V1,x\nb2,v1,z\nB2 ,v2,w\n", encoding="utf-8")
+    df = pd.read_csv(main_csv, dtype=str)
+    read = lambda p: pd.read_csv(p, dtype=str, keep_default_na=False)
+    py = parse_held_out_specs([f"{held_csv}=race:id+visit"], df, read, normalize_keys=True)
+    assert list(py["race"]) == ["x", "y", "z", "w"]
+    import pytest as _pt
+    with _pt.raises(ValueError, match="no row for"):
+        parse_held_out_specs([f"{held_csv}=race:id+visit"], df, read)
+
+    script = (
+        "require(process.argv[1]);var fs=require('fs');var E=globalThis.FairCodeProfiler;"
+        "var t=E.parseCSV(fs.readFileSync(process.argv[2],'utf-8'));var held=fs.readFileSync(process.argv[3],'utf-8');"
+        "var out={};(async function(){"
+        "out.ok=await E.buildHeldOut([{name:'h.csv',column:'race',key:'id+visit',normalize:true,data:held}],t);"
+        "try{await E.buildHeldOut([{name:'h.csv',column:'race',key:'id+visit',data:held}],t)}catch(e){out.exact=e.message}"
+        "out.norm=['  A01 ','a01','0042','000','x'].map(E.normalizeKeyText);"
+        "process.stdout.write(JSON.stringify(out));})();"
+    )
+    done = subprocess.run(
+        ["node", "-e", script, str(REPO_ROOT / "assets" / "profiler-engine.js"), str(main_csv), str(held_csv)],
+        capture_output=True, text=True, encoding="utf-8", check=True)
+    out = json.loads(done.stdout)
+    assert out["ok"] == {"race": ["x", "y", "z", "w"]}
+    assert "no row for" in out["exact"]
+    from faircode.proxy import normalize_key_text
+    assert out["norm"] == [normalize_key_text(v) for v in ["  A01 ", "a01", "0042", "000", "x"]] == ["a01", "a01", "42", "0", "x"]
+
+
 def test_held_out_control_adds_rows_collects_specs_and_validates():
     """Drives the real assets/profiler-heldout.js through a minimal DOM stub:
     rows can be added/removed, filled rows become specs ({name, column, data},
@@ -1488,7 +1524,7 @@ def test_held_out_control_adds_rows_collects_specs_and_validates():
       inputs(1)[1].value='orphan';
       try{await ctl.collect();}catch(e){out.half=e.message;}
       inputs(1)[1].value='';
-      container.children[2].children[3].click();       // remove row 3
+      container.children[2].children[4].click();       // remove row 3
       out.rows_after_remove=container.children.length;
       ctl.reset();
       out.rows_after_reset=container.children.length;

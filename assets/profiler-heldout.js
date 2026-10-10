@@ -45,6 +45,12 @@
       key.autocomplete = 'off';
       key.setAttribute('aria-label', label + ' join key column (optional)');
       keyLabel.appendChild(key);
+      var normLabel = document.createElement('label');
+      normLabel.textContent = 'Normalise key ';
+      var norm = document.createElement('input');
+      norm.type = 'checkbox';
+      norm.setAttribute('aria-label', label + ' normalise join key (ignore case, spaces, leading zeros)');
+      normLabel.appendChild(norm);
       var remove = document.createElement('button');
       remove.type = 'button';
       remove.className = 'heldout-remove';
@@ -52,11 +58,12 @@
       remove.setAttribute('aria-label', 'Remove this ' + label + ' column');
       remove.addEventListener('click', function () {
         if (container.children.length > 1) container.removeChild(row);
-        else { file.value = ''; col.value = ''; key.value = ''; }
+        else { file.value = ''; col.value = ''; key.value = ''; norm.checked = false; }
       });
       row.appendChild(fileLabel);
       row.appendChild(colLabel);
       row.appendChild(keyLabel);
+      row.appendChild(normLabel);
       row.appendChild(remove);
       container.appendChild(row);
     }
@@ -73,10 +80,11 @@
         var file = inputs[0].files && inputs[0].files[0];
         var column = inputs[1].value.trim();
         var key = inputs[2].value.trim();
+        var normalize = !!inputs[3].checked;
         if (!file && !column) continue;
         if (!file || !column) throw new Error('each held-out row needs both a file and a column name');
         var data = /\.xlsx$/i.test(file.name) ? await file.arrayBuffer() : await file.text();
-        specs.push({ name: file.name, column: column, key: key || undefined, data: data, file: file });
+        specs.push({ name: file.name, column: column, key: key || undefined, normalize: (key && normalize) || undefined, data: data, file: file });
       }
       return specs;
     }

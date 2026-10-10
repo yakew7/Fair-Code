@@ -952,7 +952,25 @@
   // parseHeldOut() applies the same checks as proxy.py's parse_held_out_specs,
   // including the optional join `key` (#822): rows are matched on that column
   // instead of by position.
-  function parseHeldOut(heldTable, column, table, already, key) {
+  // The column names a join key refers to: the key itself when it is a column, else the
+  // `+`-separated parts of a composite key when all are columns, else null. Mirrors
+  // faircode/proxy.py key_columns (#859).
+  function keyColumns(key, columns) {
+    if (columns.indexOf(key) !== -1) return [key];
+    var parts = key.split('+');
+    if (parts.length > 1 && parts.every(function (p) { return p && columns.indexOf(p) !== -1; })) return parts;
+    return null;
+  }
+
+  // Opt-in key normalisation: trim, lower-case, drop leading zeros of an all-digit value.
+  // Mirrors proxy.py normalize_key_text (#859).
+  function normalizeKeyText(value) {
+    var text = String(value).trim().toLowerCase();
+    if (/^[0-9]+$/.test(text)) text = text.replace(/^0+/, '') || '0';
+    return text;
+  }
+
+  function parseHeldOut(heldTable, column, table, already, key, normalize) {
     if (!column) throw new Error('held-out column name is required');
     if (heldTable.columns.indexOf(column) === -1) {
       throw new Error("held-out column '" + column + "' not found in the held-out file");
@@ -965,17 +983,22 @@
       throw new Error("held-out column '" + column + "' was already supplied");
     }
     if (key) {
-      if (table.columns.indexOf(key) === -1) {
+      var keyCols = keyColumns(key, table.columns);
+      if (keyCols === null) {
         throw new Error("join key '" + key + "' not found in the profiled dataset");
       }
-      if (heldTable.columns.indexOf(key) === -1) throw new Error("join key '" + key + "' not found in the held-out file");
+      if (!keyCols.every(function (c) { return heldTable.columns.indexOf(c) !== -1; })) {
+        throw new Error("join key '" + key + "' not found in the held-out file");
+      }
       var keyLabels = function (rows, what) {
         var seen = Object.create(null), labels = rows.map(function (r) {
-          var v = r[key];
-          if (v === null || v === undefined) {
-            throw new Error('join key ' + what + ' has empty values - keys must all be present');
-          }
-          v = String(v);
+          var v = keyCols.map(function (c) {
+            var cell = r[c];
+            if (cell === null || cell === undefined) {
+              throw new Error('join key ' + what + ' has empty values - keys must all be present');
+            }
+            return normalize ? normalizeKeyText(cell) : String(cell);
+          }).join('\u001f');
           if (seen[v]) throw new Error('join key ' + what + " has duplicate values (e.g. '" + v + "') - keys must be unique");
           seen[v] = 1;
           return v;
@@ -1046,7 +1069,7 @@
       else if (/\.json$/i.test(spec.name)) heldTable = parseJSON(spec.data);
       else heldTable = parseCSV(spec.data);
       try {
-        out[spec.column] = parseHeldOut(heldTable, spec.column, table, out, spec.key);
+        out[spec.column] = parseHeldOut(heldTable, spec.column, table, out, spec.key, spec.normalize);
       } catch (err) {
         if (sheetNote && heldTable.columns.indexOf(spec.column) === -1) {
           err.message += ' (' + sheetNote + ')';
@@ -1614,7 +1637,7 @@
                               // Opt-in, informational only (issue #738) - see
                               // proxyHints()'s own comment for why this is
                               // kept out of profile()/compare().
-                              proxyHints: proxyHints, proxyNotes: proxyNotes, proxyFamily: proxyFamily, parseHeldOut: parseHeldOut, buildHeldOut: buildHeldOut,
+                              proxyHints: proxyHints, proxyNotes: proxyNotes, normalizeKeyText: normalizeKeyText, proxyFamily: proxyFamily, parseHeldOut: parseHeldOut, buildHeldOut: buildHeldOut,
                               adjustPValues: adjustPValues,
                               csvField: csvField, csvRow: csvRow, provenanceCsv: provenanceCsv,
                               // publicParams: resolved knobs for an export's

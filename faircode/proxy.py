@@ -14,6 +14,7 @@ bit-for-bit identical. The result is attached to the profile under
 from __future__ import annotations
 
 import math
+import re
 
 import pandas as pd
 
@@ -115,16 +116,45 @@ def split_held_out_spec(spec, profiled_columns=None):
     key = _unescape_colons(after)
     if key == "":
         return path, column, ""
-    if profiled_columns is not None and key not in profiled_columns:
+    if profiled_columns is not None and key_columns(key, profiled_columns) is None:
         return path, _unescape_colons(rest), None
     return path, column, key
 
 
-def _key_labels(series, what, flag):
-    """Join-key values as strings, rejecting nulls and duplicates (#822)."""
-    if series.isna().any():
+def key_columns(key, columns):
+    """The column names a join key refers to: `[key]` when it is itself a column,
+    else the `+`-separated parts of a composite key (`id+visit`) when every part is
+    one, else None (#859)."""
+    if key in columns:
+        return [key]
+    parts = key.split("+")
+    if len(parts) > 1 and all(part and part in columns for part in parts):
+        return parts
+    return None
+
+
+_DIGITS_ONLY = re.compile(r"[0-9]+")
+
+
+def normalize_key_text(value):
+    """Opt-in key normalisation (#859): trim, lower-case, and drop leading zeros
+    from an all-digit value, so ` A1`/`a1` and `0042`/`42` match. Mirrored by
+    `normalizeKeyText` in assets/profiler-engine.js."""
+    text = str(value).strip().lower()
+    if _DIGITS_ONLY.fullmatch(text):
+        text = text.lstrip("0") or "0"
+    return text
+
+
+def _key_labels(frame, cols, what, flag, normalize=False):
+    """Join-key values as strings (composite keys joined on U+001F), rejecting
+    nulls and duplicates (#822, #859)."""
+    if frame[cols].isna().any().any():
         raise ValueError(f"{flag} join key {what} has empty values - keys must all be present")
-    labels = series.astype(str)
+    texts = frame[cols].astype(str)
+    if normalize:
+        texts = texts.apply(lambda col: col.map(normalize_key_text))
+    labels = texts.iloc[:, 0] if len(cols) == 1 else texts.agg("\x1f".join, axis=1)
     if labels.duplicated().any():
         dup = labels[labels.duplicated()].iloc[0]
         raise ValueError(f"{flag} join key {what} has duplicate values (e.g. '{dup}') - "
@@ -132,7 +162,8 @@ def _key_labels(series, what, flag):
     return labels
 
 
-def parse_held_out_specs(specs, df: pd.DataFrame, read_table, *, flag="--proxy-hints-with"):
+def parse_held_out_specs(specs, df: pd.DataFrame, read_table, *, flag="--proxy-hints-with",
+                         normalize_keys=False):
     """Parse repeated PATH=COLUMN[:KEY] specs into a {column: pandas.Series} map
     aligned to `df`'s index, for proxy_hints()'s `held_out` param. Shared by
     the CLI's `--proxy-hints-with` and the MCP `proxy_hints` tool's
@@ -147,7 +178,9 @@ def parse_held_out_specs(specs, df: pd.DataFrame, read_table, *, flag="--proxy-h
     rows are matched on that column instead (#822): the key must exist in both
     files, be unique and non-empty in both, and every key in `df` must be in the
     held-out file (extra held-out rows are ignored), so a re-sorted or filtered
-    export still lines up.
+    export still lines up. The key may be composite (`PATH=COLUMN:id+visit`), and
+    `normalize_keys` makes the comparison tolerant of case, surrounding spaces and
+    leading zeros (#859); both stay off by default so matching is exact.
     """
     held_out = {}
     for spec in specs or []:
@@ -166,12 +199,13 @@ def parse_held_out_specs(specs, df: pd.DataFrame, read_table, *, flag="--proxy-h
                 f"{flag} column '{column}' was already supplied by an earlier "
                 f"{flag} spec - held-out columns must not collide with each other")
         if key is not None:
-            if key not in df.columns:
+            cols = key_columns(key, df.columns)
+            if cols is None:
                 raise ValueError(f"{flag} join key '{key}' not found in the profiled dataset")
-            if key not in held_df.columns:
+            if not all(c in held_df.columns for c in cols):
                 raise ValueError(f"{flag} join key '{key}' not found in {path}")
-            df_keys = _key_labels(df[key], f"'{key}' in the profiled dataset", flag)
-            held_keys = _key_labels(held_df[key], f"'{key}' in {path}", flag)
+            df_keys = _key_labels(df, cols, f"'{key}' in the profiled dataset", flag, normalize_keys)
+            held_keys = _key_labels(held_df, cols, f"'{key}' in {path}", flag, normalize_keys)
             lookup = pd.Series(held_df[column].to_numpy(), index=held_keys.to_numpy())
             missing = ~df_keys.isin(lookup.index)
             if missing.any():

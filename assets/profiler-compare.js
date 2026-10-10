@@ -812,7 +812,12 @@
     var out = [];
     for (var i = 0; i < specs.length; i++) {
       var h = await fileDigest(specs[i].file);
-      var entry = { path: specs[i].name, column: specs[i].column, sha256: h.digest };
+      var entry = { path: specs[i].name, column: specs[i].column };
+      if (specs[i].key) {
+        entry.key = specs[i].key;
+        if (specs[i].normalize) entry.key_normalize = true;
+      }
+      entry.sha256 = h.digest;
       if (h.note !== null) entry.sha256_note = h.note;
       out.push(entry);
     }

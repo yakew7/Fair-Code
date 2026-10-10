@@ -1013,6 +1013,7 @@ faircode profile data.csv --reference census.csv   # score vs a population basel
 faircode profile data.csv --proxy-hints            # chi-squared proxy hints (needs scipy)
 faircode profile dropped.csv --proxy-hints --proxy-hints-with full.csv=race  # test a column you already removed
 faircode profile dropped.csv --proxy-hints --proxy-hints-with full.csv=race:id  # ...matching rows on an id column, not by position
+faircode profile dropped.csv --proxy-hints --proxy-hints-with full.csv=race:id+visit --proxy-key-normalize  # composite key, ignoring case/spaces/leading zeros
 faircode profile data.csv --min-share 0.1          # tune the flagging thresholds
 faircode profile data.csv --json --no-provenance   # drop the run-metadata block
 ```
