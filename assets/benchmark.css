@@ -149,7 +149,8 @@
 .bench-sig-no { color: var(--muted); }
 
 .bench-chart-block { margin-top: 8px; margin-bottom: 32px; }
-.bar-fill.bad { background: var(--accent); }
+.bar-fill.bad { background: var(--accent);
+  background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.45) 0 2px, transparent 2px 6px); }
 .bar-fill.good { background: var(--accent3); }
 
 .bench-small-badge { color: var(--warn); font-size: 11px; white-space: nowrap; }

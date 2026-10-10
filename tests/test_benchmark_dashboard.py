@@ -252,7 +252,7 @@ var results = {};
     pick('metric', 'demographic_parity_diff');
     pick('protected_attribute', 'race');
     results.themes = {};
-    ['page', 'light', 'dark', 'transparent'].forEach(function (theme) {
+    ['page', 'light', 'dark', 'transparent', 'colorblind'].forEach(function (theme) {
       elements.benchChartThemeSelect.value = theme;
       lastBlob = null;
       elements.benchChartSvgBtn.click();
@@ -678,3 +678,21 @@ def test_benchmark_dashboard_significance_toggle_is_per_tab():
     assert r["fairness_checked_again"] is True
     assert r["fairness_text_again"].startswith(f"{sig_fair:,} of")
     assert r["summary_still_checked"] is True
+
+
+def test_benchmark_dashboard_chart_does_not_rely_on_colour_alone():
+    """#865: significant bars are hatched in every export theme, and a colour-blind
+    safe palette is offered; the on-screen bars carry the same hatch."""
+    themes = _run_dom_stub("", mode="chart-theme")["themes"]
+    for name in ("light", "dark", "transparent", "colorblind", "page"):
+        svg = themes[name]
+        assert '<pattern id="hatch"' in svg, name
+        assert svg.count('fill="url(#hatch)"') >= 1, name
+    cb = themes["colorblind"]
+    assert 'fill="#d55e00"' in cb and 'fill="#0072b2"' in cb
+    assert "#a63a22" not in cb and "#2f6b4f" not in cb
+
+    css = (REPO_ROOT / "assets" / "benchmark.css").read_text(encoding="utf-8")
+    assert ".bar-fill.bad" in css and "repeating-linear-gradient" in css
+    html = (REPO_ROOT / "benchmark.html").read_text(encoding="utf-8")
+    assert '<option value="colorblind"' in html

@@ -516,7 +516,10 @@
     light: { bg: '#f4f1e8', text: '#36321f', muted: '#7d7459', track: '#e2dcc9',
              axis: '#bdb59c', bad: '#a63a22', good: '#2f6b4f' },
     dark: { bg: '#15130d', text: '#cfc7b0', muted: '#8d8367', track: '#242013',
-            axis: '#443e2d', bad: '#cf6f49', good: '#79b294' }
+            axis: '#443e2d', bad: '#cf6f49', good: '#79b294' },
+    // Okabe-Ito vermillion / blue: distinguishable under red-green colour blindness (#865).
+    colorblind: { bg: '#f4f1e8', text: '#36321f', muted: '#7d7459', track: '#e2dcc9',
+                  axis: '#bdb59c', bad: '#d55e00', good: '#0072b2' }
   };
 
   // The palette the on-screen chart is using right now, read from the page's
@@ -539,7 +542,7 @@
   // theme: 'page' (default - match what is on screen), 'light', 'dark', or
   // 'transparent' (light ink, no background rect, for dropping onto a slide).
   function chartPalette(theme) {
-    if (theme === 'light' || theme === 'dark') return CHART_PALETTES[theme];
+    if (theme === 'light' || theme === 'dark' || theme === 'colorblind') return CHART_PALETTES[theme];
     if (theme === 'transparent') return Object.assign({}, CHART_PALETTES.light, { bg: null });
     return pagePalette();
   }
@@ -550,6 +553,10 @@
     var c = chartPalette(theme);
     var out = '<svg xmlns="http://www.w3.org/2000/svg" width="' + W + '" height="' + H +
       '" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-labelledby="t"><title id="t">' + svgEsc(title) + '</title>' +
+      // Significant ("bad") bars are hatched as well as coloured, so they stay distinct
+      // without relying on hue alone (WCAG 1.4.1, #865).
+      '<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">' +
+        '<line x1="0" y1="0" x2="0" y2="6" stroke="#fff" stroke-opacity="0.55" stroke-width="2"/></pattern></defs>' +
       (c.bg ? '<rect width="100%" height="100%" fill="' + svgEsc(c.bg) + '"/>' : '') +
       '<text x="12" y="22" font-family="monospace" font-size="13" fill="' + svgEsc(c.text) + '">' + svgEsc(title) + '</text>';
     if (model.signed) {
@@ -565,6 +572,9 @@
         '<rect x="' + LABEL_W + '" y="' + (y + 3) + '" width="' + TRACK_W + '" height="14" rx="3" fill="' + svgEsc(c.track) + '"/>' +
         '<rect x="' + x.toFixed(1) + '" y="' + (y + 3) + '" width="' + w.toFixed(1) + '" height="14" rx="3" fill="' +
         svgEsc(bar.cls === 'bad' ? c.bad : c.good) + '"' + (bar.neg ? ' opacity="0.75"' : '') + '/>' +
+        (bar.cls === 'bad'
+          ? '<rect x="' + x.toFixed(1) + '" y="' + (y + 3) + '" width="' + w.toFixed(1) + '" height="14" rx="3" fill="url(#hatch)"/>'
+          : '') +
         '<text x="' + (LABEL_W + TRACK_W + 10) + '" y="' + (y + 14) + '" font-family="monospace" font-size="11" fill="' + svgEsc(c.muted) + '">' +
         (bar.value === null ? 'n/a' : bar.value.toFixed(4)) + '</text>';
     });
