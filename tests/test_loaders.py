@@ -3,8 +3,10 @@
 Run from the repo root:  pytest tests/ -q
 """
 
+import gc
 import importlib.util
 import json
+import warnings
 
 import pandas as pd
 import pytest
@@ -202,6 +204,30 @@ def test_get_xlsx_sheet_info_returns_none_for_a_corrupt_xlsx_file(tmp_path):
     path.write_bytes(b"not a real xlsx file")
 
     assert get_xlsx_sheet_info(str(path)) is None
+
+
+@requires_openpyxl
+def test_get_xlsx_sheet_info_closes_the_workbook(tmp_path):
+    # Listing sheet names must not leak the workbook's file handle: an unclosed
+    # handle raises a ResourceWarning on garbage collection and, on Windows,
+    # keeps the file locked against deletion or overwrite (#1051).
+    path = tmp_path / "multi.xlsx"
+    with pd.ExcelWriter(path) as writer:
+        pd.DataFrame(ROWS).to_excel(writer, sheet_name="First", index=False)
+        pd.DataFrame(ROWS).to_excel(writer, sheet_name="Second", index=False)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        info = get_xlsx_sheet_info(str(path))
+        gc.collect()
+
+    assert info == ("First", ["Second"])
+    unclosed = [
+        w
+        for w in caught
+        if issubclass(w.category, ResourceWarning) and "unclosed" in str(w.message)
+    ]
+    assert not unclosed, f"workbook left open: {[str(w.message) for w in unclosed]}"
 
 
 def test_read_table_unknown_extension_sniffs_tabs(tmp_path):

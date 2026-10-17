@@ -19,7 +19,9 @@ All notable changes to Fair Code are documented here, newest first.
 
 ## [Unreleased]
 
-Nothing yet. Changes made after 2.3.0 are listed here until the next release.
+### Fixed
+
+- `get_xlsx_sheet_info` now closes the workbook it opens to list sheet names, rather than leaking the file handle. The unclosed handle raised a `ResourceWarning` on garbage collection and, on Windows, kept the `.xlsx` locked against deletion or overwrite ([#1051](https://github.com/yakew7/Fair-Code/issues/1051)).
 
 ## [2.3.0] - 17 Oct 2026
 

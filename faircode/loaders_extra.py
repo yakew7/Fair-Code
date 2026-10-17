@@ -172,12 +172,13 @@ def get_xlsx_sheet_info(path: str) -> tuple[str, list[str]] | None:
     if Path(path).suffix.lower() != ".xlsx":
         return None
     try:
-        book = pd.ExcelFile(path)
+        with pd.ExcelFile(path) as book:
+            sheet_names = book.sheet_names
     except Exception:
         return None
-    if not book.sheet_names:
+    if not sheet_names:
         return None
-    return book.sheet_names[0], book.sheet_names[1:]
+    return sheet_names[0], sheet_names[1:]
 
 
 # Binary table formats that never decode as text, so an explicit text encoding
