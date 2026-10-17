@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .profiler import MAX_AGE, _age_band, _age_numbers, _is_categorical_age_sentinel, _looks_like_dates
+from .profiler import KEY_TRIM_CHARS, MAX_AGE, _age_band, _age_numbers, _is_categorical_age_sentinel, _looks_like_dates
 
 PROXY_ALPHA = 0.05
 
@@ -277,12 +277,6 @@ def key_columns(key, columns):
 
 _DIGITS_ONLY = re.compile(r"[0-9]+")
 _WHOLE_FLOAT = re.compile(r"([0-9]+)\.0+")
-
-
-# The characters trimmed from both ends of a key: the Unicode White_Space set plus U+FEFF
-# (a BOM that survived in a first cell), spelled out so Python's str.strip() and JS's
-# String.prototype.trim() cannot drift apart (#897). The same list is in profiler-engine.js.
-KEY_TRIM_CHARS = "\t\n\v\f\r \x85\xa0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
 
 
 def normalize_key_text(value):

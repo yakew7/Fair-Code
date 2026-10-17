@@ -27,6 +27,9 @@ MIN_GROUP_SIZE = 100  # warn when a subgroup has fewer than N rows (default: 100
 MAX_AGE = 120  # numeric ages above this are reported as implausible, not banded (SPEC 2)
 BIRTH_YEAR_MIN = 1900  # with age_reference_year, whole numbers from here up to it are birth years
 
+# Shared with proxy join keys; matches KEY_TRIM in profiler-engine.js.
+KEY_TRIM_CHARS = "\t\n\v\f\r \x85\xa0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff"
+
 # ASCII digits only, like the JS engine (#836): Python's `\d` also matches
 # Arabic-Indic/fullwidth digits, which the browser regex does not.
 _DATE_RE = re.compile(r"[0-9]{1,4}[/-][0-9]{1,2}[/-][0-9]{1,4}")
@@ -442,7 +445,16 @@ def _build_flags(dimensions: list[dict], intersections: list[dict],
                  max_age=MAX_AGE) -> list[str]:
     flags: list[str] = []
     for d in dimensions:
+        folded_labels = {}
         for g in d["groups"]:
+            folded = g["label"].strip(KEY_TRIM_CHARS).casefold()
+            if folded in folded_labels:
+                flags.append(
+                    f"{d['name']}: '{folded_labels[folded]}' and '{g['label']}' "
+                    "differ only in case or spacing"
+                )
+            else:
+                folded_labels[folded] = g["label"]
             if g["label"] in d["under_represented"]:
                 flags.append(
                     f"{d['name']}: '{g['label']}' is under-represented "

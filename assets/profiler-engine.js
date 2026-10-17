@@ -1628,7 +1628,15 @@
     if (maxAge === undefined) maxAge = MAX_AGE;
     var flags = [];
     dimensions.forEach(function (d) {
+      var foldedLabels = Object.create(null);
       d.groups.forEach(function (g) {
+        var folded = foldKeyCase(g.label.replace(KEY_TRIM, ''));
+        if (Object.prototype.hasOwnProperty.call(foldedLabels, folded)) {
+          flags.push(d.name + ": '" + foldedLabels[folded] + "' and '" + g.label +
+                     "' differ only in case or spacing");
+        } else {
+          foldedLabels[folded] = g.label;
+        }
         if (d.under_represented.indexOf(g.label) !== -1) {
           flags.push(d.name + ": '" + g.label + "' is under-represented (" +
                      (g.share * 100).toFixed(1) + '%)');
