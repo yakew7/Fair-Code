@@ -905,8 +905,9 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 "warning: "
                 + ", ".join(overridden)
-                + " differs from the frozen paper-run default (2000); "
-                "output will not match the frozen paper reference.",
+                + " differs from the default (2000); the numbers will not match "
+                "the published results in results/ or the reference snapshot in "
+                "paper/results-frozen/.",
                 file=sys.stderr,
             )
 

@@ -1035,7 +1035,11 @@ def test_cli_benchmark_paper_drift_warning_on_overrides(monkeypatch, tmp_path, c
 
     assert exit_code == 0
     captured = capsys.readouterr()
-    assert "warning: --n-resamples=50, --n-permutations=50 differs from the frozen paper-run default (2000)" in captured.err
+    assert (
+        "warning: --n-resamples=50, --n-permutations=50 differs from the default (2000); "
+        "the numbers will not match the published results in results/ or the reference "
+        "snapshot in paper/results-frozen/." in captured.err
+    )
     assert f"Ran 1 audit(s), wrote 1 fairness rows and 1 performance rows to {out_dir}/" in captured.err
 
 
