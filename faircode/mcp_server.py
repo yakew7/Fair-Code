@@ -496,6 +496,8 @@ def _get_benchmark_results_impl(kind="fairness", audit=None, model=None, strateg
             f"{path} not found - restore the package mirror from paper/results-frozen/ "
             "with `scripts.freeze_paper_results.mirror_for_mcp()`")
     df = pd.read_csv(path)
+    source = df
+    notes = []
     for column, value in (("audit", audit), ("model", model), ("strategy", strategy),
                           ("metric", metric), ("protected_attribute", protected_attribute)):
         if value is None:
@@ -508,6 +510,21 @@ def _get_benchmark_results_impl(kind="fairness", audit=None, model=None, strateg
                 f"(available: {', '.join(df.columns)}); it cannot be used as a "
                 f"filter for this kind"
             )
+        # A value that matches none of the column's values (e.g. the lowercase
+        # audit names mean audit="COMPAS" finds nothing) otherwise returns an
+        # empty result an agent can misread as "no data" (#1041). Name the valid
+        # values, and point out a case-only mismatch, without failing the call.
+        valid = source[column].dropna().unique().tolist()
+        if value not in valid:
+            available = ", ".join(str(v) for v in sorted(valid, key=str))
+            hint = ""
+            if isinstance(value, str):
+                case_match = [v for v in valid
+                              if isinstance(v, str) and v.lower() == value.lower()]
+                if case_match:
+                    hint = (f" (values are case-sensitive; "
+                            f"did you mean {case_match[0]!r}?)")
+            notes.append(f"{column} {value!r} not found; available: {available}{hint}")
         df = df[df[column] == value]
     total = len(df)
     for column in _RESULTS_NUMERIC_COLUMNS:
@@ -515,7 +532,10 @@ def _get_benchmark_results_impl(kind="fairness", audit=None, model=None, strateg
             df[column] = df[column].round(_RESULTS_ROUND_DECIMALS)
     head = df.head(_RESULTS_ROW_LIMIT).astype(object)
     rows = head.where(head.notna(), None).to_dict(orient="records")
-    return {"results": rows, "total_matches": total, "truncated": total > len(rows)}
+    result = {"results": rows, "total_matches": total, "truncated": total > len(rows)}
+    if notes:
+        result["notes"] = notes
+    return result
 
 
 def build_server():
@@ -801,6 +821,11 @@ def build_server():
         kind="performance") raises an error rather than being silently
         ignored, so a mistaken filter can't come back looking like an
         unfiltered result.
+
+        Filter values are matched case-sensitively and the audit names are
+        lowercase (e.g. "compas"), so a value that matches nothing returns an
+        empty result with a `notes` entry naming that column's valid values,
+        rather than a bare empty result a caller could misread as "no data."
 
         Returns {"results": [...], "total_matches": N, "truncated": bool} -
         results are capped at 200 rows even when more match, so narrow the

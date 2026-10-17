@@ -550,7 +550,32 @@ def test_get_benchmark_results_rounds_float_precision():
 def test_get_benchmark_results_no_match_returns_empty_not_an_error():
     result = _get_benchmark_results_impl(audit="not_a_real_audit")
 
-    assert result == {"results": [], "total_matches": 0, "truncated": False}
+    assert result["results"] == []
+    assert result["total_matches"] == 0
+    assert result["truncated"] is False
+    # An unmatched filter value names that column's valid values so the empty
+    # result can't be misread as "no data" (#1041).
+    assert result["notes"] == [
+        "audit 'not_a_real_audit' not found; available: ai_fair_recruitment, "
+        "benefits_denial, compas, german_credit_lending, healthcare_readmission, "
+        "insurance_denial, tenant_screening"
+    ]
+
+
+def test_get_benchmark_results_case_mismatch_hints_the_right_value():
+    # Audit names are lowercase, so audit="COMPAS" matches nothing; the note
+    # should point out the case-only mismatch rather than looking like no data (#1041).
+    upper = _get_benchmark_results_impl(audit="COMPAS")
+    assert upper["total_matches"] == 0
+    assert len(upper["notes"]) == 1
+    note = upper["notes"][0]
+    assert note.startswith("audit 'COMPAS' not found; available:")
+    assert "did you mean 'compas'?" in note
+
+    # The exact (lowercase) value still matches and carries no note.
+    lower = _get_benchmark_results_impl(audit="compas")
+    assert lower["total_matches"] > 0
+    assert "notes" not in lower
 
 
 def test_get_benchmark_results_invalid_kind_raises():
