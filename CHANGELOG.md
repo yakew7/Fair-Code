@@ -21,6 +21,11 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Added
 
+- `scripts/draft_metrics_row.py` (#1242) prints the next weekly METRICS.md row from GitHub; `make traction-live`, `make contributors-commits`, `make contributors-pending` and `make metrics-row` (#1246, #1242).
+- `check_contributors.py --identities` (#1236), `--fix --commits` (#1235) and `COMMIT_EXCEPTIONS` for contributors no GitHub API counts (#1234); ten git author names added to the Git identity map.
+- `update_weekly_issue.py --dry-run` (#1245), a label per report (#1241) and a failing job with an error annotation when the check could not run (#1244).
+- `scripts/external-links-ignore.txt` accepts `host:example.com` entries (#1233); the link checker retries a transient 429 or 5xx once and limits requests per host (#1231).
+- `check_issue_refs.py` reads `Closes #N` lines from the commits ahead of `origin/main` (#1240).
 - `scripts/check_contributors.py` (#1149): compares every CONTRIBUTORS.md entry's merged PR count and first-merged date with `gh pr list --state merged` up to the snapshot PR, checks the file's order rule and lists merged-PR authors with no entry; `--prs FILE` works offline. Runs in `make lint`.
 - `scripts/check_traction.py --live` (#1148) compares stars, forks, watchers and contributors with GitHub, and a weekly `traction-live` workflow keeps one issue up to date.
 - `scripts/external-links-ignore.txt` (#1174): URLs the link check does not request, each with a reason, counted as "ignored" in the report.
@@ -35,6 +40,9 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Changed
 
+- The link checker keeps balanced parentheses in a URL (#1229); the top-level docs link the current address of the moved links (#1230); the LinkedIn profile link is ignored (#1232).
+- `check_explainer_count.py` also checks the Explainers column of ROADMAP's traction table, which now reads 114 (#1243).
+- The stale console script test appends site-packages after the standard library (#1239).
 - `scripts/generate_og_images.py` skips a card whose PNG already exists (#1144), so adding one explainer writes only its two images.
 - The Tenant Screening dataset link in the README points at the NIJ Recidivism Forecasting Challenge page (#1175, #1186).
 - `scripts/diff_results.py` reports a withheld ratio as `withheld`, with the benchmark's reason, instead of `n/a` (#1132).

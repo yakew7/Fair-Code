@@ -27,7 +27,7 @@ Fair Code is an open-source responsible AI platform explaining algorithmic bias,
 
 | Stars | Contributors | Forks | Watching | Social Reach | Countries | Audits | Explainers | CI |
 |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| 54 | 58 | 67 | 8 | 30K+ | 20 | 7 | 114 | ✅ every push/PR |
+| 55 | 58 | 68 | 8 | 30K+ | 20 | 7 | 114 | ✅ every push/PR |
 
 > The earlier paper freeze has lifted - the real paper, with fresh results, is now planned for next
 > year. `paper/results-frozen/` (tag `v1.0-paper`, commit `bbef2ba`) is kept as a reference snapshot.
@@ -253,7 +253,9 @@ Go deeper on measurement - fairness dashboards, interactive notebooks, and stati
 - [x] Tooling and tests for the results workflow: `scripts/diff_results.py` (#1065) with `--audit` and `--summary` (#1081), `get_benchmark_results` with a `source` argument (#1049) and its README parameters (#1082), a public `load_audit()` helper (#1078), browser tests for the flag caps (#1080), an opt-in `benchmark-diff` workflow for lockfile bumps (#1079), grouped Dependabot updates (#1069), a check that README and `llms.txt` list every explainer (#1077), 1904-system XLSX dates (#1076), and the no-op `frozen-files` workflow removed (#1061)
 - [x] Metrics, SEO and test hardening: no `disparate_impact_ratio` when the advantaged group is almost never selected (#1094), page titles and meta descriptions within search limits (#1104, #1105), a Limitations section and two inbound links for every explainer (#1107, #1108), and the explainer build tested end to end (#1110)
 - [x] Tooling sweep: an ignore list for links the external-link check cannot verify (#1174), the dead NIJ dataset link (#1175, #1186), OG images that are no longer rewritten on another machine (#1144), `scripts/check_contributors.py` (#1149) and `check_traction.py --live` with a weekly workflow (#1148)
-- [ ] Tooling follow-ups: a failing generated-files test on a clean checkout (#1192), stale ignore entries and a shared retry path in the link check (#1193, #1194, #1196), archive lookups for 403 links (#1195), OG card inputs (#1197, #1198), contributor checks (#1199, #1200, #1201), traction and METRICS (#1202), partial benchmark reruns, progress and convergence tests (#1203, #1204, #1205), workflow docs, templates and tests (#1206, #1207, #1209, #1210) and a dataset-link check (#1208)
+- [x] Tooling follow-ups: a failing generated-files test on a clean checkout (#1192), stale ignore entries and a shared retry path in the link check (#1193, #1194, #1196), archive lookups for 403 links (#1195), OG card inputs (#1197, #1198), contributor checks (#1199, #1200, #1201), traction and METRICS (#1202), partial benchmark reruns, progress and convergence tests (#1203, #1204, #1205), workflow docs, templates and tests (#1206, #1207, #1209, #1210) and a dataset-link check (#1208)
+- [x] Link checker, contributor and weekly-report tooling: balanced parentheses in a URL, a retry for transient answers, a host ignore entry and the LinkedIn link (#1229, #1231, #1232, #1233), moved links in the top-level docs (#1230), the contributors checker's exceptions, `--fix --commits` and identity check (#1234, #1235, #1236), local `Closes` lines in `check_issue_refs.py` (#1240), weekly report labels, `--dry-run` and a failing job when the check could not run (#1241, #1244, #1245), `scripts/draft_metrics_row.py` (#1242), Makefile targets for the opt-in checks (#1246), the ROADMAP explainer count (#1243) and the stale-script test (#1239)
+- [ ] Tooling follow-ups, round two: the environment doctor, commit-data reuse, entry stubs and base-branch handling (#1247, #1248, #1249, #1250), `draft_metrics_row.py` follow-ups (#1251, #1252, #1262), gh wrapper tests and link-checker options (#1253, #1254, #1255), test suite speed (#1256), checker robustness and docs (#1257, #1258, #1259, #1260, #1261); the benchmark convergence and run-time issues (#1237, #1238) wait until the audits are rerun
 
 ---
 

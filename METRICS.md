@@ -2,9 +2,9 @@
 
 # Fair Code - Metrics Tracker
 
-![Stars](https://img.shields.io/badge/Stars-54-brightgreen?style=flat-square&logo=github)
+![Stars](https://img.shields.io/badge/Stars-55-brightgreen?style=flat-square&logo=github)
 ![Contributors](https://img.shields.io/badge/Contributors-58-blue?style=flat-square)
-![Forks](https://img.shields.io/badge/Forks-67-orange?style=flat-square)
+![Forks](https://img.shields.io/badge/Forks-68-orange?style=flat-square)
 ![Watching](https://img.shields.io/badge/Watching-8-yellow?style=flat-square)
 ![Explainers](https://img.shields.io/badge/Explainers-114-blueviolet?style=flat-square)
 ![Countries](https://img.shields.io/badge/Countries-20-informational?style=flat-square)
@@ -48,7 +48,7 @@ Weekly snapshot of project health. Updated every Friday.
 | 2026-W41 | 49 | 55 | 8 | 50 | 30K+ total | 20 | 72 | 7 total |
 | 2026-W42 | 51 | 58 | 8 | 53 | 30K+ total | 20 | 123 | 7 total |
 | 2026-W43 | 53 | 64 | 8 | 55 | 30K+ total | 20 | 76 | 7 total |
-| 2026-W44 | 54 | 67 | 8 | 58 | 30K+ total | 20 | 7 | 7 total |
+| 2026-W44 | 55 | 68 | 8 | 58 | 30K+ total | 20 | 50 | 7 total |
 
 > **2026-W27 - v1.2.0 shipped:** Open Dataset Profiler (CLI + client-side web tool) released; 23 explainers total.
 >
@@ -131,14 +131,16 @@ Weekly snapshot of project health. Updated every Friday.
 > **2026-W43 (Saturday) - the thirteenth sweep: fourteen issues fixed and six new explainers:** the explainers now ship the code they quote as `explainers/code/<slug>.py` (#1125), `results/PROVENANCE.json` records what produced `results/` and `diff_results.py` reads it (#1129), shows withheld ratios as withheld (#1132) and takes `--limit` (#1131), `AuditData.group()` replaces the hand-written masks (#1133), a weekly workflow reports dead external links (#1127), the dead links and a stray "coming soon" are fixed (#1126, #1128), the structure check has no known exceptions left (#1130), numeric `.xlsx` and JSON column labels are text in Python as in the web engine (#1045), and JSON `"NA"` and `""` are values in the web engine as in Python (#1036). Two explainer issues shipped six explainers (#1137 AUC gaps by group, decision curve analysis by group, cost-sensitive evaluation; #1134 popularity bias, two-sided fairness, position bias and click models), each run on a repo audit; explainer count `108 → 114`. Stars `52 → 53` (live GitHub numbers); forks and contributors unchanged at 64 and 55. Issues closed (76) is the 62 closed since 2026-10-19 plus the fourteen this batch closes on merge.
 >
 > **2026-W44 (Tuesday) - the fourteenth sweep: tooling and contributor records:** six issues fixed - an ignore list for the external-link check (#1174), the dead NIJ dataset link (#1175, #1186), OG images that are not rewritten when they already exist (#1144), `scripts/check_contributors.py` (#1149) and `check_traction.py --live` with a weekly workflow (#1148). #1152 (logistic regression convergence) was closed as not planned for now, with the audits left alone. `--live` found the traction figures a few days behind GitHub, so stars `53 → 54`, forks `64 → 67` and contributors `55 → 58` are now the live numbers. CONTRIBUTORS.md is updated through PR #1191 with three new contributors (@bfs2021, @d4rshnn, @mohakmanjrekar) and new counts for @dxnnystyles (3 → 15 PRs) and @minutechreview (10 → 13). Nineteen new tooling issues are open (#1192-#1210), three of them pinned. Issues closed (7) counts the issues closed since 2026-10-26.
+>
+> **2026-W44 (Sunday) - the fifteenth sweep: sixteen tooling issues fixed:** the link checker keeps balanced parentheses in a URL (#1229), retries a transient 429 or 5xx once and limits requests per host (#1231), can ignore a whole host (#1233) and the LinkedIn 999 profile link (#1232), and the moved links in the top-level docs are replaced (#1230). The contributors checker excuses the three people no GitHub API counts (#1234), refreshes commit counts and the snapshot line with `--fix --commits` (#1235) and checks every commit author against the identity map (#1236, ten authors added). `check_issue_refs.py` reads `Closes #N` from local commits (#1240), the weekly report issues get their own labels (#1241), a `--dry-run` (#1245) and a failing job when the check could not run (#1244), `scripts/draft_metrics_row.py` drafts this table's row (#1242), the Makefile has targets for the opt-in checks (#1246), ROADMAP's explainer count is checked and now reads 114 (#1243), and the stale-script test no longer trips over an old `pathlib.py` in site-packages (#1239). #1237 and #1238 (benchmark convergence and the in-processing run time) were left open: they mean rerunning audits. CONTRIBUTORS.md is updated through PR #1228 with new counts for @dxnnystyles (15 → 24 PRs), @minutechreview (13 → 18) and @Aaqibhafeezkhan (3 → 4). Stars `54 → 55` and forks `67 → 68` (live GitHub numbers); contributors unchanged at 58. Issues closed (50) is the 34 closed since 2026-10-26 plus the sixteen this batch closes on merge. Sixteen new tooling issues are open (#1247-#1262), three of them pinned.
 ---
 
 ## Targets
 
 | Metric | Current | Target | Timeline |
 |--------|--------:|-------:|----------|
-| Stars | 54 | 50+ | End of 2026 |
-| Forks | 67 | 75+ | End of 2026 |
+| Stars | 55 | 50+ | End of 2026 |
+| Forks | 68 | 75+ | End of 2026 |
 | Watching | 8 | 12+ | End of 2026 |
 | Contributors | 58 | 20+ | End of 2026 |
 | Social reach | 30K+ | 40K+ | End of 2026 |

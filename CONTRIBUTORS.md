@@ -34,7 +34,7 @@ ordered by merged PR count, most first - ties broken by commit count, then by ea
 date. Within each entry, the PR numbers link the claim to the actual diff, so nothing here is an
 unverifiable "thanks to".
 
-**Snapshot:** 2026-10-27, covering everything merged through **PR #1191**.
+**Snapshot:** 2026-10-30, covering everything merged through **PR #1228**.
 Anything merged after that date is real and welcome, but is not yet reflected here - the
 [contributors graph](https://github.com/yakew7/Fair-Code/graphs/contributors) is always the live
 source of truth, and the `contrib.rocks` grid above regenerates from it automatically.
@@ -129,11 +129,27 @@ Most recently, documentation sync PRs for [SPEC.md](faircode/SPEC.md) ([#477](ht
 
 ### dxnnystyles - [@dxnnystyles](https://github.com/dxnnystyles)
 
-**15 merged PRs · 16 commits · first merged 2026-10-22**
+**24 merged PRs · 26 commits · first merged 2026-10-22**
 
 Fixed three small input and wording problems found by reading error messages: flags now say `1 row` instead of `1 rows` in both the Python and JavaScript engines ([#1121](https://github.com/yakew7/Fair-Code/pull/1121), closing issue #1106), `load_audit` names the manifest path it tried, lists nearby audit folders and suggests close matches ([#1123](https://github.com/yakew7/Fair-Code/pull/1123), closing issue #1112), and `profile()` and `compare()` raise a clear `TypeError` for the wrong kind of input ([#1124](https://github.com/yakew7/Fair-Code/pull/1124), closing issue #1113).
 
 Then a run of test coverage and fixes across the tooling: tests for the `check_em_dash.py` failure and skip paths, the weekly traction parsing and item counts, the explainer-count checker and the issue-reference checker ([#1159](https://github.com/yakew7/Fair-Code/pull/1159), [#1161](https://github.com/yakew7/Fair-Code/pull/1161), [#1163](https://github.com/yakew7/Fair-Code/pull/1163), [#1187](https://github.com/yakew7/Fair-Code/pull/1187)); a console-script smoke test that uses a checkout ([#1160](https://github.com/yakew7/Fair-Code/pull/1160)); generated-file checks that include unstaged assets ([#1162](https://github.com/yakew7/Fair-Code/pull/1162)); separate concurrency groups for the benchmark smoke and rerun jobs ([#1164](https://github.com/yakew7/Fair-Code/pull/1164)); a guard so a subset benchmark cannot overwrite other audits' results ([#1165](https://github.com/yakew7/Fair-Code/pull/1165)); actionable errors for missing manifest keys and dataset columns ([#1188](https://github.com/yakew7/Fair-Code/pull/1188)); keyboard-scrollable explainer code blocks ([#1189](https://github.com/yakew7/Fair-Code/pull/1189)); better external link verification ([#1190](https://github.com/yakew7/Fair-Code/pull/1190)); and a note on the optional dependency lock exclusions ([#1191](https://github.com/yakew7/Fair-Code/pull/1191)).
+
+Then the weekly-report tooling and its tests: issues closed in the live traction check ([#1216](https://github.com/yakew7/Fair-Code/pull/1216)), `--fix` for the contributors checker ([#1217](https://github.com/yakew7/Fair-Code/pull/1217)), enforced safeguards for scheduled workflows ([#1218](https://github.com/yakew7/Fair-Code/pull/1218)), benchmark progress reporting ([#1219](https://github.com/yakew7/Fair-Code/pull/1219)), a workflows reference ([#1220](https://github.com/yakew7/Fair-Code/pull/1220)), stale ignore entries in the link report ([#1221](https://github.com/yakew7/Fair-Code/pull/1221)), tests for the weekly issue helpers ([#1223](https://github.com/yakew7/Fair-Code/pull/1223)), a guard against audit drift in the social cards ([#1224](https://github.com/yakew7/Fair-Code/pull/1224)) and `--merge` for selected audits in benchmark results ([#1225](https://github.com/yakew7/Fair-Code/pull/1225)).
+
+### Rayan Abdul Cader - [@minutechreview](https://github.com/minutechreview)
+
+**18 merged PRs · 19 commits · first merged 2026-10-07**
+
+Documented the MCP tools' `alpha`, `correction`, `held_out_with_a`/`held_out_with_b` and `format` parameters, with their defaults and error behaviour taken from the code and its tests, in SPEC.md section 11 ([#851](https://github.com/yakew7/Fair-Code/pull/851), closing issue #815) and as a table in the README ([#852](https://github.com/yakew7/Fair-Code/pull/852), closing issue #818), and made `.xls`, `.ods` and other known binary formats fail with "unsupported format" instead of blaming the encoding ([#1034](https://github.com/yakew7/Fair-Code/pull/1034), closing issue #1018).
+
+Then made `faircode --fail-under` reject a value outside 0 to 100 with exit code 2 ([#1053](https://github.com/yakew7/Fair-Code/pull/1053), closing issue #1037), documented `faircode benchmark --root` and `--no-plots` ([#1054](https://github.com/yakew7/Fair-Code/pull/1054), closing issue #1040), made the MCP `proxy_hints` result say in `notes` why an empty hints list is empty ([#1058](https://github.com/yakew7/Fair-Code/pull/1058), closing issue #1044), and refreshed the ROADMAP's stale header date and issue-count line ([#1075](https://github.com/yakew7/Fair-Code/pull/1075), closing issue #1066).
+
+Then fixed the web engine's reading of XLSX workbooks that use the 1904 date system ([#1092](https://github.com/yakew7/Fair-Code/pull/1092), closing issue #1076), made `check_explainer_count.py` fail when README.md or `llms.txt` leaves out an explainer ([#1091](https://github.com/yakew7/Fair-Code/pull/1091), closing issue #1077), and added `--audit` and `--summary` to `scripts/diff_results.py` ([#1093](https://github.com/yakew7/Fair-Code/pull/1093), closing issue #1081).
+
+Then accessibility and docs touches on the explainer pages and CI notes: the Python versions CI actually uses ([#1182](https://github.com/yakew7/Fair-Code/pull/1182)), `scope="col"` on explainer table header cells ([#1183](https://github.com/yakew7/Fair-Code/pull/1183)) and a skip link on every explainer page ([#1184](https://github.com/yakew7/Fair-Code/pull/1184)).
+
+Then more of the tooling follow-ups: one place for HTTP errors in `check_url` ([#1213](https://github.com/yakew7/Fair-Code/pull/1213)), a tooling and docs issue form with a link to CONTRIBUTING.md ([#1214](https://github.com/yakew7/Fair-Code/pull/1214)), a check that each audit's dataset link agrees between the README and its scripts ([#1215](https://github.com/yakew7/Fair-Code/pull/1215)), a report of permanently redirected links ([#1222](https://github.com/yakew7/Fair-Code/pull/1222)) and OG cards that re-render when an explainer's title or summary changes ([#1226](https://github.com/yakew7/Fair-Code/pull/1226)).
 
 ### Tiyatrotist - [@Tiyatrotist](https://github.com/Tiyatrotist)
 
@@ -173,18 +189,6 @@ README.md, CONTRIBUTORS.md, METRICS.md, and ROADMAP.md against the real count of
 wired into `build-explainers.yml` ([#363](https://github.com/yakew7/Fair-Code/pull/363), closing
 issue #352).
 
-### Rayan Abdul Cader - [@minutechreview](https://github.com/minutechreview)
-
-**13 merged PRs · 13 commits · first merged 2026-10-07**
-
-Documented the MCP tools' `alpha`, `correction`, `held_out_with_a`/`held_out_with_b` and `format` parameters, with their defaults and error behaviour taken from the code and its tests, in SPEC.md section 11 ([#851](https://github.com/yakew7/Fair-Code/pull/851), closing issue #815) and as a table in the README ([#852](https://github.com/yakew7/Fair-Code/pull/852), closing issue #818), and made `.xls`, `.ods` and other known binary formats fail with "unsupported format" instead of blaming the encoding ([#1034](https://github.com/yakew7/Fair-Code/pull/1034), closing issue #1018).
-
-Then made `faircode --fail-under` reject a value outside 0 to 100 with exit code 2 ([#1053](https://github.com/yakew7/Fair-Code/pull/1053), closing issue #1037), documented `faircode benchmark --root` and `--no-plots` ([#1054](https://github.com/yakew7/Fair-Code/pull/1054), closing issue #1040), made the MCP `proxy_hints` result say in `notes` why an empty hints list is empty ([#1058](https://github.com/yakew7/Fair-Code/pull/1058), closing issue #1044), and refreshed the ROADMAP's stale header date and issue-count line ([#1075](https://github.com/yakew7/Fair-Code/pull/1075), closing issue #1066).
-
-Then fixed the web engine's reading of XLSX workbooks that use the 1904 date system ([#1092](https://github.com/yakew7/Fair-Code/pull/1092), closing issue #1076), made `check_explainer_count.py` fail when README.md or `llms.txt` leaves out an explainer ([#1091](https://github.com/yakew7/Fair-Code/pull/1091), closing issue #1077), and added `--audit` and `--summary` to `scripts/diff_results.py` ([#1093](https://github.com/yakew7/Fair-Code/pull/1093), closing issue #1081).
-
-Then accessibility and docs touches on the explainer pages and CI notes: the Python versions CI actually uses ([#1182](https://github.com/yakew7/Fair-Code/pull/1182)), `scope="col"` on explainer table header cells ([#1183](https://github.com/yakew7/Fair-Code/pull/1183)) and a skip link on every explainer page ([#1184](https://github.com/yakew7/Fair-Code/pull/1184)).
-
 ### [@be-student](https://github.com/be-student)
 
 **9 merged PRs · 11 commits · first merged 2026-09-06**
@@ -198,6 +202,22 @@ A full-backlog sweep of issues found in review, in one day: fixed `fit_post_proc
 [Unsupervised Learning](explainers/unsupervised-learning.md) ([#74](https://github.com/yakew7/Fair-Code/pull/74)), on k-means over the Benefits Denial dataset recovering a sex split without sex ever being a feature, and [Model Drift](explainers/model-drift.md) ([#75](https://github.com/yakew7/Fair-Code/pull/75)), on why a fairness gap measured once at launch is not guaranteed to hold months later. Then fixed two related report-rendering parity bugs: `to_html()`'s and the web profiler's downloadable report's missing imbalance/missing/skew meta line, and the web profiler's downloadable report dropping the reference-baseline comparison section entirely ([#294](https://github.com/yakew7/Fair-Code/pull/294), closing issues #283 and #272). Then excluded the generated `faircode/_explainers/` mirror from `check_em_dash.py`'s scan, which had been reporting the same em dash twice under two different-looking paths for the same source file ([#412](https://github.com/yakew7/Fair-Code/pull/412), closing issue #393). Most recently, added a demo GIF to README.md ([#711](https://github.com/yakew7/Fair-Code/pull/711)).
 
 Most recently, job timeouts and PR concurrency groups on every workflow ([#1059](https://github.com/yakew7/Fair-Code/pull/1059), closing issue #1050) and naming a blank header cell `Unnamed: N` in the web engine, as pandas does ([#1060](https://github.com/yakew7/Fair-Code/pull/1060), closing issue #1046).
+
+### Aaqibhafeez Khan - [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan)
+
+**4 merged PRs · 7 commits · first merged 2026-09-09**
+
+Two one-line doc fixes, same day: corrected `unsupervised-learning.md`'s "Benefits Denial - Audit
+04" to "Audit 05" ([#526](https://github.com/yakew7/Fair-Code/pull/526), closing issue #520 -
+Insurance Denial is Audit 04), and fixed `index.html`'s Benchmark Harness callout citing "1.4%"
+instead of the real 1.2% in-processing gap for COMPAS
+([#527](https://github.com/yakew7/Fair-Code/pull/527), closing issue #517).
+
+Then a smoke test that runs the `python` blocks marked runnable in the explainers, a note in
+[CONTRIBUTING.md](CONTRIBUTING.md) on how to mark one, and the Predictive Parity example marked as the first
+runnable block ([#1141](https://github.com/yakew7/Fair-Code/pull/1141), closing issue #1098).
+
+Most recently, tests for the generated-file validation edge cases ([#1212](https://github.com/yakew7/Fair-Code/pull/1212)).
 
 ### samuel akinade - [@sammist2](https://github.com/sammist2)
 
@@ -216,20 +236,6 @@ Closed four of the issues filed after the previous sweep, each with a focused fi
 **3 merged PRs · 13 commits · first merged 2026-09-08**
 
 Fixed the MCP `list_explainers` wrapper silently swallowing a `FileNotFoundError` instead of converting it to a `ToolError` the way its `get_explainer`/`get_benchmark_results` siblings already do ([#503](https://github.com/yakew7/Fair-Code/pull/503), closing issue #500). Then bumped `requirements-lock.txt`'s numpy/pandas and other pins up to `requirements.txt`'s own declared minimums, which the lock file had drifted below ([#504](https://github.com/yakew7/Fair-Code/pull/504), closing issue #493). Most recently, independently found and fixed the same three doc issues [@propcgamer20-png](https://github.com/propcgamer20-png) also fixed in [#558](https://github.com/yakew7/Fair-Code/pull/558) - COMPAS's raw-percentage-point vs. relative reduction formula, Benefits Denial's missing `fnlwgt` proxy, and ROADMAP.md's stale traction table ([#557](https://github.com/yakew7/Fair-Code/pull/557), closing issues #545, #546, #555); #557 merged first, with #558's overlapping changes landing a minute later.
-
-### Aaqibhafeez Khan - [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan)
-
-**3 merged PRs · 6 commits · first merged 2026-09-09**
-
-Two one-line doc fixes, same day: corrected `unsupervised-learning.md`'s "Benefits Denial - Audit
-04" to "Audit 05" ([#526](https://github.com/yakew7/Fair-Code/pull/526), closing issue #520 -
-Insurance Denial is Audit 04), and fixed `index.html`'s Benchmark Harness callout citing "1.4%"
-instead of the real 1.2% in-processing gap for COMPAS
-([#527](https://github.com/yakew7/Fair-Code/pull/527), closing issue #517).
-
-Then a smoke test that runs the `python` blocks marked runnable in the explainers, a note in
-[CONTRIBUTING.md](CONTRIBUTING.md) on how to mark one, and the Predictive Parity example marked as the first
-runnable block ([#1141](https://github.com/yakew7/Fair-Code/pull/1141), closing issue #1098).
 
 ### Yojeet - [@Circout-sudo](https://github.com/Circout-sudo)
 
