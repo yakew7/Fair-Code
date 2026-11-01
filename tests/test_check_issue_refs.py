@@ -192,3 +192,27 @@ def test_locally_the_check_stays_strict_unless_assume_closed_is_given(tmp_path, 
     capsys.readouterr()
     assert script.main(["--issues", str(issues), "--assume-closed", "3", "--assume-closed", "4"]) == 0
     assert "note: assuming #3, #4 closed" in capsys.readouterr().out
+
+
+def test_local_commits_close_reads_the_closing_keywords_of_commits_ahead_of_base():
+    # #1240
+    from types import SimpleNamespace
+    seen = []
+
+    def runner(command, **kwargs):
+        seen.append(command)
+        return SimpleNamespace(returncode=0, stdout="Fix a thing\n\nCloses #12\n\nSecond\n\nfixes #13 and mentions #99\n")
+
+    assert script.local_commits_close(runner=runner) == {12, 13}
+    assert seen == [["git", "log", "origin/main..HEAD", "--format=%B"]]
+
+
+def test_local_commits_close_is_empty_without_the_base_ref_or_git():
+    from types import SimpleNamespace
+
+    assert script.local_commits_close(runner=lambda *a, **k: SimpleNamespace(returncode=128, stdout="Closes #1")) == set()
+
+    def missing(*a, **k):
+        raise FileNotFoundError("git")
+
+    assert script.local_commits_close(runner=missing) == set()

@@ -19,7 +19,8 @@ A pull request that fixes issue #N says `Closes #N` in its body, and its CHANGEL
 same change, so #N is still open while the PR is checked and would fail the rules above (#1139). In a pull_request
 run the script reads the PR body from the event payload (GITHUB_EVENT_PATH), takes the issues it closes (closes,
 fixes or resolves, in any form GitHub accepts) and treats them as closed, saying so in the output. Citing any other
-open issue as closed still fails. Locally the check stays strict unless `--assume-closed` is given.
+open issue as closed still fails. Locally the `Closes #N` lines of the commits ahead of `origin/main` are read the same way
+(#1240); any other open issue cited as closed still fails, and `--assume-closed` adds more.
 
 Without `gh` (or a network) it prints a note and exits 0, so `make lint` works offline; pass
 `--require` to make that an error (CI).
@@ -63,6 +64,19 @@ def pull_request_closes(environ=None) -> set[int]:
     except (OSError, ValueError):
         return set()
     return issues_closed_by((payload.get("pull_request") or {}).get("body"))
+
+
+def local_commits_close(base: str = "origin/main", runner=None) -> set[int]:
+    """Issues closed by the commits on this branch that are not on `base` (their `Closes #N` lines), so a local run on a
+    branch that ticks ROADMAP items and writes `closes #N` in CHANGELOG passes without --assume-closed (#1240). Empty
+    when git or `base` is not available."""
+    import subprocess
+    run = runner or subprocess.run
+    try:
+        done = run(["git", "log", f"{base}..HEAD", "--format=%B"], cwd=ROOT, capture_output=True, text=True)
+    except OSError:
+        return set()
+    return issues_closed_by(done.stdout) if done.returncode == 0 else set()
 
 
 def load_states(issues_file: str | None) -> dict[int, str] | None:
@@ -150,11 +164,11 @@ def main(argv: list[str] | None = None) -> int:
     if states is None:
         print("note: could not fetch issue states from GitHub (gh missing or offline); skipping the issue-reference check")
         return 2 if args.require else 0
-    assumed = sorted((set(args.assume_closed) | pull_request_closes()) & {n for n, state in states.items() if state == "open"})
+    assumed = sorted((set(args.assume_closed) | pull_request_closes() | local_commits_close()) & {n for n, state in states.items() if state == "open"})
     for n in assumed:
         states[n] = "closed"
     if assumed:
-        print("note: assuming " + ", ".join(f"#{n}" for n in assumed) + " closed (named by --assume-closed or closed by this pull request)")
+        print("note: assuming " + ", ".join(f"#{n}" for n in assumed) + " closed (named by --assume-closed, closed by this pull request or by a commit ahead of origin/main)")
     problems = []
     for filename, checker in (
         ("ROADMAP.md", check_roadmap),
