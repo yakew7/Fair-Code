@@ -70,7 +70,11 @@ def _count_site(root: Path, count: int = 2) -> Path:
         encoding="utf-8",
     )
     (root / "ROADMAP.md").write_text(
-        f"{count} explainers published\n", encoding="utf-8"
+        f"{count} explainers published\n"
+        "| Stars | Contributors | Forks | Watching | Social Reach | Countries | Audits | Explainers | CI |\n"
+        "|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|\n"
+        f"| 54 | 58 | 67 | 8 | 30K+ | 20 | 7 | {count} | ok |\n",
+        encoding="utf-8",
     )
     (root / "llms.txt").write_text(
         "- /explainers/one.html\n- /explainers/two.html\n", encoding="utf-8"
@@ -92,7 +96,7 @@ def test_main_passes_when_all_count_patterns_and_listings_match(
 
     assert _run_main(root, monkeypatch) == 0
 
-    assert "all 7 explainer-count mentions match" in capsys.readouterr().out
+    assert "all 8 explainer-count mentions match" in capsys.readouterr().out
 
 
 def test_main_reports_stale_counts_and_both_missing_listings(
@@ -121,7 +125,7 @@ def test_main_fix_rewrites_only_count_mentions(tmp_path, monkeypatch, capsys):
     assert _run_main(root, monkeypatch, ["--fix"]) == 0
 
     captured = capsys.readouterr()
-    assert "Corrected 7 explainer-count mention(s)" in captured.out
+    assert "Corrected 8 explainer-count mention(s)" in captured.out
     assert "README.md: 1 -> 2" in captured.out
     for name, text in before.items():
         fixed = (root / name).read_text(encoding="utf-8")

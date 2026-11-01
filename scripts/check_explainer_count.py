@@ -43,6 +43,8 @@ CHECKS = [
     ("METRICS.md", re.compile(r"Explainers-(\d+)-blueviolet")),
     ("METRICS.md", re.compile(r"\| Explainers \| (\d+) \|")),
     ("ROADMAP.md", re.compile(r"(\d+) explainers published")),
+    # the "Current traction" table's Explainers column: | Stars | Contributors | Forks | Watching | Social | Countries | Audits | Explainers |
+    ("ROADMAP.md", re.compile(r"^\| \d+ \| \d+ \| \d+ \| \d+ \| [^|]+ \| \d+ \| \d+ \| (\d+) \|", re.M)),
 ]
 
 # Places that must list every explainer by slug (relative path, regex whose
