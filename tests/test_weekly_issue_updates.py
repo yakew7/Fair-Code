@@ -144,7 +144,6 @@ def test_each_report_creates_its_issue_with_its_own_label(kind, label):
     assert script.REPORTS[kind]["label"] == label
 
 
-
 def test_dry_run_prints_the_decision_and_body_and_never_calls_gh(tmp_path, monkeypatch, capsys):
     # #1245: no GITHUB_REPOSITORY needed and no runner involved
     monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
@@ -161,3 +160,20 @@ def test_dry_run_prints_the_decision_and_body_and_never_calls_gh(tmp_path, monke
     assert script.main(["contributors", str(status), str(out), "--dry-run"]) == 0
     assert "no issue is needed" in capsys.readouterr().out
 
+
+@pytest.mark.parametrize("kind", ["traction", "contributors"])
+def test_a_status_other_than_0_or_1_fails_the_job_with_an_annotation(kind, tmp_path, monkeypatch, capsys):
+    # #1244: exit status 2 means gh failed; that must not look like a clean week
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+    monkeypatch.setattr(script, "update_issue", lambda *a, **k: pytest.fail("no issue change on an unusable status"))
+    status, out = tmp_path / "status", tmp_path / "out.txt"
+    status.write_text("2\n")
+    out.write_text("")
+
+    assert script.main([kind, str(status), str(out)]) == 1
+
+    printed = capsys.readouterr().out
+    assert printed.startswith(f"::error title={kind} check did not run::") and "exit status '2'" in printed
+    assert f"{kind} check did not run" in summary.read_text(encoding="utf-8")

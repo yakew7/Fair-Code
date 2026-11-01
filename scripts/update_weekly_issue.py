@@ -144,6 +144,18 @@ def describe_dry_run(kind: str, state: bool | None, body: str) -> str:
     return head + ("\n\n" + body.rstrip("\n") if state else "")
 
 
+def report_unusable(kind: str, status: str, environ=None) -> str:
+    """The message for a status file holding anything other than 0 or 1, as a GitHub error annotation (#1244)."""
+    env = os.environ if environ is None else environ
+    message = (f"the {kind} check could not run (exit status {status!r}; usually the GitHub CLI failed or was offline), "
+               "so this run says nothing about whether the figures are current")
+    summary = env.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as handle:
+            handle.write(f"### {kind} check did not run\n\n{message}.\n")
+    return f"::error title={kind} check did not run::{message}"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("kind", choices=REPORTS)
@@ -165,6 +177,12 @@ def main(argv: list[str] | None = None) -> int:
         build = traction_issue_body if args.kind == "traction" else contributors_issue_body
         body = build(args.details.read_text(encoding="utf-8")) if state else ""
 
+    if state is None and args.kind != "external-links":
+        if args.dry_run:
+            print(describe_dry_run(args.kind, state, body))
+            return 1
+        print(report_unusable(args.kind, status))
+        return 1
     if args.dry_run:
         print(describe_dry_run(args.kind, state, body))
         return 0
