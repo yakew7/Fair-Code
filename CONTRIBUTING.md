@@ -79,6 +79,7 @@ make external-links    # report dead external links (a report, never a gate); a 
 make traction-live     # compare the traction figures with GitHub (needs gh; the same check runs weekly)
 make contributors-commits  # compare CONTRIBUTORS.md PR and commit counts with GitHub at the snapshot (needs gh, about a minute)
 make contributors-pending  # list who merged after the CONTRIBUTORS.md snapshot (needs gh)
+make metrics-row         # print the next weekly METRICS.md row from GitHub's live figures (needs gh; the social, countries and audits cells are carried over)
 make lint              # em-dash-free check + broken internal doc link check + issue-number check + explainer counts + traction figures + dataset source links + CONTRIBUTORS.md vs merged PRs + ruff
 ```
 
