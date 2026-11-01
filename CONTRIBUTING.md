@@ -76,6 +76,9 @@ make fix-explainer-count  # correct any stale "N explainers" mention in README/C
 make key-fold         # regenerate the JS case-folding table (assets/profiler-engine.js KEY_FOLD) after a Unicode upgrade
 make favicons          # regenerate favicon.ico, apple-touch-icon.png, icon-{192,512}.png after editing logo.svg
 make external-links    # report dead external links (a report, never a gate); a link that is correct but cannot pass an anonymous check goes in scripts/external-links-ignore.txt as `URL reason`, and the report still counts it; a link that moved permanently (301 or 308) is listed with its new address
+make traction-live     # compare the traction figures with GitHub (needs gh; the same check runs weekly)
+make contributors-commits  # compare CONTRIBUTORS.md PR and commit counts with GitHub at the snapshot (needs gh, about a minute)
+make contributors-pending  # list who merged after the CONTRIBUTORS.md snapshot (needs gh)
 make lint              # em-dash-free check + broken internal doc link check + issue-number check + explainer counts + traction figures + dataset source links + CONTRIBUTORS.md vs merged PRs + ruff
 ```
 

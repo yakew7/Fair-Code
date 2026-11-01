@@ -5,7 +5,7 @@
 .DEFAULT_GOAL := help
 PY := python3
 
-.PHONY: help setup test test-fast test-browser setup-browser coverage key-fold key-fold-check build-explainers favicons fix-explainer-count external-links lint audits check
+.PHONY: help setup test test-fast test-browser setup-browser coverage key-fold key-fold-check build-explainers favicons fix-explainer-count external-links traction-live contributors-commits contributors-pending lint audits check
 
 help:  ## Show the available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -47,6 +47,15 @@ fix-explainer-count:  ## Correct stale "N explainers" mentions in README/CONTRIB
 
 external-links:  ## Report dead external links in the docs and explainers (a report, never a gate; the weekly workflow runs the same script)
 	$(PY) scripts/check_external_links.py
+
+traction-live:  ## Compare the traction figures with GitHub (needs gh; opt-in, the weekly traction-live workflow runs the same check)
+	$(PY) scripts/check_traction.py --live
+
+contributors-commits:  ## Compare CONTRIBUTORS.md PR and commit counts with GitHub at the snapshot (needs gh, about a minute)
+	$(PY) scripts/check_contributors.py --commits
+
+contributors-pending:  ## List who merged after the CONTRIBUTORS.md snapshot (needs gh; exit 1 if anyone, the weekly contributors-drift workflow runs the same list)
+	$(PY) scripts/check_contributors.py --pending
 
 lint:  ## Enforce the em-dash-free rule + check for broken doc links + issue numbers in docs (needs gh, skipped offline) + explainer counts and listings + explainer structure + traction figures agreeing across README/ROADMAP/METRICS + dataset source links agreeing between the README and the audit scripts + CONTRIBUTORS.md matching the merged PRs (needs gh, skipped offline) + ruff (mirrors the lint workflow)
 	$(PY) scripts/check_em_dash.py
