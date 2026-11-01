@@ -16,14 +16,17 @@ REPORTS = {
     "external-links": {
         "title": "Dead external links (weekly check)",
         "close_comment": "The weekly check found no broken links or stale ignore entries.",
+        "label": "documentation",
     },
     "traction": {
         "title": "Traction figures out of date (weekly check)",
         "close_comment": "The weekly check found every traction figure matching GitHub.",
+        "label": "community",
     },
     "contributors": {
         "title": "CONTRIBUTORS.md is behind the merged pull requests (weekly check)",
         "close_comment": "The weekly check found nobody who merged since the CONTRIBUTORS.md snapshot.",
+        "label": "community",
     },
 }
 
@@ -113,7 +116,7 @@ def update_issue(
         try:
             if action == "create":
                 command = ["gh", "issue", "create", "--repo", repo, "--title", config["title"],
-                           "--label", "documentation", "--body-file", str(body_path)]
+                           "--label", config["label"], "--body-file", str(body_path)]
             else:
                 command = ["gh", "issue", "edit", str(issue_number), "--repo", repo,
                            "--body-file", str(body_path)]

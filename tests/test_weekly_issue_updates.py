@@ -125,3 +125,21 @@ def test_contributors_main_opens_an_issue_only_when_someone_is_pending(tmp_path,
 
     assert calls[0][:2] == ("contributors", True) and "someone" in calls[0][2]
     assert calls[1] == ("contributors", False, "")
+
+
+@pytest.mark.parametrize(("kind", "label"), [("external-links", "documentation"), ("traction", "community"),
+                                             ("contributors", "community")])
+def test_each_report_creates_its_issue_with_its_own_label(kind, label):
+    # #1241
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(command)
+        return SimpleNamespace(stdout="[]")
+
+    script.update_issue("owner/repo", kind, True, "body", runner=runner)
+
+    create = calls[-1]
+    assert create[:3] == ["gh", "issue", "create"] and create[create.index("--label") + 1] == label
+    assert script.REPORTS[kind]["label"] == label
+
