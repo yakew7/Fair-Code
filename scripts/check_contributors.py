@@ -24,6 +24,7 @@ counts are listed as skipped, not failed.
     python3 scripts/check_contributors.py --commits       # also compare commit counts (about 60 gh requests)
     python3 scripts/check_contributors.py --commits-data F # F: {"live": {login: n}, "after_snapshot": {login: n}}
     python3 scripts/check_contributors.py --pending       # who merged after the snapshot (exit 1 if anyone), for the weekly report
+    python3 scripts/check_contributors.py --fix --commits # also refresh commit counts and move the snapshot to the newest merged PR
     python3 scripts/check_contributors.py --fix            # refresh known counts/dates and sort entries in place
 
 Without `gh` (or a network) it prints a note and exits 0, so `make lint` works offline; pass `--require` to make
@@ -215,9 +216,26 @@ def pending(entries: list[dict], prs: list[dict], through: int | None) -> list[s
     return lines
 
 
-def fix_document(text: str, prs: list[dict], through: int | None) -> str:
-    """Refresh known PR counts/dates and order entries without editing their prose."""
+SNAPSHOT_LINE = re.compile(r"\*\*Snapshot:\*\* \d{4}-\d{2}-\d{2}, covering everything merged through \*\*PR #\d+\*\*")
+
+
+def move_snapshot(text: str, prs: list[dict], new_through: int) -> str:
+    """Point the snapshot line at PR `new_through` and the day it was merged (#1235)."""
+    merged = next((pr.get("mergedAt") for pr in prs if pr["number"] == new_through), None)
+    if not merged:
+        raise ValueError(f"PR #{new_through} is not in the merged pull request data")
+    line = f"**Snapshot:** {merged[:10]}, covering everything merged through **PR #{new_through}**"
+    text, count = SNAPSHOT_LINE.subn(line, text, count=1)
+    if count != 1:
+        raise ValueError("could not find the '**Snapshot:** DATE, covering everything merged through **PR #N**' line")
+    return text
+
+
+def fix_document(text: str, prs: list[dict], through: int | None, commits: dict[str, int] | None = None) -> str:
+    """Refresh known PR counts/dates (and, given `commits` {login: count at the snapshot}, commit counts) and order
+    entries without editing their prose."""
     entries, _ = parse(text)
+    commits = {login.lower(): n for login, n in (commits or {}).items()}
     authors = merged_by_author(prs, through)
     by_login = {login.lower(): info for login, info in authors.items()}
     refreshed_entries = []
@@ -227,6 +245,8 @@ def fix_document(text: str, prs: list[dict], through: int | None) -> str:
         if actual is not None and not entry["deleted"]:
             refreshed["merged"] = actual["count"]
             refreshed["first"] = actual["first"]
+        if entry["handle"].lower() in commits and not entry["deleted"]:
+            refreshed["commits"] = commits[entry["handle"].lower()]
         refreshed_entries.append(refreshed)
 
     section_heads = [(m.start(), m.group(1)) for m in re.finditer(r"^## (.+)$", text, re.MULTILINE)]
@@ -295,8 +315,22 @@ def main(argv=None) -> int:
               "skipping the contributors check")
         return 1 if args.require else 0
     if args.fix:
-        fixed = fix_document(text, prs, through)
-        if fixed != text:
+        commit_counts = None
+        if args.commits:
+            # move the snapshot to the newest merged PR and take the commit counts as of that moment
+            newest = max(pr["number"] for pr in prs)
+            since = snapshot_time(prs, newest)
+            data = fetch_commit_data(entries, since) if since else None
+            if data is None:
+                print("error: --fix --commits needs the GitHub CLI (gh) signed in and online")
+                return 2
+            after = {k.lower(): v for k, v in data.get("after_snapshot", {}).items()}
+            commit_counts = {login: n - after.get(login.lower(), 0) for login, n in data["live"].items()
+                             if login.lower() not in COMMIT_EXCEPTIONS}
+            text = move_snapshot(text, prs, newest)
+            through = newest
+        fixed = fix_document(text, prs, through, commit_counts)
+        if fixed != args.file.read_text(encoding="utf-8"):
             args.file.write_text(fixed, encoding="utf-8")
             print(f"updated: {args.file}")
         text = fixed
