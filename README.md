@@ -4,7 +4,7 @@
 
 *AI systems are making decisions about your freedom, your job, and your healthcare. This project shows the bias is real - and how to fix it.*
 
-**by [Yash Kewlani](https://github.com/yakew7) · [@thefaircodeproject](https://instagram.com/thefaircodeproject)**
+**by [Yash Kewlani](https://github.com/yakew7) · [@thefaircodeproject](https://www.instagram.com/thefaircodeproject)**
 
 [🌐 Live website](https://www.thefaircode.xyz) · [📓 Notebooks](#projects) · [🧠 Explainers](#explainers) · [🤝 Contribute](CONTRIBUTING.md)
 
@@ -1171,7 +1171,7 @@ so an exported report can be tied back to what produced it - see
 [faircode/SPEC.md](faircode/SPEC.md#10-export-provenance). It is derived purely
 from the inputs, so `--json` stays reproducible; `--no-provenance` omits it.
 
-**MCP server - for coding agents.** `faircode-mcp` exposes six [MCP](https://modelcontextprotocol.io)
+**MCP server - for coding agents.** `faircode-mcp` exposes six [MCP](https://modelcontextprotocol.io/docs/2026-07-28/getting-started/intro)
 tools over stdio: `profile_dataset`, `compare_datasets`, and `proxy_hints` wrap the same analysis
 engine the CLI uses, so an MCP-aware agent can profile a file mid-conversation instead of shelling
 out and parsing text; `list_explainers`, `get_explainer`, and `get_benchmark_results` are read-only
@@ -1544,7 +1544,7 @@ The full project is at **[thefaircode.xyz](https://www.thefaircode.xyz)** - ever
 
 ## Connect
 
-Follow the project on Instagram: **[@thefaircodeproject](https://instagram.com/thefaircodeproject)**
+Follow the project on Instagram: **[@thefaircodeproject](https://www.instagram.com/thefaircodeproject)**
 Data. Code. Accountability. One post at a time.
 
 Questions, bug reports, or collaboration: **[yashkewlani2020@gmail.com](mailto:yashkewlani2020@gmail.com)**, or open an issue on [GitHub](https://github.com/yakew7/Fair-Code/issues). See the site's [FAQ](https://www.thefaircode.xyz/#faq) for common questions.

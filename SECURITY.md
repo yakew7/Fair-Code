@@ -77,7 +77,7 @@ This is the fastest path. GitHub will notify me immediately and we can coordinat
 
 If you cannot use GitHub's reporting flow, reach out directly:
 
-- **Instagram DM:** [@thefaircodeproject](https://instagram.com/thefaircodeproject)
+- **Instagram DM:** [@thefaircodeproject](https://www.instagram.com/thefaircodeproject)
 - **LinkedIn:** [Yash Kewlani](https://www.linkedin.com/in/yash-kewlani-7ab090357)
 
 Include the word **SECURITY** at the start of your message so it doesn't get missed.

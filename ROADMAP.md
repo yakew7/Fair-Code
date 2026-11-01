@@ -308,4 +308,4 @@ New audits are welcome and merge into `main` like any other contribution - the e
 
 ---
 
-*Fair Code is maintained by [Yash Kewlani](https://github.com/yakew7). Follow the project at [@thefaircodeproject](https://instagram.com/thefaircodeproject).*
+*Fair Code is maintained by [Yash Kewlani](https://github.com/yakew7). Follow the project at [@thefaircodeproject](https://www.instagram.com/thefaircodeproject).*
