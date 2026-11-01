@@ -2,3 +2,4 @@
 # One URL per line, then the reason. `host:example.com` skips every URL on that host. They are still counted ("N ignored") in the report and the weekly issue.
 https://github.com/yakew7/Fair-Code/security/code-scanning needs a GitHub login, so an anonymous request gets a 404
 https://github.com/TanishGoyal-Dev deleted account that CONTRIBUTORS.md names on purpose
+https://www.linkedin.com/in/yash-kewlani-7ab090357 LinkedIn answers every script with status 999, so the profile cannot be verified anonymously
