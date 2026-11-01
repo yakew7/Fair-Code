@@ -23,6 +23,7 @@ counts are listed as skipped, not failed.
     python3 scripts/check_contributors.py --prs FILE      # FILE: gh pr list --state merged --limit 5000 --json number,author,mergedAt
     python3 scripts/check_contributors.py --commits       # also compare commit counts (about 60 gh requests)
     python3 scripts/check_contributors.py --commits-data F # F: {"live": {login: n}, "after_snapshot": {login: n}}
+    python3 scripts/check_contributors.py --identities   # every git commit author maps to an entry or an identity map row
     python3 scripts/check_contributors.py --pending       # who merged after the snapshot (exit 1 if anyone), for the weekly report
     python3 scripts/check_contributors.py --fix --commits # also refresh commit counts and move the snapshot to the newest merged PR
     python3 scripts/check_contributors.py --fix            # refresh known counts/dates and sort entries in place
@@ -231,6 +232,48 @@ def move_snapshot(text: str, prs: list[dict], new_through: int) -> str:
     return text
 
 
+# Commit authors that deliberately have no entry (#1236), by lower-case author name.
+UNLISTED_AUTHORS = {
+    "erol tasci": "commit 530b58d cites PR #632, which does not exist; the attribution was removed in fd41a1e",
+}
+IDENTITY_ROW = re.compile(r"^\| \[@([^\]]+)\]\([^)]*\) \| (.+) \|$", re.MULTILINE)
+
+
+def identity_map(text: str) -> dict[str, set[str]]:
+    """{lower-case handle: {lower-case git author names}} from the Git identity map table."""
+    return {m.group(1).lower(): {n.lower() for n in re.findall(r"`([^`]+)`", m.group(2))}
+            for m in IDENTITY_ROW.finditer(text)}
+
+
+def unmapped_authors(text: str, authors: list[tuple[str, str, int]]) -> list[str]:
+    """Lines for the git authors (name, email, commits) that map to no entry: not in the identity map, not a handle,
+    not a noreply address of a handle, not a bot and not in UNLISTED_AUTHORS (#1236)."""
+    entries, _ = parse(text)
+    handles = {e["handle"].lower() for e in entries} | {MAINTAINER}
+    names = {name for row in identity_map(text).values() for name in row}
+    lines = []
+    for name, email, count in authors:
+        low, mail = name.lower(), email.lower()
+        if "[bot]" in low or "[bot]" in mail or mail == "noreply@github.com" or low in UNLISTED_AUTHORS:
+            continue
+        local = mail.split("@")[0].split("+")[-1] if mail.endswith("@users.noreply.github.com") else None
+        if low in names or low in handles or (local and local in handles):
+            continue
+        lines.append(f"{name} <{email}>: {count} commit(s) map to no entry or Git identity map row")
+    return lines
+
+
+def git_authors(runner=None) -> list[tuple[str, str, int]]:
+    """Distinct (name, email, commits) over the whole history."""
+    run = runner or subprocess.run
+    done = run(["git", "log", "--format=%an|%ae"], cwd=ROOT, capture_output=True, text=True)
+    counts: dict[tuple[str, str], int] = {}
+    for line in done.stdout.splitlines():
+        name, _, email = line.partition("|")
+        counts[(name, email)] = counts.get((name, email), 0) + 1
+    return sorted(((n, e, c) for (n, e), c in counts.items()), key=lambda item: (-item[2], item[0]))
+
+
 def fix_document(text: str, prs: list[dict], through: int | None, commits: dict[str, int] | None = None) -> str:
     """Refresh known PR counts/dates (and, given `commits` {login: count at the snapshot}, commit counts) and order
     entries without editing their prose."""
@@ -297,6 +340,7 @@ def main(argv=None) -> int:
     parser.add_argument("--require", action="store_true", help="fail instead of skipping when GitHub cannot be reached")
     parser.add_argument("--commits", action="store_true", help="also compare commit counts with GitHub's contributors graph at the snapshot (needs gh)")
     parser.add_argument("--commits-data", metavar="FILE", help="commit data as JSON instead of asking gh (implies --commits)")
+    parser.add_argument("--identities", action="store_true", help="check that every git commit author maps to an entry or an identity map row (needs the git history)")
     parser.add_argument("--pending", action="store_true", help="list authors who merged after the snapshot and exit 1 if there are any")
     parser.add_argument("--fix", action="store_true", help="rewrite known PR counts/dates and sort contributor entries")
     args = parser.parse_args(argv)
@@ -306,6 +350,13 @@ def main(argv=None) -> int:
     if not entries:
         print(f"error: no contributor entries found in {args.file}")
         return 1
+    if args.identities:
+        lines = unmapped_authors(text, git_authors())
+        for line in lines:
+            print(f"  - {line}")
+        print(f"{len(lines)} git author(s) are not mapped in {args.file.name}." if lines
+              else "OK: every git author maps to an entry or an identity map row.")
+        return 1 if lines else 0
     prs = json.loads(Path(args.prs).read_text(encoding="utf-8")) if args.prs else fetch_prs()
     if prs is None:
         if args.fix:

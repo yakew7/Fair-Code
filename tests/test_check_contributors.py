@@ -264,3 +264,41 @@ def test_fix_with_commits_moves_the_snapshot_and_leaves_a_file_the_commit_check_
     bob = next(e for e in script.parse(text)[0] if e["handle"] == "bob")
     assert (bob["merged"], bob["commits"]) == (3, 7)
     assert code == 1 and "newbie: 1 merged PRs on GitHub but no entry in the file" in out   # prose for a new person stays manual
+
+
+IDENTITY_DOC = DOC + """
+## Git identity map
+
+| GitHub handle | Git author name(s) recorded in history |
+|---------------|----------------------------------------|
+| [@alice](https://github.com/alice) | `Alice A.`, `alice@example.org` |
+| [@bob](https://github.com/bob) | `bob` |
+"""
+
+
+def test_unmapped_authors_lists_only_people_with_no_entry_or_identity_row():
+    # #1236
+    authors = [("Alice A.", "alice@example.org", 4), ("alice@example.org", "alice@example.org", 1),
+               ("Carol", "carol@example.org", 2), ("Somebody Else", "12345+bob@users.noreply.github.com", 1),
+               ("Stranger", "stranger@example.org", 3), ("dependabot[bot]", "49699333+dependabot[bot]@users.noreply.github.com", 9),
+               ("GitHub", "noreply@github.com", 5), ("Erol Tasci", "e@example.org", 1)]
+    lines = script.unmapped_authors(IDENTITY_DOC, authors)
+    assert lines == ["Stranger <stranger@example.org>: 3 commit(s) map to no entry or Git identity map row"]
+
+
+def test_git_authors_counts_each_name_and_email_pair():
+    from types import SimpleNamespace
+    out = "A|a@x\nA|a@x\nB|b@x\nA|other@x\n"
+    authors = script.git_authors(runner=lambda *a, **k: SimpleNamespace(stdout=out))
+    assert authors == [("A", "a@x", 2), ("A", "other@x", 1), ("B", "b@x", 1)]
+
+
+def test_identities_flag_fails_on_an_unmapped_author_and_passes_when_all_map(tmp_path, capsys, monkeypatch):
+    (tmp_path / "CONTRIBUTORS.md").write_text(IDENTITY_DOC, encoding="utf-8")
+    monkeypatch.setattr(script, "git_authors", lambda: [("Stranger", "s@x", 2)])
+    assert script.main(["--file", str(tmp_path / "CONTRIBUTORS.md"), "--identities"]) == 1
+    assert "Stranger <s@x>: 2 commit(s)" in capsys.readouterr().out
+    monkeypatch.setattr(script, "git_authors", lambda: [("Alice A.", "a@x", 2)])
+    assert script.main(["--file", str(tmp_path / "CONTRIBUTORS.md"), "--identities"]) == 0
+    assert "OK: every git author maps" in capsys.readouterr().out
+

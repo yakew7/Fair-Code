@@ -599,7 +599,7 @@ makes `git shortlog -sne` reconcilable with the list above.
 | [@yakew7](https://github.com/yakew7) | `Yash Kewlani`, `yakew7_` |
 | [@ahmdkaml](https://github.com/ahmdkaml) | `ahmdkaml`, `Ahmed Mohamed Abdelhady Kamel (احمد محمد عبدالهادي كامل)` |
 | [@cannotdoit13](https://github.com/cannotdoit13) | `Anjali Tiwari` |
-| [@AnayDhawan](https://github.com/AnayDhawan) | `unknown` |
+| [@AnayDhawan](https://github.com/AnayDhawan) | `unknown`, `Anay Dhawan` |
 | [@Rajveerx11](https://github.com/Rajveerx11) | `Rajveer Vadnal` |
 | [@Shreyash0712](https://github.com/Shreyash0712) | `Shreyash0712`, `Shreyash Swami` |
 | [@Swastik-Yadav](https://github.com/Swastik-Yadav) | `Swastik-Yadav`, `CHiGO` |
@@ -609,7 +609,7 @@ makes `git shortlog -sne` reconcilable with the list above.
 | [@sammist2](https://github.com/sammist2) | `sammist2` |
 | [@Asmit-08](https://github.com/Asmit-08) | `Asmit08` |
 | [@Gauravbhati2099](https://github.com/Gauravbhati2099) | `Gauravbhati2099` |
-| [@dxnnystyles](https://github.com/dxnnystyles) | `dxnnystyles` |
+| [@dxnnystyles](https://github.com/dxnnystyles) | `dxnnystyles`, `aaronsanchez2000` |
 | [@tomatotomata](https://github.com/tomatotomata) | `ahmadalguydi` |
 | [@adity982](https://github.com/adity982) | `Aditya Datta` |
 | [@peda-cos](https://github.com/peda-cos) | `Pedro Monteiro` |
@@ -625,6 +625,14 @@ makes `git shortlog -sne` reconcilable with the list above.
 | [@be-student](https://github.com/be-student) | `eunwoo song` |
 | [@raonishanth2000-hub](https://github.com/raonishanth2000-hub) | `Nishu` - commit email is a placeholder (`your@email.com`), not linked to the GitHub account, so [#611](https://github.com/yakew7/Fair-Code/pull/611) doesn't register in the repo's contributors graph despite being a real merged PR |
 | [@ege-arhan](https://github.com/ege-arhan) | `ege-arhan` - commit email isn't linked to (or public on) the GitHub account, so [#629](https://github.com/yakew7/Fair-Code/pull/629) doesn't register in the repo's contributors graph despite being a real merged PR |
+| [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan) | `Aaqibhafeez Khan` |
+| [@thadidaniel-ctrl](https://github.com/thadidaniel-ctrl) | `thadidaniel@gmail.com` |
+| [@Abitha1861](https://github.com/Abitha1861) | `AbithaPauline` |
+| [@d4rshnn](https://github.com/d4rshnn) | `Darshan Mahale` |
+| [@KingEmma7](https://github.com/KingEmma7) | `KingEmma` |
+| [@mohakmanjrekar](https://github.com/mohakmanjrekar) | `Mohak Manjrekar` |
+| [@happymode-25](https://github.com/happymode-25) | `girishbenni` |
+| [@Yipjunwei](https://github.com/Yipjunwei) | `yip jun wei` |
 
 If your name is wrong, missing, or you would rather be listed under a different handle, or not
 listed at all, open an issue or a one-line PR against this file. It gets merged, no questions asked.
