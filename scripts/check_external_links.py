@@ -44,7 +44,8 @@ BROWSER_USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 FairCodeLinkCheck/1.0"
 )
-LINK = re.compile(r"\]\((https?://[^)\s]+)\)")
+# a URL may contain balanced parentheses, e.g. https://www.jclinepi.com/article/S0895-4356(15)00001-X/fulltext (#1229)
+LINK = re.compile(r"\]\((https?://(?:[^()\s]|\([^()\s]*\))+)\)")
 BARE = re.compile(r"<(https?://[^>\s]+)>")
 SKIP_HOSTS = {"localhost", "127.0.0.1", "example.com", "www.example.com"}
 BROKEN_STATUSES = {404, 410}

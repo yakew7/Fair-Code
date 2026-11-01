@@ -258,3 +258,12 @@ def test_render_splits_unverified_403_links_out_of_the_unknown_list():
     assert "https://a.example/x" in unknown_block and "https://b.example/y" not in unknown_block
     assert "https://b.example/y" in unverified_block
     assert "1 of those answered 403 and have no Internet Archive copy" in script.render_issue_body(report)
+
+
+def test_collect_urls_keeps_balanced_parentheses_in_a_url(tmp_path):
+    # #1229: the link ended at the first ")" so S0895-4356(15 was checked instead of the real address
+    doc = tmp_path / "doc.md"
+    doc.write_text("[a](https://example.org/article/S0895-4356(15)00001-X/fulltext) and [b](https://example.org/b), "
+                   "and (see [c](https://example.org/c)).\n", encoding="utf-8")
+    assert set(script.collect_urls([doc])) == {
+        "https://example.org/article/S0895-4356(15)00001-X/fulltext", "https://example.org/b", "https://example.org/c"}
