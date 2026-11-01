@@ -1536,20 +1536,24 @@ def test_python_dash_m_faircode_runs_the_cli():
     os.name == "nt", reason="stale-script fixture uses a POSIX launcher"
 )
 def test_stale_console_script_imports_the_checkout(tmp_path, monkeypatch):
+    import json
     import subprocess
     import sysconfig
     from faircode import __version__
 
     root = Path(__file__).resolve().parent.parent
     script = tmp_path / "faircode"
+    site_paths = sysconfig.get_paths()
+    # The launcher gets the site-packages directories after the standard library (sys.path.extend), not through
+    # PYTHONPATH, which ranks ahead of it: an old `pathlib.py` backport in site-packages then shadowed the stdlib
+    # module and the run died with an ImportError on `collections` (#1239).
+    site_dirs = json.dumps(sorted({site_paths["purelib"], site_paths["platlib"]}))
     script.write_text(
-        f"#!/bin/sh\nexec {shlex.quote(sys.executable)} -S -c 'from faircode.cli import main; main()' \"$@\"\n"
+        f"#!/bin/sh\nexec {shlex.quote(sys.executable)} -S -c "
+        f"'import sys; sys.path.extend({site_dirs}); from faircode.cli import main; main()' \"$@\"\n"
     )
     script.chmod(0o755)
-    site_paths = sysconfig.get_paths()
-    monkeypatch.setenv(
-        "PYTHONPATH", os.pathsep.join({site_paths["purelib"], site_paths["platlib"]})
-    )
+    monkeypatch.delenv("PYTHONPATH", raising=False)
     command = [str(script), "--version"]
     stale = subprocess.run(
         command, capture_output=True, text=True, cwd=tmp_path, env=os.environ.copy()
@@ -1560,9 +1564,7 @@ def test_stale_console_script_imports_the_checkout(tmp_path, monkeypatch):
     package.mkdir(parents=True)
     (package / "__init__.py").write_text("")
     (package / "cli.py").write_text("def main(): print('shadow package')\n")
-    monkeypatch.setenv(
-        "PYTHONPATH", os.pathsep.join([str(shadow), os.environ["PYTHONPATH"]])
-    )
+    monkeypatch.setenv("PYTHONPATH", str(shadow))
     result = subprocess.run(
         command,
         capture_output=True,
