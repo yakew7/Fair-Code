@@ -44,6 +44,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 MAINTAINER = "yakew7"
 SECTIONS = ("Core contributors", "Contributors")
+# Entries whose commits no GitHub API counts, so --commits cannot compare them (#1234). Both the contributors API and
+# `commits?author=LOGIN` return nothing for them because the commit email is not linked to the account (the file's
+# Git identity map explains the same for TanishGoyal-Dev and Ayaan-20-11). Anyone else missing from the API fails.
+COMMIT_EXCEPTIONS = {
+    "ayaan-20-11": "commit email not linked to the GitHub account",
+    "raonishanth2000-hub": "commit email not linked to the GitHub account",
+    "ege-arhan": "commit email not linked to the GitHub account",
+}
 
 ENTRY = re.compile(
     r"^### (?P<header>.+)\n\n\*\*(?P<merged>\d+) merged PRs? · (?P<commits>\d+) commits? · "
@@ -137,7 +145,11 @@ def commit_problems(entries: list[dict], live: dict[str, int], after: dict[str, 
         if entry["deleted"]:
             continue
         if handle not in live:
-            skipped.append(f"{entry['handle']}: not in the contributors API, commit count not compared")
+            if handle in COMMIT_EXCEPTIONS:
+                skipped.append(f"{entry['handle']}: commit count not compared ({COMMIT_EXCEPTIONS[handle]})")
+            else:
+                problems.append(f"{entry['handle']}: not in the contributors API and not in COMMIT_EXCEPTIONS, "
+                                f"so its {entry['commits']} commit(s) cannot be checked")
             continue
         expected = live[handle] - after.get(handle, 0)
         if expected != entry["commits"]:

@@ -173,7 +173,7 @@ def test_a_wrong_commit_count_fails_and_a_missing_login_is_skipped(tmp_path, cap
     code, out = run(tmp_path, capsys, extra=("--commits-data", str(tmp_path / "commits.json")))
     assert code == 1
     assert "bob: file says 4 commits, GitHub says 9 at the snapshot (9 now, 0 since)" in out
-    assert "carol: not in the contributors API" in out
+    assert "carol: not in the contributors API and not in COMMIT_EXCEPTIONS" in out
 
 
 def test_snapshot_time_is_one_second_after_the_snapshot_pr_merged():
@@ -203,3 +203,22 @@ def test_pending_lists_authors_who_merged_after_the_snapshot(tmp_path, capsys):
 def test_pending_is_clean_when_nobody_merged_since(tmp_path, capsys):
     code, out = run(tmp_path, capsys, extra=("--pending",))
     assert code == 0 and "Nobody has merged since the snapshot (PR #100)." in out
+
+
+def test_a_listed_exception_is_excused_with_its_reason(monkeypatch):
+    # #1234: three entries are in no API because their commit email is not linked to the account
+    monkeypatch.setitem(script.COMMIT_EXCEPTIONS, "carol", "commit email not linked to the GitHub account")
+    entries, _ = script.parse(DOC)
+    problems, skipped = script.commit_problems(entries, COMMITS["live"] | {"carol": 99}, COMMITS["after_snapshot"])
+    assert any("carol: file says 3 commits, GitHub says 99" in p for p in problems)   # in the API: compared as usual
+
+    live_without_carol = {k: v for k, v in COMMITS["live"].items() if k != "carol"}
+    problems, skipped = script.commit_problems(entries, live_without_carol, COMMITS["after_snapshot"])
+    assert problems == []
+    assert "carol: commit count not compared (commit email not linked to the GitHub account)" in skipped
+
+
+def test_the_committed_exceptions_name_entries_that_exist():
+    entries, _ = script.parse((script.ROOT / "CONTRIBUTORS.md").read_text(encoding="utf-8"))
+    handles = {e["handle"].lower() for e in entries}
+    assert set(script.COMMIT_EXCEPTIONS) <= handles
