@@ -14,11 +14,15 @@ script = importlib.import_module("scripts.check_external_links")
 
 class _Handler(http.server.BaseHTTPRequestHandler):
     requests = []
+    flaky_seen = set()
 
     def _respond(self):
         user_agent = self.headers.get("User-Agent", "")
         self.requests.append((self.path, self.command, user_agent))
-        if self.path == "/always404":
+        if self.path == "/flaky":
+            code = 200 if self.path in self.flaky_seen else 503
+            self.flaky_seen.add(self.path)
+        elif self.path == "/always404":
             code = 404
         elif self.path == "/kaggle":
             code = 200 if "Chrome/" in user_agent and "FairCodeLinkCheck/1.0" in user_agent else 404
@@ -43,6 +47,11 @@ class _Handler(http.server.BaseHTTPRequestHandler):
 
     def log_message(self, *args):
         pass
+
+
+@pytest.fixture(autouse=True)
+def no_retry_wait(monkeypatch):
+    monkeypatch.setattr(script, "RETRY_DELAY", 0.0)
 
 
 @pytest.fixture(scope="module")
@@ -267,3 +276,46 @@ def test_collect_urls_keeps_balanced_parentheses_in_a_url(tmp_path):
                    "and (see [c](https://example.org/c)).\n", encoding="utf-8")
     assert set(script.collect_urls([doc])) == {
         "https://example.org/article/S0895-4356(15)00001-X/fulltext", "https://example.org/b", "https://example.org/c"}
+
+
+def test_a_transient_503_is_retried_once_and_a_lasting_one_stays_unknown(server):
+    # #1231
+    _Handler.flaky_seen.clear()
+    _Handler.requests.clear()
+    assert script.check_url(server + "/flaky", timeout=5) == ("ok", "200")
+    assert len([r for r in _Handler.requests if r[0] == "/flaky"]) == 2
+
+    _Handler.requests.clear()
+    assert script.check_url(server + "/down", timeout=5) == ("unknown", "503")
+    assert len([r for r in _Handler.requests if r[0] == "/down" and r[1] == "HEAD"]) == 2
+
+
+def test_retry_after_is_honoured_up_to_a_cap():
+    def error(value):
+        return urllib.error.HTTPError("http://x", 429, "slow", {"Retry-After": value} if value else {}, io.BytesIO())
+
+    assert script._retry_delay(error("3")) == 3.0
+    assert script._retry_delay(error("9999")) == script.RETRY_AFTER_CAP
+    assert script._retry_delay(error("Wed, 21 Oct 2026 07:28:00 GMT")) == script.RETRY_DELAY
+    assert script._retry_delay(error(None)) == script.RETRY_DELAY
+
+
+def test_run_never_sends_more_than_the_per_host_limit_at_once(monkeypatch):
+    import threading
+    import time as time_module
+    active, peak, lock = 0, 0, threading.Lock()
+
+    def slow_check(url, timeout):
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+        time_module.sleep(0.05)
+        with lock:
+            active -= 1
+        return "ok", "200"
+
+    monkeypatch.setattr(script, "check_url", slow_check)
+    urls = {f"https://same.example.org/{n}": ["a.md"] for n in range(8)}
+    report = script.run(urls, workers=8)
+    assert len(report["ok"]) == 8 and peak <= script.PER_HOST_REQUESTS

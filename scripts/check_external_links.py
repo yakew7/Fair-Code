@@ -33,6 +33,8 @@ import re
 import socket
 import ssl
 import sys
+import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -50,6 +52,10 @@ BARE = re.compile(r"<(https?://[^>\s]+)>")
 SKIP_HOSTS = {"localhost", "127.0.0.1", "example.com", "www.example.com"}
 BROKEN_STATUSES = {404, 410}
 MOVED_STATUSES = {301, 308}
+RETRY_STATUSES = {429, 500, 502, 503, 504}
+RETRY_DELAY = 2.0          # seconds before the one retry of a transient answer (#1231)
+RETRY_AFTER_CAP = 10.0     # a longer Retry-After is not waited for
+PER_HOST_REQUESTS = 2      # concurrent requests to one host
 IGNORE_FILE = ROOT / "scripts" / "external-links-ignore.txt"
 
 
@@ -126,7 +132,27 @@ def check_url(url: str, timeout: float = 15.0) -> tuple[str, str]:
     return "unknown", "no response"
 
 
+def _retry_delay(error: urllib.error.HTTPError) -> float:
+    header = error.headers.get("Retry-After") if error.headers else None
+    try:
+        return min(max(float(header), 0.0), RETRY_AFTER_CAP) if header is not None else RETRY_DELAY
+    except ValueError:
+        return RETRY_DELAY
+
+
 def _open(url: str, method: str, user_agent: str, timeout: float) -> tuple[str, str]:
+    """One request; a 429 or 5xx is tried once more after a short wait (Retry-After up to a cap), since those are
+    usually a busy server rather than a dead page."""
+    try:
+        return _open_once(url, method, user_agent, timeout)
+    except urllib.error.HTTPError as error:
+        if error.code not in RETRY_STATUSES:
+            raise
+        time.sleep(_retry_delay(error))
+        return _open_once(url, method, user_agent, timeout)
+
+
+def _open_once(url: str, method: str, user_agent: str, timeout: float) -> tuple[str, str]:
     request = urllib.request.Request(url, method=method, headers={"User-Agent": user_agent, "Accept": "*/*"})
     with urllib.request.urlopen(request, timeout=timeout, context=_ssl_context()) as response:
         final_url, status = response.url, str(response.status)
@@ -230,8 +256,16 @@ def run(urls: dict[str, list[str]], limit: int | None = None, workers: int = 8, 
     urls = {url: files for url, files in urls.items() if url not in ignore}
     items = sorted(urls)[:limit] if limit else sorted(urls)
     results = {"ok": [], "moved": [], "broken": [], "unknown": []}
+    host_slots: dict[str, threading.Semaphore] = {}
+    for url in items:
+        host_slots.setdefault(urllib.parse.urlsplit(url).netloc.lower(), threading.Semaphore(PER_HOST_REQUESTS))
+
+    def check_with_host_limit(url: str) -> tuple[str, str]:
+        with host_slots[urllib.parse.urlsplit(url).netloc.lower()]:
+            return check_url(url, timeout)
+
     with concurrent.futures.ThreadPoolExecutor(workers) as pool:
-        for url, (kind, detail) in zip(items, pool.map(lambda u: check_url(u, timeout), items)):
+        for url, (kind, detail) in zip(items, pool.map(check_with_host_limit, items)):
             results[kind].append({"url": url, "detail": detail, "files": urls[url]})
     return {"checked": len(items), **{kind: results[kind] for kind in results},
             "ignored": ignored, "stale_ignored": stale_ignored}
