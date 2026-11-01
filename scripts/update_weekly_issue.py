@@ -132,13 +132,26 @@ def update_issue(
     return action
 
 
+def describe_dry_run(kind: str, state: bool | None, body: str) -> str:
+    """What a real run would do, without asking GitHub whether the issue already exists (#1245)."""
+    config = REPORTS[kind]
+    if state is None:
+        return f"{kind}: the check did not produce a usable result; a real run fails the job"
+    head = (f"{kind}: an issue is needed; a real run creates or edits \"{config['title']}\" (label {config['label']}) with:"
+            if state else
+            f"{kind}: no issue is needed; a real run closes \"{config['title']}\" if it is open, with the comment: "
+            f"{config['close_comment']}")
+    return head + ("\n\n" + body.rstrip("\n") if state else "")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("kind", choices=REPORTS)
     parser.add_argument("report", type=Path, help="external-links JSON report or traction status file")
     parser.add_argument("details", type=Path, nargs="?", help="traction stderr file or contributors stdout file")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="print the decision and the issue body instead of calling gh (needs no GITHUB_REPOSITORY)")
     args = parser.parse_args(argv)
-    repo = os.environ["GITHUB_REPOSITORY"]
 
     if args.kind == "external-links":
         report = json.loads(args.report.read_text(encoding="utf-8"))
@@ -152,7 +165,10 @@ def main(argv: list[str] | None = None) -> int:
         build = traction_issue_body if args.kind == "traction" else contributors_issue_body
         body = build(args.details.read_text(encoding="utf-8")) if state else ""
 
-    update_issue(repo, args.kind, state, body)
+    if args.dry_run:
+        print(describe_dry_run(args.kind, state, body))
+        return 0
+    update_issue(os.environ["GITHUB_REPOSITORY"], args.kind, state, body)
     return 0
 
 

@@ -143,3 +143,21 @@ def test_each_report_creates_its_issue_with_its_own_label(kind, label):
     assert create[:3] == ["gh", "issue", "create"] and create[create.index("--label") + 1] == label
     assert script.REPORTS[kind]["label"] == label
 
+
+
+def test_dry_run_prints_the_decision_and_body_and_never_calls_gh(tmp_path, monkeypatch, capsys):
+    # #1245: no GITHUB_REPOSITORY needed and no runner involved
+    monkeypatch.delenv("GITHUB_REPOSITORY", raising=False)
+    monkeypatch.setattr(script, "update_issue", lambda *a, **k: pytest.fail("gh must not be called"))
+    status, out = tmp_path / "status", tmp_path / "out.txt"
+    out.write_text("someone: 1 merged PR(s) after the snapshot (#9); no entry yet\n1 author(s) merged after the snapshot (PR #1).\n")
+
+    status.write_text("1\n")
+    assert script.main(["contributors", str(status), str(out), "--dry-run"]) == 0
+    printed = capsys.readouterr().out
+    assert "an issue is needed" in printed and "(label community)" in printed and "- someone:" in printed
+
+    status.write_text("0\n")
+    assert script.main(["contributors", str(status), str(out), "--dry-run"]) == 0
+    assert "no issue is needed" in capsys.readouterr().out
+
