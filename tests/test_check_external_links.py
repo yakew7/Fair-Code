@@ -319,3 +319,27 @@ def test_run_never_sends_more_than_the_per_host_limit_at_once(monkeypatch):
     urls = {f"https://same.example.org/{n}": ["a.md"] for n in range(8)}
     report = script.run(urls, workers=8)
     assert len(report["ok"]) == 8 and peak <= script.PER_HOST_REQUESTS
+
+
+def test_a_host_entry_skips_every_url_on_that_host_and_is_reported(tmp_path):
+    # #1233
+    ignore = tmp_path / "ignore.txt"
+    ignore.write_text("host:Blocked.Example.org publisher answers every script with 403\n"
+                      "host:unused.example.org nothing cites it\n"
+                      "https://other.example.org/page one exact page\n", encoding="utf-8")
+    entries = script.load_ignore_list(ignore)
+    assert set(entries) == {"host:blocked.example.org", "host:unused.example.org", "https://other.example.org/page"}
+
+    urls = {"https://blocked.example.org/a": ["a.md"], "https://blocked.example.org/b": ["b.md"],
+            "https://other.example.org/page": ["a.md"]}
+    report = script.run(urls, ignore=entries)
+    assert report["checked"] == 0
+    assert sorted(item["url"] for item in report["ignored"]) == sorted(urls)
+    assert [item["url"] for item in report["stale_ignored"]] == ["host:unused.example.org"]
+
+
+def test_a_malformed_host_entry_is_rejected(tmp_path):
+    ignore = tmp_path / "ignore.txt"
+    ignore.write_text("host:https://x.example.org reason\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="host:name reason"):
+        script.load_ignore_list(ignore)

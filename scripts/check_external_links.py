@@ -71,8 +71,9 @@ def _ssl_context():
 
 
 def load_ignore_list(path: Path | None = IGNORE_FILE) -> dict[str, str]:
-    """{url: reason} from an ignore file: `URL reason` per line, blank lines and `#` comments skipped. A missing file
-    is an empty list; a line without a reason is an error, so every exception says why it exists."""
+    """{url or "host:name": reason} from an ignore file: `URL reason` or `host:example.com reason` per line (the second
+    skips every URL on that host, #1233), blank lines and `#` comments skipped. A missing file is an empty list; a line
+    without a reason is an error, so every exception says why it exists."""
     if path is None or not Path(path).exists():
         return {}
     ignored: dict[str, str] = {}
@@ -81,9 +82,9 @@ def load_ignore_list(path: Path | None = IGNORE_FILE) -> dict[str, str]:
         if not line or line.startswith("#"):
             continue
         url, _, reason = line.partition(" ")
-        if not re.match(r"https?://\S+$", url) or not reason.strip():
-            raise ValueError(f"{path}:{number}: expected `URL reason`, got {line!r}")
-        ignored[url.rstrip(".,;")] = reason.strip()
+        if not (re.match(r"https?://\S+$", url) or re.match(r"host:[^\s/:]+$", url)) or not reason.strip():
+            raise ValueError(f"{path}:{number}: expected `URL reason` or `host:name reason`, got {line!r}")
+        ignored[url.rstrip(".,;") if url.startswith("http") else url.lower()] = reason.strip()
     return ignored
 
 
@@ -251,9 +252,17 @@ def _check_doi(doi: str, timeout: float) -> tuple[str, str]:
 def run(urls: dict[str, list[str]], limit: int | None = None, workers: int = 8, timeout: float = 15.0,
         ignore: dict[str, str] | None = None) -> dict:
     ignore = ignore or {}
-    ignored = [{"url": url, "reason": ignore[url], "files": urls[url]} for url in sorted(urls) if url in ignore]
-    stale_ignored = [{"url": url, "reason": reason} for url, reason in sorted(ignore.items()) if url not in urls]
-    urls = {url: files for url, files in urls.items() if url not in ignore}
+
+    def ignore_key(url: str) -> str | None:
+        """The ignore entry that covers `url`: the exact URL, else its `host:` entry."""
+        host = "host:" + (urllib.parse.urlsplit(url).hostname or "").lower()
+        return url if url in ignore else host if host in ignore else None
+
+    ignored = [{"url": url, "reason": ignore[ignore_key(url)], "files": urls[url]}
+               for url in sorted(urls) if ignore_key(url)]
+    used = {ignore_key(url) for url in urls}
+    stale_ignored = [{"url": key, "reason": reason} for key, reason in sorted(ignore.items()) if key not in used]
+    urls = {url: files for url, files in urls.items() if not ignore_key(url)}
     items = sorted(urls)[:limit] if limit else sorted(urls)
     results = {"ok": [], "moved": [], "broken": [], "unknown": []}
     host_slots: dict[str, threading.Semaphore] = {}
