@@ -9,6 +9,7 @@ and carries the cells GitHub cannot supply (social views, countries, code audits
     python3 scripts/draft_metrics_row.py                    # row for today's ISO week, from gh
     python3 scripts/draft_metrics_row.py --date 2026-11-03  # row for the week containing that date
     python3 scripts/draft_metrics_row.py --live-data FILE   # FILE: {"stars", "forks", "watching", "contributors", "issues_closed"}
+    python3 scripts/draft_metrics_row.py --apply            # also write the row and the figures into METRICS.md, README.md and ROADMAP.md
     python3 scripts/draft_metrics_row.py --pending-closes   # also count the open issues the commits ahead of the base close on merge
 
 A sweep row's Issues Closed is what is already closed this week plus what the sweep's commits close when they merge, so
@@ -70,6 +71,63 @@ def fetch_issues_closed(since: datetime.date, repo: str) -> int | None:
     return int(done.stdout.strip()) if done.returncode == 0 and done.stdout.strip().isdigit() else None
 
 
+FIGURE_ROWS = {"stars": "GitHub Stars", "forks": "Forks", "watching": "Watching"}
+BADGES = {"stars": "Stars", "contributors": "Contributors", "forks": "Forks", "watching": "Watching"}
+TARGET_ROWS = {"stars": "Stars", "forks": "Forks", "watching": "Watching", "contributors": "Contributors"}
+
+
+def _sub_once(text: str, pattern: str, replacement: str, what: str) -> str:
+    text, count = re.subn(pattern, replacement, text, count=1, flags=re.MULTILINE)
+    if count != 1:
+        raise ValueError(f"could not find {what}")
+    return text
+
+
+def apply_figures(root: Path, live: dict, row: str) -> list[Path]:
+    """Write the new weekly `row` and the live stars, forks, watching and contributors into every place they are typed:
+    the README traction table (External Contributors is one below the total), the ROADMAP Current traction row, the
+    METRICS badges, its targets table and the weekly table (#1252). The cells check_traction.py reads are the ones
+    changed, so `check_traction.py --live` passes afterwards; nothing else is touched. Returns the files rewritten."""
+    texts = {name: (root / name).read_text(encoding="utf-8") for name in ("README.md", "ROADMAP.md", "METRICS.md")}
+
+    readme = texts["README.md"]
+    for figure, label in FIGURE_ROWS.items():
+        readme = _sub_once(readme, rf"^(\|\s*{re.escape(label)}\s*\|\s*)\d+(\s*\|)", rf"\g<1>{live[figure]}\g<2>", f"the README {label} row")
+    readme = _sub_once(readme, r"^(\|\s*External Contributors\s*\|\s*)\d+(\s*\|)", rf"\g<1>{live['contributors'] - 1}\g<2>",
+                       "the README External Contributors row")
+    texts["README.md"] = readme
+
+    roadmap_lines = texts["ROADMAP.md"].splitlines(keepends=True)
+    header = next((i for i, line in enumerate(roadmap_lines) if line.startswith("| Stars | Contributors | Forks | Watching |")), None)
+    data = next((i for i in range(header + 1, header + 4) if re.search(r"\d", roadmap_lines[i]) and roadmap_lines[i].startswith("|")), None) \
+        if header is not None else None
+    if data is None:
+        raise ValueError("could not find the ROADMAP Current traction row")
+    cells = roadmap_lines[data].rstrip("\n").strip().strip("|").split("|")
+    for index, figure in enumerate(("stars", "contributors", "forks", "watching")):
+        cells[index] = f" {live[figure]} "
+    roadmap_lines[data] = "|" + "|".join(cells) + "|\n"
+    texts["ROADMAP.md"] = "".join(roadmap_lines)
+
+    metrics = texts["METRICS.md"]
+    for figure, name in BADGES.items():
+        metrics = _sub_once(metrics, rf"(img\.shields\.io/badge/{name}-)\d+(-)", rf"\g<1>{live[figure]}\g<2>", f"the METRICS {name} badge")
+    for figure, name in TARGET_ROWS.items():
+        metrics = _sub_once(metrics, rf"^(\|\s*{name}\s*\|\s*)\d+(\s*\|)", rf"\g<1>{live[figure]}\g<2>", f"the METRICS targets {name} row")
+    rows = list(ROW.finditer(metrics))
+    if not rows:
+        raise ValueError("METRICS.md has no weekly row to append after")
+    metrics = metrics[:rows[-1].end()] + "\n" + row + metrics[rows[-1].end():]
+    texts["METRICS.md"] = metrics
+
+    changed = []
+    for name, text in texts.items():
+        if text != (root / name).read_text(encoding="utf-8"):
+            (root / name).write_text(text, encoding="utf-8")
+            changed.append(root / name)
+    return changed
+
+
 def fetch_open_among(numbers, repo: str) -> int | None:
     """How many of the issues `numbers` are still open (an already closed one is in the closed count), or None on failure."""
     total = 0
@@ -88,6 +146,8 @@ def main(argv=None) -> int:
     parser.add_argument("--live-data", metavar="FILE", help="GitHub's figures as JSON instead of asking gh")
     parser.add_argument("--pending-closes", action="store_true",
                         help="add the open issues the commits ahead of the base branch close on merge to Issues Closed")
+    parser.add_argument("--apply", action="store_true",
+                        help="also write the row and the figures into METRICS.md, README.md and ROADMAP.md (next to --file)")
     args = parser.parse_args(argv)
     day = args.date or datetime.date.today()
 
@@ -114,7 +174,11 @@ def main(argv=None) -> int:
                 return 2
             live["pending_closes"] = pending
     try:
-        print(build_row(latest_row(args.file.read_text(encoding="utf-8")), live, day))
+        row = build_row(latest_row(args.file.read_text(encoding="utf-8")), live, day)
+        print(row)
+        if args.apply:
+            changed = apply_figures(args.file.parent, live, row)
+            print("updated: " + ", ".join(path.name for path in changed), file=sys.stderr)
     except ValueError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

@@ -99,3 +99,70 @@ def test_pending_closes_online_uses_the_local_commit_closes(monkeypatch, tmp_pat
     monkeypatch.setattr(script, "fetch_open_among", lambda numbers, repo: len(numbers))
     assert script.main(["--file", str(metrics), "--date", "2026-11-03", "--pending-closes"]) == 0
     assert "| 13 |" in capsys.readouterr().out
+
+
+README_FIXTURE = """| Metric | Count |
+|--------|------:|
+| GitHub Stars | 53 |
+| External Contributors | 54 |
+| Forks | 64 |
+| Watching | 8 |
+| Combined Social Reach (Instagram + LinkedIn) | 30K+ |
+"""
+ROADMAP_FIXTURE = """| Stars | Contributors | Forks | Watching | Social Reach | Countries | Audits | Explainers | CI |
+|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| 53 | 55 | 64 | 8 | 30K+ | 20 | 7 | 114 | ok |
+"""
+METRICS_FIXTURE = """![Stars](https://img.shields.io/badge/Stars-53-brightgreen?style=flat-square)
+![Contributors](https://img.shields.io/badge/Contributors-55-blue?style=flat-square)
+![Forks](https://img.shields.io/badge/Forks-64-orange?style=flat-square)
+![Watching](https://img.shields.io/badge/Watching-8-yellow?style=flat-square)
+![Countries](https://img.shields.io/badge/Countries-20-informational?style=flat-square)
+
+""" + METRICS + """
+## Targets
+
+| Metric | Current | Target | Timeline |
+|--------|--------:|-------:|----------|
+| Stars | 53 | 50+ | End of 2026 |
+| Forks | 64 | 75+ | End of 2026 |
+| Watching | 8 | 12+ | End of 2026 |
+| Contributors | 55 | 20+ | End of 2026 |
+| Social reach | 30K+ | 40K+ | End of 2026 |
+"""
+
+
+def _site(tmp_path):
+    (tmp_path / "README.md").write_text(README_FIXTURE, encoding="utf-8")
+    (tmp_path / "ROADMAP.md").write_text(ROADMAP_FIXTURE, encoding="utf-8")
+    (tmp_path / "METRICS.md").write_text(METRICS_FIXTURE, encoding="utf-8")
+    return tmp_path
+
+
+def test_apply_updates_every_place_and_leaves_check_traction_live_passing(tmp_path, capsys):
+    # #1252
+    site = _site(tmp_path)
+    data = tmp_path / "live.json"
+    data.write_text(json.dumps(LIVE), encoding="utf-8")
+    assert script.main(["--file", str(site / "METRICS.md"), "--date", "2026-11-03", "--live-data", str(data), "--apply"]) == 0
+    assert "updated: README.md, ROADMAP.md, METRICS.md" in capsys.readouterr().err
+
+    assert "| GitHub Stars | 54 |" in (site / "README.md").read_text(encoding="utf-8")
+    assert "| External Contributors | 57 |" in (site / "README.md").read_text(encoding="utf-8")
+    assert "| 54 | 58 | 67 | 8 | 30K+ | 20 | 7 | 114 | ok |" in (site / "ROADMAP.md").read_text(encoding="utf-8")
+    metrics = (site / "METRICS.md").read_text(encoding="utf-8")
+    assert "badge/Stars-54-" in metrics and "badge/Contributors-58-" in metrics and "badge/Countries-20-" in metrics
+    assert "| Forks | 67 | 75+ |" in metrics and "| Social reach | 30K+ |" in metrics
+    assert metrics.index("| 2026-W45 |") > metrics.index("| 2026-W43 |")
+
+    observations = traction.collect(site)[0]
+    assert traction.live_differences(observations, LIVE) == []
+
+
+def test_apply_changes_nothing_when_a_cell_cannot_be_found(tmp_path):
+    site = _site(tmp_path)
+    (site / "README.md").write_text(README_FIXTURE.replace("| Forks | 64 |\n", ""), encoding="utf-8")
+    before = {name: (site / name).read_text(encoding="utf-8") for name in ("README.md", "ROADMAP.md", "METRICS.md")}
+    with pytest.raises(ValueError, match="README Forks row"):
+        script.apply_figures(site, LIVE, "| 2026-W45 | 54 | 67 | 8 | 58 | 30K+ total | 20 | 12 | 7 total |")
+    assert {name: (site / name).read_text(encoding="utf-8") for name in before} == before
