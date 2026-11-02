@@ -371,3 +371,44 @@ def test_per_host_must_be_at_least_one(tmp_path):
     doc.write_text("[a](https://example.org/a)\n", encoding="utf-8")
     with pytest.raises(SystemExit):
         script.main([str(doc), "--per-host", "0"])
+
+
+def test_fix_moved_rewrites_links_in_the_citing_files_only(tmp_path):
+    # #1255
+    doc = tmp_path / "doc.md"
+    doc.write_text("[a](https://old.example.org/a) and <https://old.example.org/a> and [keep](https://old.example.org/ab)\n"
+                   "plain https://old.example.org/a text\n", encoding="utf-8")
+    other = tmp_path / "other.md"
+    other.write_text("[a](https://old.example.org/a)\n", encoding="utf-8")
+    untouched = tmp_path / "untouched.md"
+    untouched.write_text("[a](https://old.example.org/a)\n", encoding="utf-8")
+    report = {"moved": [{"url": "https://old.example.org/a", "detail": "https://new.example.org/a", "files": ["doc.md", "other.md"]}]}
+
+    count, files = script.fix_moved(report, root=tmp_path)
+
+    assert count == 2 and files == [doc, other]
+    assert doc.read_text(encoding="utf-8") == ("[a](https://new.example.org/a) and <https://new.example.org/a> and "
+                                              "[keep](https://old.example.org/ab)\nplain https://old.example.org/a text\n")
+    assert other.read_text(encoding="utf-8") == "[a](https://new.example.org/a)\n"
+    assert untouched.read_text(encoding="utf-8") == "[a](https://old.example.org/a)\n"
+
+
+@pytest.mark.parametrize("new", ["https://example.org/login?next=/a", "https://example.org/404", "https://example.org/error/"])
+def test_fix_moved_leaves_a_redirect_to_a_login_or_error_page_alone(tmp_path, new):
+    doc = tmp_path / "doc.md"
+    doc.write_text("[a](https://old.example.org/a)\n", encoding="utf-8")
+    report = {"moved": [{"url": "https://old.example.org/a", "detail": new, "files": ["doc.md"]}]}
+    assert script.fix_moved(report, root=tmp_path) == (0, [])
+    assert doc.read_text(encoding="utf-8") == "[a](https://old.example.org/a)\n"
+
+
+def test_main_fix_moved_rewrites_after_reporting(tmp_path, monkeypatch, capsys):
+    doc = tmp_path / "doc.md"
+    doc.write_text("[a](https://old.example.org/a)\n", encoding="utf-8")
+    report = {"checked": 1, "ok": [], "broken": [], "unknown": [], "ignored": [], "stale_ignored": [],
+              "moved": [{"url": "https://old.example.org/a", "detail": "https://new.example.org/a", "files": [str(doc)]}]}
+    monkeypatch.setattr(script, "run", lambda *a, **k: report)
+    assert script.main([str(doc), "--fix-moved"]) == 0
+    out = capsys.readouterr().out
+    assert "1 moved" in out and "Rewrote 1 moved link(s) in 1 file(s)" in out
+    assert doc.read_text(encoding="utf-8") == "[a](https://new.example.org/a)\n"
