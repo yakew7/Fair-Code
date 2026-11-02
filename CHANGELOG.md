@@ -21,6 +21,11 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Added
 
+- `check_contributors.py --stub LOGIN` (#1249), `--save-commits FILE` (#1248), pending-list PR titles (#1258) and a check that every entry is in the Contributions by area table (#1259); the contributor check exceptions are documented in CONTRIBUTING (#1261).
+- `check_external_links.py --fix-moved` (#1255), `--retry-delay` and `--per-host` (#1254).
+- `draft_metrics_row.py --pending-closes` (#1251), `--apply` (#1252) and `--note` (#1262).
+- `scripts/check_environment.py` and `make doctor` (#1247): modules in site-packages that shadow the standard library.
+- Tests for the gh wrappers behind the weekly checks (#1253).
 - `scripts/draft_metrics_row.py` (#1242) prints the next weekly METRICS.md row from GitHub; `make traction-live`, `make contributors-commits`, `make contributors-pending` and `make metrics-row` (#1246, #1242).
 - `check_contributors.py --identities` (#1236), `--fix --commits` (#1235) and `COMMIT_EXCEPTIONS` for contributors no GitHub API counts (#1234); ten git author names added to the Git identity map.
 - `update_weekly_issue.py --dry-run` (#1245), a label per report (#1241) and a failing job with an error annotation when the check could not run (#1244).
@@ -40,6 +45,9 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Changed
 
+- `check_issue_refs.py` measures the branch against the default branch of `upstream` (or `origin`) instead of assuming `origin/main` (#1250).
+- `check_explainer_count.py` finds ROADMAP's Explainers cell by its table header (#1257); `check_contributors.py` `main()` is split by mode (#1260).
+- `make test-fast` runs in parallel when pytest-xdist is installed, with single-threaded BLAS per worker, and lists the ten slowest tests (#1256).
 - The link checker keeps balanced parentheses in a URL (#1229); the top-level docs link the current address of the moved links (#1230); the LinkedIn profile link is ignored (#1232).
 - `check_explainer_count.py` also checks the Explainers column of ROADMAP's traction table, which now reads 114 (#1243).
 - The stale console script test appends site-packages after the standard library (#1239).
