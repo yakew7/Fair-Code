@@ -366,3 +366,44 @@ def test_area_table_problems_name_entries_in_no_row(tmp_path, capsys):
 def test_the_real_file_has_every_entry_in_the_area_table():
     text = (script.ROOT / "CONTRIBUTORS.md").read_text(encoding="utf-8")
     assert script.area_table_problems(text, script.parse(text)[0]) == []
+
+
+STUB_DOC = AREA_DOC.replace("\n## Contributions by area", "\n---\n\n## Contributions by area").replace("[@Bob](https://github.com/bob) |", "[@Bob](https://github.com/bob), [@carol](https://github.com/carol) |") + """
+| **Contributor tooling & docs** | [@alice](https://github.com/alice) |
+
+---
+"""
+
+
+def test_stub_entry_uses_the_authors_merged_prs_and_titles():
+    # #1249
+    prs = [dict(pr(110, "dave", "2026-10-30"), title="fix: a"), dict(pr(120, "Dave", "2026-10-31"), title="docs: b"),
+           pr(111, "bob", "2026-10-30")]
+    stub = script.stub_entry("dave", prs)
+    assert stub.startswith("### [@dave](https://github.com/dave)\n\n**2 merged PRs · 2 commits · first merged 2026-10-30**")
+    assert "[#110](https://github.com/yakew7/Fair-Code/pull/110) fix: a; [#120]" in stub and "TODO" in stub
+    with pytest.raises(ValueError, match="no merged pull requests"):
+        script.stub_entry("nobody", prs)
+
+
+def test_stub_for_a_new_author_leaves_a_file_the_plain_check_passes(tmp_path, capsys):
+    prs = PRS + [dict(pr(110, "dave", "2026-10-30"), title="fix: a"), dict(pr(120, "dave", "2026-10-31"), title="docs: b")]
+    (tmp_path / "CONTRIBUTORS.md").write_text(STUB_DOC, encoding="utf-8")
+    (tmp_path / "prs.json").write_text(json.dumps(prs), encoding="utf-8")
+    assert script.main(["--file", str(tmp_path / "CONTRIBUTORS.md"), "--prs", str(tmp_path / "prs.json"), "--stub", "dave"]) == 0
+    text = (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+
+    assert "covering everything merged through **PR #120**" in text
+    dave = next(e for e in script.parse(text)[0] if e["handle"] == "dave")
+    assert (dave["merged"], dave["first"]) == (2, "2026-10-30")
+    assert "[@dave](https://github.com/dave) |" in text.split("Contributor tooling & docs")[1]
+    capsys.readouterr()
+    assert script.main(["--file", str(tmp_path / "CONTRIBUTORS.md"), "--prs", str(tmp_path / "prs.json")]) == 0, capsys.readouterr().out
+
+
+def test_stub_refuses_an_existing_entry_and_an_unknown_author(tmp_path, capsys):
+    (tmp_path / "CONTRIBUTORS.md").write_text(STUB_DOC, encoding="utf-8")
+    (tmp_path / "prs.json").write_text(json.dumps(PRS), encoding="utf-8")
+    base = ["--file", str(tmp_path / "CONTRIBUTORS.md"), "--prs", str(tmp_path / "prs.json")]
+    assert script.main(base + ["--stub", "bob"]) == 1 and "already has an entry" in capsys.readouterr().out
+    assert script.main(base + ["--stub", "ghost"]) == 1 and "no merged pull requests" in capsys.readouterr().out

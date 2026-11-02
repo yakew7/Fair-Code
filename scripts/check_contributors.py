@@ -27,6 +27,7 @@ counts are listed as skipped, not failed.
     python3 scripts/check_contributors.py --commits-data F # F: {"live": {login: n}, "after_snapshot": {login: n}}
     python3 scripts/check_contributors.py --identities   # every git commit author maps to an entry or an identity map row
     python3 scripts/check_contributors.py --pending       # who merged after the snapshot (exit 1 if anyone), for the weekly report
+    python3 scripts/check_contributors.py --stub LOGIN     # start an entry for a new contributor (then --fix --commits)
     python3 scripts/check_contributors.py --fix --commits # also refresh commit counts and move the snapshot to the newest merged PR
     python3 scripts/check_contributors.py --fix            # refresh known counts/dates and sort entries in place
 
@@ -365,6 +366,58 @@ def fetch_prs() -> list[dict] | None:
     return json.loads(done.stdout) if done.returncode == 0 else None
 
 
+DEFAULT_AREA = "Contributor tooling & docs"
+
+
+def stub_entry(login: str, prs: list[dict]) -> str:
+    """A starting entry for `login`: header, stats line from their merged PRs (the commit count is a placeholder that
+    `--fix --commits` replaces) and their PR numbers and titles as links, with a TODO sentence for the prose (#1249)."""
+    mine = sorted((pr for pr in prs if ((pr.get("author") or {}).get("login") or "").lower() == login.lower()),
+                  key=lambda pr: pr["number"])
+    if not mine:
+        raise ValueError(f"{login} has no merged pull requests in the data")
+    first = min((pr.get("mergedAt") or "")[:10] for pr in mine)
+    count = len(mine)
+    links = "; ".join(f"[#{pr['number']}](https://github.com/yakew7/Fair-Code/pull/{pr['number']})"
+                      + (f" {pr['title']}" if pr.get("title") else "") for pr in mine)
+    return (f"### [@{login}](https://github.com/{login})\n\n"
+            f"**{count} merged PR{'s' if count != 1 else ''} · {count} commit{'s' if count != 1 else ''} · first merged {first}**\n\n"
+            f"TODO: describe the work in a sentence or two. Merged: {links}.\n\n")
+
+
+def add_stub(text: str, login: str, prs: list[dict], area: str = DEFAULT_AREA) -> str:
+    """Move the snapshot to the newest merged PR, insert a stub entry for `login` and list them in the `area` row of the
+    Contributions by area table; the caller then sorts and refreshes the counts with `fix_document`."""
+    entries, _ = parse(text)
+    if login.lower() in {e["handle"].lower() for e in entries}:
+        raise ValueError(f"{login} already has an entry")
+    stub = stub_entry(login, prs)
+    text = move_snapshot(text, prs, max(pr["number"] for pr in prs))
+    at = text.find("## Contributions by area")
+    if at == -1:
+        raise ValueError("no 'Contributions by area' section to insert before")
+    rule = text.rfind("\n---\n", 0, at)
+    cut = rule + 1 if rule != -1 else at
+    text = text[:cut] + stub + text[cut:]
+    row = re.search(r"^\| \*\*" + re.escape(area) + r"\*\* \|.*\|$", text, re.MULTILINE)
+    if row:
+        text = text.replace(row.group(0), row.group(0)[:-1].rstrip() + f", [@{login}](https://github.com/{login}) |", 1)
+    return text
+
+
+def run_stub(args, text: str, prs: list[dict]) -> int:
+    try:
+        stubbed = add_stub(text, args.stub, prs)
+    except ValueError as error:
+        print(f"error: {error}")
+        return 1
+    newest = max(pr["number"] for pr in prs)
+    args.file.write_text(fix_document(stubbed, prs, newest), encoding="utf-8")
+    print(f"added a stub entry for {args.stub} and moved the snapshot to PR #{newest}; replace the TODO sentence, "
+          "then run --fix --commits for the commit counts")
+    return 0
+
+
 def run_identities(args, text: str) -> int:
     lines = unmapped_authors(text, git_authors())
     for line in lines:
@@ -449,6 +502,7 @@ def main(argv=None) -> int:
     parser.add_argument("--save-commits", metavar="FILE", help="write the fetched commit data to FILE (usable later as --commits-data)")
     parser.add_argument("--identities", action="store_true", help="check that every git commit author maps to an entry or an identity map row (needs the git history)")
     parser.add_argument("--pending", action="store_true", help="list authors who merged after the snapshot and exit 1 if there are any")
+    parser.add_argument("--stub", metavar="LOGIN", help="add a starting entry for a new contributor (moves the snapshot, sorts, lists them in an area row)")
     parser.add_argument("--fix", action="store_true", help="rewrite known PR counts/dates and sort contributor entries")
     args = parser.parse_args(argv)
 
@@ -467,6 +521,8 @@ def main(argv=None) -> int:
         print("note: could not fetch merged pull requests from GitHub (gh missing or offline); "
               "skipping the contributors check")
         return 1 if args.require else 0
+    if args.stub:
+        return run_stub(args, text, prs)
     if args.fix:
         fixed = run_fix(args, text, entries, through, prs)
         if isinstance(fixed, int):
