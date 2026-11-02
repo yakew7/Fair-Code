@@ -166,3 +166,32 @@ def test_apply_changes_nothing_when_a_cell_cannot_be_found(tmp_path):
     with pytest.raises(ValueError, match="README Forks row"):
         script.apply_figures(site, LIVE, "| 2026-W45 | 54 | 67 | 8 | 58 | 30K+ total | 20 | 12 | 7 total |")
     assert {name: (site / name).read_text(encoding="utf-8") for name in before} == before
+
+
+def test_draft_note_lists_the_closed_issues_figure_moves_and_people():
+    # #1262
+    note = script.draft_note(
+        "2026-W45", datetime.date(2026, 11, 2), script.latest_row(METRICS), LIVE,
+        [{"number": 12, "title": "Second thing"}, {"number": 7, "title": "First thing"}],
+        ["bob: 2 merged PR(s) after the snapshot (#101, #102); count to update", "    #101 fix: a thing",
+         "newbie: 1 merged PR(s) after the snapshot (#103); no entry yet"])
+    assert note.startswith("> **2026-W45 - DRAFT, 2 issue(s) closed since 2026-11-02:** First thing (#7); Second thing (#12).")
+    assert "stars `53 → 54`, forks `64 → 67`, watching unchanged at 8, contributors `55 → 58`" in note
+    assert note.endswith("Merged after the CONTRIBUTORS.md snapshot: @bob, @newbie.")
+
+
+def test_draft_note_with_nothing_closed_or_pending_says_so():
+    note = script.draft_note("2026-W45", datetime.date(2026, 11, 2), script.latest_row(METRICS),
+                             {"stars": 53, "forks": 64, "watching": 8, "contributors": 55}, [], [])
+    assert "0 issue(s) closed" in note and "none yet" in note and "Merged after" not in note
+
+
+def test_main_note_prints_the_row_then_the_draft_from_saved_data(tmp_path, capsys):
+    metrics = tmp_path / "METRICS.md"
+    metrics.write_text(METRICS, encoding="utf-8")
+    data = tmp_path / "live.json"
+    data.write_text(json.dumps({**LIVE, "closed_issues": [{"number": 7, "title": "First thing"}],
+                                "pending": ["bob: 1 merged PR(s) after the snapshot (#9); count to update"]}), encoding="utf-8")
+    assert script.main(["--file", str(metrics), "--date", "2026-11-03", "--live-data", str(data), "--note"]) == 0
+    out = capsys.readouterr().out.splitlines()
+    assert out[0].startswith("| 2026-W45 |") and out[1] == "" and "First thing (#7)" in out[2] and "@bob" in out[2]

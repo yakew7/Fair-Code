@@ -9,6 +9,7 @@ and carries the cells GitHub cannot supply (social views, countries, code audits
     python3 scripts/draft_metrics_row.py                    # row for today's ISO week, from gh
     python3 scripts/draft_metrics_row.py --date 2026-11-03  # row for the week containing that date
     python3 scripts/draft_metrics_row.py --live-data FILE   # FILE: {"stars", "forks", "watching", "contributors", "issues_closed"}
+    python3 scripts/draft_metrics_row.py --note             # also print a draft sweep note: closed issues, figure changes, new people
     python3 scripts/draft_metrics_row.py --apply            # also write the row and the figures into METRICS.md, README.md and ROADMAP.md
     python3 scripts/draft_metrics_row.py --pending-closes   # also count the open issues the commits ahead of the base close on merge
 
@@ -128,6 +129,28 @@ def apply_figures(root: Path, live: dict, row: str) -> list[Path]:
     return changed
 
 
+def draft_note(week: str, since: datetime.date, previous: list[str], live: dict, closed: list[dict], pending: list[str]) -> str:
+    """A starting sweep note (a markdown quote line): the issues closed since `since` as `title (#N)` items, how the figures
+    moved against the previous row and who merged after the contributors snapshot (#1262). It is a draft to edit."""
+    items = "; ".join(f"{issue['title']} (#{issue['number']})" for issue in sorted(closed, key=lambda i: i["number"]))
+    moves = []
+    for name, cell, now in (("stars", previous[1], live["stars"]), ("forks", previous[2], live["forks"]),
+                            ("watching", previous[3], live["watching"]), ("contributors", previous[4], live["contributors"])):
+        moves.append(f"{name} `{cell} → {now}`" if str(now) != cell else f"{name} unchanged at {now}")
+    people = [line.split(":")[0] for line in pending if line and not line.startswith(" ")]
+    note = (f"> **{week} - DRAFT, {len(closed)} issue(s) closed since {since.isoformat()}:** "
+            + (items if items else "none yet") + ". Figures: " + ", ".join(moves) + ".")
+    if people:
+        note += " Merged after the CONTRIBUTORS.md snapshot: " + ", ".join(f"@{name}" for name in people) + "."
+    return note
+
+
+def fetch_closed_issues(since: datetime.date, repo: str) -> list[dict] | None:
+    done = subprocess.run(["gh", "issue", "list", "--repo", repo, "--state", "closed", "--limit", "500", "--search",
+                           f"closed:>={since.isoformat()}", "--json", "number,title"], capture_output=True, text=True)
+    return json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else None
+
+
 def fetch_open_among(numbers, repo: str) -> int | None:
     """How many of the issues `numbers` are still open (an already closed one is in the closed count), or None on failure."""
     total = 0
@@ -146,6 +169,8 @@ def main(argv=None) -> int:
     parser.add_argument("--live-data", metavar="FILE", help="GitHub's figures as JSON instead of asking gh")
     parser.add_argument("--pending-closes", action="store_true",
                         help="add the open issues the commits ahead of the base branch close on merge to Issues Closed")
+    parser.add_argument("--note", action="store_true",
+                        help="also print a draft sweep note (closed issues, figure changes, people merged since the snapshot)")
     parser.add_argument("--apply", action="store_true",
                         help="also write the row and the figures into METRICS.md, README.md and ROADMAP.md (next to --file)")
     args = parser.parse_args(argv)
@@ -174,8 +199,19 @@ def main(argv=None) -> int:
                 return 2
             live["pending_closes"] = pending
     try:
-        row = build_row(latest_row(args.file.read_text(encoding="utf-8")), live, day)
+        previous = latest_row(args.file.read_text(encoding="utf-8"))
+        row = build_row(previous, live, day)
         print(row)
+        if args.note:
+            if not args.live_data:
+                contributors = importlib.import_module("scripts.check_contributors")
+                prs = contributors.fetch_prs()
+                text = (ROOT / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+                entries, through = contributors.parse(text)
+                live["pending"] = contributors.pending(entries, prs, through) if prs is not None else []
+                live["closed_issues"] = fetch_closed_issues(week_start(day), traction.REPO) or []
+            print()
+            print(draft_note(iso_week(day), week_start(day), previous, live, live.get("closed_issues", []), live.get("pending", [])))
         if args.apply:
             changed = apply_figures(args.file.parent, live, row)
             print("updated: " + ", ".join(path.name for path in changed), file=sys.stderr)
