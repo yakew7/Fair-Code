@@ -330,3 +330,14 @@ def test_save_commits_writes_the_fetched_data_for_commits_data(tmp_path, capsys,
 
     code, out = run(tmp_path, capsys, prs=prs, extra=("--commits-data", str(saved)))
     assert code == 0 and "with commit counts at the snapshot" in out
+
+
+def test_pending_adds_each_pull_requests_title_when_the_data_has_titles(tmp_path, capsys):
+    # #1258
+    prs = [dict(p, title=f"title {p['number']}") for p in PRS] + [
+        dict(pr(101, "bob", "2026-10-30"), title="fix: a thing"), dict(pr(103, "newbie", "2026-10-31"), title="feat: new")]
+    code, out = run(tmp_path, capsys, prs=prs, extra=("--pending",))
+    assert code == 1
+    assert "bob: 1 merged PR(s) after the snapshot (#101); count to update\n    #101 fix: a thing\n" in out
+    assert "newbie: 1 merged PR(s) after the snapshot (#103); no entry yet\n    #103 feat: new\n" in out
+    assert out.strip().endswith("2 author(s) merged after the snapshot (PR #100).")

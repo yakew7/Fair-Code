@@ -177,3 +177,13 @@ def test_a_status_other_than_0_or_1_fails_the_job_with_an_annotation(kind, tmp_p
     printed = capsys.readouterr().out
     assert printed.startswith(f"::error title={kind} check did not run::") and "exit status '2'" in printed
     assert f"{kind} check did not run" in summary.read_text(encoding="utf-8")
+
+
+def test_contributors_issue_body_nests_each_pull_request_title_under_its_author():
+    body = script.contributors_issue_body(
+        "bob: 2 merged PR(s) after the snapshot (#101, #102); count to update\n"
+        "    #101 fix: a thing\n"
+        "    #102 docs: another\n"
+        "1 author(s) merged after the snapshot (PR #100).\n"
+    )
+    assert "- bob: 2 merged PR(s) after the snapshot (#101, #102); count to update\n  - #101 fix: a thing\n  - #102 docs: another\n" in body

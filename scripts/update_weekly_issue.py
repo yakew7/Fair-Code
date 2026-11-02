@@ -62,7 +62,8 @@ def contributors_issue_body(stdout: str) -> str:
     people = lines[:-1]
     body = ["The weekly `check_contributors.py --pending` run found people who merged pull requests after the "
             "snapshot in CONTRIBUTORS.md:", ""]
-    body += [f"- {line}" for line in people]
+    # a line indented under an author is one of their pull requests with its title: a nested bullet
+    body += [f"  - {line.strip()}" if line.startswith(" ") else f"- {line}" for line in people]
     body += ["", "Add or update their entries, move the snapshot line to the newest merged PR and run "
              "`python3 scripts/check_contributors.py --fix` (then `--commits` to check commit counts). "
              "This issue closes itself on the next weekly run once nobody is pending."]

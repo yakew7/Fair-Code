@@ -20,7 +20,7 @@ whose header says "account deleted" has no login left on GitHub (its pull reques
 counts are listed as skipped, not failed.
 
     python3 scripts/check_contributors.py                 # asks `gh` for the merged pull requests
-    python3 scripts/check_contributors.py --prs FILE      # FILE: gh pr list --state merged --limit 5000 --json number,author,mergedAt
+    python3 scripts/check_contributors.py --prs FILE      # FILE: gh pr list --state merged --limit 5000 --json number,author,mergedAt,title
     python3 scripts/check_contributors.py --commits       # also compare commit counts (about 60 gh requests)
     python3 scripts/check_contributors.py --commits --save-commits F  # also keep the fetched data (a --fix --commits run fetches once)
     python3 scripts/check_contributors.py --commits-data F # F: {"live": {login: n}, "after_snapshot": {login: n}}
@@ -219,6 +219,7 @@ def pending(entries: list[dict], prs: list[dict], through: int | None) -> list[s
     """One line per human author with merged PRs after the snapshot PR: who has no entry yet and whose count has grown."""
     listed = {e["handle"].lower() for e in entries}
     later: dict[str, list[int]] = {}
+    titles = {pr["number"]: pr.get("title") for pr in prs}
     for pr in prs:
         author = pr.get("author") or {}
         login = author.get("login") or ""
@@ -231,6 +232,8 @@ def pending(entries: list[dict], prs: list[dict], through: int | None) -> list[s
         numbers = ", ".join(f"#{n}" for n in sorted(later[login]))
         lines.append(f"{login}: {len(later[login])} merged PR(s) after the snapshot ({numbers}); "
                      + ("count to update" if login.lower() in listed else "no entry yet"))
+        # one indented line per PR with its title, so the entry can be written without looking each one up (#1258)
+        lines += [f"    #{n} {titles[n]}" for n in sorted(later[login]) if titles.get(n)]
     return lines
 
 
@@ -346,7 +349,7 @@ def fetch_prs() -> list[dict] | None:
     if shutil.which("gh") is None:
         return None
     done = subprocess.run(["gh", "pr", "list", "--state", "merged", "--limit", "5000",
-                           "--json", "number,author,mergedAt"], capture_output=True, text=True)
+                           "--json", "number,author,mergedAt,title"], capture_output=True, text=True)
     return json.loads(done.stdout) if done.returncode == 0 else None
 
 
@@ -387,7 +390,8 @@ def run_pending(entries: list[dict], prs: list[dict], through: int | None) -> in
     later = pending(entries, prs, through)
     for line in later:
         print(line)
-    print(f"{len(later)} author(s) merged after the snapshot (PR #{through})." if later
+    authors = sum(not line.startswith(" ") for line in later)
+    print(f"{authors} author(s) merged after the snapshot (PR #{through})." if later
           else f"Nobody has merged since the snapshot (PR #{through}).")
     return 1 if later else 0
 
