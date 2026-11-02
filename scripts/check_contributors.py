@@ -10,7 +10,8 @@ Contributors):
     requests up to the PR the snapshot line names ("covering everything merged through **PR #N**"), since
     anything merged later is expected to be missing until the next sweep;
   * the order of the entries against the rule above;
-  * that every merged-PR author up to the snapshot (bots and the maintainer aside) has an entry.
+  * that every merged-PR author up to the snapshot (bots and the maintainer aside) has an entry;
+  * that every entry's handle appears in at least one row of the "Contributions by area" table.
 
 Commit counts are only used to break ties in the order unless `--commits` is given (#1199). The contributors API is
 live and cannot be asked for a past date, so with `--commits` the expected count at the snapshot is the live
@@ -136,6 +137,17 @@ def check(entries: list[dict], prs: list[dict], through: int | None) -> tuple[li
                                 f"({expected['merged']} PRs, {expected['commits']} commits, {expected['first']}) there")
                 break
     return problems, skipped
+
+
+def area_table_problems(text: str, entries: list[dict]) -> list[str]:
+    """Entries whose handle is in no row of the "Contributions by area" table (#1259); empty when the table is absent."""
+    start = text.find("## Contributions by area")
+    if start == -1:
+        return []
+    end = text.find("\n## ", start + 5)
+    table = text[start:end if end != -1 else len(text)].lower()
+    return [f"{e['handle']}: has an entry but is in no row of the Contributions by area table"
+            for e in entries if not e["deleted"] and f"@{e['handle'].lower()}]" not in table]
 
 
 def commit_problems(entries: list[dict], live: dict[str, int], after: dict[str, int]) -> tuple[list[str], list[str]]:
@@ -396,8 +408,9 @@ def run_pending(entries: list[dict], prs: list[dict], through: int | None) -> in
     return 1 if later else 0
 
 
-def run_check(args, entries: list[dict], prs: list[dict], through: int | None) -> int:
+def run_check(args, text: str, entries: list[dict], prs: list[dict], through: int | None) -> int:
     problems, skipped = check(entries, prs, through)
+    problems += area_table_problems(text, entries)
     with_commits = bool(args.commits or args.commits_data)
     if with_commits:
         since = snapshot_time(prs, through)
@@ -464,7 +477,7 @@ def main(argv=None) -> int:
         print("note: no 'covering everything merged through **PR #N**' snapshot line found; counting every merged PR")
     if args.pending:
         return run_pending(entries, prs, through)
-    return run_check(args, entries, prs, through)
+    return run_check(args, text, entries, prs, through)
 
 
 if __name__ == "__main__":

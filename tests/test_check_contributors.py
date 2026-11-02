@@ -341,3 +341,28 @@ def test_pending_adds_each_pull_requests_title_when_the_data_has_titles(tmp_path
     assert "bob: 1 merged PR(s) after the snapshot (#101); count to update\n    #101 fix: a thing\n" in out
     assert "newbie: 1 merged PR(s) after the snapshot (#103); no entry yet\n    #103 feat: new\n" in out
     assert out.strip().endswith("2 author(s) merged after the snapshot (PR #100).")
+
+
+AREA_DOC = DOC + """
+## Contributions by area
+
+| Area | Contributors |
+|------|--------------|
+| **Audits** | [@alice](https://github.com/alice), [@Bob](https://github.com/bob) |
+"""
+
+
+def test_area_table_problems_name_entries_in_no_row(tmp_path, capsys):
+    # #1259: carol has an entry but is in no area row
+    entries, _ = script.parse(AREA_DOC)
+    assert script.area_table_problems(AREA_DOC, entries) == [
+        "carol: has an entry but is in no row of the Contributions by area table"]
+    assert script.area_table_problems(DOC, script.parse(DOC)[0]) == []          # no table, nothing to check
+
+    code, out = run(tmp_path, capsys, doc=AREA_DOC)
+    assert code == 1 and "carol: has an entry but is in no row" in out
+
+
+def test_the_real_file_has_every_entry_in_the_area_table():
+    text = (script.ROOT / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+    assert script.area_table_problems(text, script.parse(text)[0]) == []
