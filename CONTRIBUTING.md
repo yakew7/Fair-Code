@@ -65,7 +65,7 @@ A `Makefile` and a `.pre-commit-config.yaml` reproduce what CI runs, so you can 
 make setup             # install faircode + pytest + pre-commit + ruff
 make check             # everything CI runs: lint + full test suite + audits
 make test              # just the test suite
-make test-fast         # the suite minus the ~80 s model-training benchmark tests (marked `slow`); CI still runs everything; the pre-push hook uses the same fast set
+make test-fast         # the suite minus the ~80 s model-training benchmark tests (marked `slow`), on every core when pytest-xdist is installed (about 35 s instead of 95 s on an idle 8-core laptop; `make setup` installs it) and with the ten slowest tests listed; CI still runs everything; the pre-push hook uses the same fast set
 make audits            # every audit's unfair.py/fair.py + the CLI smoke tests (mirrors audits.yml's required run-audits job, plus the profiler/benchmark-harness jobs' CLI steps)
 make setup-browser     # once: install Playwright + Chromium for the browser smoke test (tests/browser, #988)
 make test-browser      # open profiler.html, benchmark.html and index.html in Chromium; fails on any console error

@@ -11,14 +11,21 @@ help:  ## Show the available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
 		awk 'BEGIN{FS = ":.*?## "}{printf "  %-16s %s\n", $$1, $$2}'
 
-setup:  ## Install the package plus the dev tools (pytest, pytest-cov, pre-commit, ruff)
-	$(PY) -m pip install -e ".[excel,parquet,proxy,mcp,benchmark]" pytest pytest-cov pre-commit ruff
+setup:  ## Install the package plus the dev tools (pytest, pytest-cov, pytest-xdist, pre-commit, ruff)
+	$(PY) -m pip install -e ".[excel,parquet,proxy,mcp,benchmark]" pytest pytest-cov pytest-xdist pre-commit ruff
 
 test:  ## Run the full test suite (mirrors CI)
 	$(PY) -m pytest tests/ -q
 
-test-fast:  ## Run the suite without the slow model-training benchmark tests (CI still runs everything)
-	$(PY) -m pytest tests/ -q -m "not slow"
+# pytest-xdist (installed by `make setup`) runs the tests on every core: 1,464 tests take about 95 s in one process and
+# about 35 s with it (#1256). Without it the run is serial, and the ten slowest tests are listed either way.
+# Each worker's BLAS is limited to one thread: with all of them multi-threaded the CPU is oversubscribed and the
+# CPU-heavy explainer smoke test hit its 30 s timeout once.
+XDIST := $(shell $(PY) -c "import importlib.util as u; print('-n auto' if u.find_spec('xdist') else '')" 2>/dev/null)
+XDIST_ENV := $(if $(XDIST),OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1,)
+
+test-fast:  ## Run the suite without the slow model-training benchmark tests, in parallel when pytest-xdist is installed (CI still runs everything)
+	$(XDIST_ENV) $(PY) -m pytest tests/ -q -m "not slow" $(XDIST) --durations=10
 
 setup-browser:  ## Install Playwright and Chromium for the browser smoke test (tests/browser)
 	$(PY) -m pip install -e ".[browser]" && $(PY) -m playwright install chromium
