@@ -203,16 +203,68 @@ def test_local_commits_close_reads_the_closing_keywords_of_commits_ahead_of_base
         seen.append(command)
         return SimpleNamespace(returncode=0, stdout="Fix a thing\n\nCloses #12\n\nSecond\n\nfixes #13 and mentions #99\n")
 
-    assert script.local_commits_close(runner=runner) == {12, 13}
+    assert script.local_commits_close(base="origin/main", runner=runner) == {12, 13}
     assert seen == [["git", "log", "origin/main..HEAD", "--format=%B"]]
 
 
 def test_local_commits_close_is_empty_without_the_base_ref_or_git():
     from types import SimpleNamespace
 
-    assert script.local_commits_close(runner=lambda *a, **k: SimpleNamespace(returncode=128, stdout="Closes #1")) == set()
+    assert script.local_commits_close(base="origin/main", runner=lambda *a, **k: SimpleNamespace(returncode=128, stdout="Closes #1")) == set()
 
     def missing(*a, **k):
         raise FileNotFoundError("git")
 
-    assert script.local_commits_close(runner=missing) == set()
+    assert script.local_commits_close(base="origin/main", runner=missing) == set()
+
+
+def _fake_git(answers):
+    from types import SimpleNamespace
+
+    def runner(command, **kwargs):
+        key = " ".join(command[1:])
+        if key in answers:
+            return SimpleNamespace(returncode=0, stdout=answers[key] + "\n")
+        return SimpleNamespace(returncode=1, stdout="")
+
+    return runner
+
+
+def test_find_base_prefers_the_upstream_default_branch_then_origin():
+    # #1250
+    both = {"symbolic-ref --short refs/remotes/upstream/HEAD": "upstream/trunk",
+            "symbolic-ref --short refs/remotes/origin/HEAD": "origin/main"}
+    assert script.find_base(runner=_fake_git(both)) == "upstream/trunk"
+    assert script.find_base(runner=_fake_git({"symbolic-ref --short refs/remotes/origin/HEAD": "origin/develop"})) == "origin/develop"
+
+
+def test_find_base_falls_back_to_a_named_branch_and_then_origin_main():
+    assert script.find_base(runner=_fake_git({"rev-parse --verify --quiet upstream/main^{commit}": "abc"})) == "upstream/main"
+    assert script.find_base(runner=_fake_git({"rev-parse --verify --quiet origin/master^{commit}": "abc"})) == "origin/master"
+    assert script.find_base(runner=_fake_git({})) == "origin/main"
+
+
+def test_a_fork_with_an_upstream_remote_reads_only_the_branchs_own_commits(tmp_path):
+    import subprocess
+
+    def git(*args, cwd=tmp_path / "work"):
+        return subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True,
+                              env={"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.invalid",
+                                   "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@example.invalid",
+                                   "PATH": __import__("os").environ["PATH"], "HOME": str(tmp_path)})
+
+    upstream = tmp_path / "upstream.git"
+    work = tmp_path / "work"
+    subprocess.run(["git", "init", "--bare", "--initial-branch=trunk", str(upstream)], check=True, capture_output=True)
+    work.mkdir()
+    git("init", "--initial-branch=trunk")
+    git("commit", "--allow-empty", "-m", "base\n\nCloses #1")
+    git("remote", "add", "upstream", str(upstream))
+    git("push", "upstream", "trunk")
+    git("remote", "set-head", "upstream", "trunk")
+    git("remote", "add", "origin", str(upstream))          # a stale origin that has nothing the branch shares
+    git("checkout", "-b", "feature")
+    git("commit", "--allow-empty", "-m", "feature work\n\nCloses #7")
+
+    assert script.find_base(cwd=work) == "upstream/trunk"
+    assert script.local_commits_close(cwd=work) == {7}

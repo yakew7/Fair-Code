@@ -19,8 +19,8 @@ A pull request that fixes issue #N says `Closes #N` in its body, and its CHANGEL
 same change, so #N is still open while the PR is checked and would fail the rules above (#1139). In a pull_request
 run the script reads the PR body from the event payload (GITHUB_EVENT_PATH), takes the issues it closes (closes,
 fixes or resolves, in any form GitHub accepts) and treats them as closed, saying so in the output. Citing any other
-open issue as closed still fails. Locally the `Closes #N` lines of the commits ahead of `origin/main` are read the same way
-(#1240); any other open issue cited as closed still fails, and `--assume-closed` adds more.
+open issue as closed still fails. Locally the `Closes #N` lines of the commits ahead of the default branch of `upstream` (or
+`origin`) are read the same way (#1240, #1250); any other open issue cited as closed still fails, and `--assume-closed` adds more.
 
 Without `gh` (or a network) it prints a note and exits 0, so `make lint` works offline; pass
 `--require` to make that an error (CI).
@@ -66,14 +66,39 @@ def pull_request_closes(environ=None) -> set[int]:
     return issues_closed_by((payload.get("pull_request") or {}).get("body"))
 
 
-def local_commits_close(base: str = "origin/main", runner=None) -> set[int]:
-    """Issues closed by the commits on this branch that are not on `base` (their `Closes #N` lines), so a local run on a
-    branch that ticks ROADMAP items and writes `closes #N` in CHANGELOG passes without --assume-closed (#1240). Empty
-    when git or `base` is not available."""
+def find_base(runner=None, cwd: Path | None = None) -> str:
+    """The ref the branch is measured against (#1250): the default branch of the `upstream` remote when there is one (a
+    fork's own `origin/main` goes stale), else of `origin`, else the first of upstream/main, origin/main, upstream/master
+    and origin/master that exists, else `origin/main`."""
     import subprocess
     run = runner or subprocess.run
+
+    def git(*args: str):
+        try:
+            return run(["git", *args], cwd=cwd or ROOT, capture_output=True, text=True)
+        except OSError:
+            return None
+
+    for remote in ("upstream", "origin"):
+        done = git("symbolic-ref", "--short", f"refs/remotes/{remote}/HEAD")
+        if done is not None and done.returncode == 0 and done.stdout.strip():
+            return done.stdout.strip()
+    for ref in ("upstream/main", "origin/main", "upstream/master", "origin/master"):
+        done = git("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}")
+        if done is not None and done.returncode == 0:
+            return ref
+    return "origin/main"
+
+
+def local_commits_close(base: str | None = None, runner=None, cwd: Path | None = None) -> set[int]:
+    """Issues closed by the commits on this branch that are not on `base` (their `Closes #N` lines), so a local run on a
+    branch that ticks ROADMAP items and writes `closes #N` in CHANGELOG passes without --assume-closed (#1240). `base`
+    defaults to `find_base()`. Empty when git or `base` is not available."""
+    import subprocess
+    run = runner or subprocess.run
+    base = base or find_base(runner, cwd)
     try:
-        done = run(["git", "log", f"{base}..HEAD", "--format=%B"], cwd=ROOT, capture_output=True, text=True)
+        done = run(["git", "log", f"{base}..HEAD", "--format=%B"], cwd=cwd or ROOT, capture_output=True, text=True)
     except OSError:
         return set()
     return issues_closed_by(done.stdout) if done.returncode == 0 else set()
@@ -168,7 +193,7 @@ def main(argv: list[str] | None = None) -> int:
     for n in assumed:
         states[n] = "closed"
     if assumed:
-        print("note: assuming " + ", ".join(f"#{n}" for n in assumed) + " closed (named by --assume-closed, closed by this pull request or by a commit ahead of origin/main)")
+        print("note: assuming " + ", ".join(f"#{n}" for n in assumed) + " closed (named by --assume-closed, closed by this pull request or by a commit ahead of the base branch)")
     problems = []
     for filename, checker in (
         ("ROADMAP.md", check_roadmap),
