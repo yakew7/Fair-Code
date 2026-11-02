@@ -333,72 +333,52 @@ def fetch_prs() -> list[dict] | None:
     return json.loads(done.stdout) if done.returncode == 0 else None
 
 
-def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--file", type=Path, default=ROOT / "CONTRIBUTORS.md")
-    parser.add_argument("--prs", metavar="FILE", help="merged pull requests as JSON instead of asking gh")
-    parser.add_argument("--require", action="store_true", help="fail instead of skipping when GitHub cannot be reached")
-    parser.add_argument("--commits", action="store_true", help="also compare commit counts with GitHub's contributors graph at the snapshot (needs gh)")
-    parser.add_argument("--commits-data", metavar="FILE", help="commit data as JSON instead of asking gh (implies --commits)")
-    parser.add_argument("--identities", action="store_true", help="check that every git commit author maps to an entry or an identity map row (needs the git history)")
-    parser.add_argument("--pending", action="store_true", help="list authors who merged after the snapshot and exit 1 if there are any")
-    parser.add_argument("--fix", action="store_true", help="rewrite known PR counts/dates and sort contributor entries")
-    args = parser.parse_args(argv)
+def run_identities(args, text: str) -> int:
+    lines = unmapped_authors(text, git_authors())
+    for line in lines:
+        print(f"  - {line}")
+    print(f"{len(lines)} git author(s) are not mapped in {args.file.name}." if lines
+          else "OK: every git author maps to an entry or an identity map row.")
+    return 1 if lines else 0
 
-    text = args.file.read_text(encoding="utf-8")
-    entries, through = parse(text)
-    if not entries:
-        print(f"error: no contributor entries found in {args.file}")
-        return 1
-    if args.identities:
-        lines = unmapped_authors(text, git_authors())
-        for line in lines:
-            print(f"  - {line}")
-        print(f"{len(lines)} git author(s) are not mapped in {args.file.name}." if lines
-              else "OK: every git author maps to an entry or an identity map row.")
-        return 1 if lines else 0
-    prs = json.loads(Path(args.prs).read_text(encoding="utf-8")) if args.prs else fetch_prs()
-    if prs is None:
-        if args.fix:
-            print("error: --fix needs merged pull request data from GitHub or --prs FILE")
+
+def run_fix(args, text: str, entries: list[dict], through: int | None, prs: list[dict]) -> tuple[str, int | None] | int:
+    """Rewrite the file (`--fix`, with `--commits` also the commit counts and the snapshot line); the new (text, through),
+    or an exit code when the data could not be fetched."""
+    commit_counts = None
+    if args.commits:
+        # move the snapshot to the newest merged PR and take the commit counts as of that moment
+        newest = max(pr["number"] for pr in prs)
+        since = snapshot_time(prs, newest)
+        data = fetch_commit_data(entries, since) if since else None
+        if data is None:
+            print("error: --fix --commits needs the GitHub CLI (gh) signed in and online")
             return 2
-        print("note: could not fetch merged pull requests from GitHub (gh missing or offline); "
-              "skipping the contributors check")
-        return 1 if args.require else 0
-    if args.fix:
-        commit_counts = None
-        if args.commits:
-            # move the snapshot to the newest merged PR and take the commit counts as of that moment
-            newest = max(pr["number"] for pr in prs)
-            since = snapshot_time(prs, newest)
-            data = fetch_commit_data(entries, since) if since else None
-            if data is None:
-                print("error: --fix --commits needs the GitHub CLI (gh) signed in and online")
-                return 2
-            after = {k.lower(): v for k, v in data.get("after_snapshot", {}).items()}
-            commit_counts = {login: n - after.get(login.lower(), 0) for login, n in data["live"].items()
-                             if login.lower() not in COMMIT_EXCEPTIONS}
-            text = move_snapshot(text, prs, newest)
-            through = newest
-        fixed = fix_document(text, prs, through, commit_counts)
-        if fixed != args.file.read_text(encoding="utf-8"):
-            args.file.write_text(fixed, encoding="utf-8")
-            print(f"updated: {args.file}")
-        text = fixed
-        entries, through = parse(text)
-    if through is None:
-        print("note: no 'covering everything merged through **PR #N**' snapshot line found; counting every merged PR")
+        after = {k.lower(): v for k, v in data.get("after_snapshot", {}).items()}
+        commit_counts = {login: n - after.get(login.lower(), 0) for login, n in data["live"].items()
+                         if login.lower() not in COMMIT_EXCEPTIONS}
+        text = move_snapshot(text, prs, newest)
+        through = newest
+    fixed = fix_document(text, prs, through, commit_counts)
+    if fixed != args.file.read_text(encoding="utf-8"):
+        args.file.write_text(fixed, encoding="utf-8")
+        print(f"updated: {args.file}")
+    return fixed, parse(fixed)[1]
 
-    if args.pending:
-        later = pending(entries, prs, through)
-        for line in later:
-            print(line)
-        print(f"{len(later)} author(s) merged after the snapshot (PR #{through})." if later
-              else f"Nobody has merged since the snapshot (PR #{through}).")
-        return 1 if later else 0
 
+def run_pending(entries: list[dict], prs: list[dict], through: int | None) -> int:
+    later = pending(entries, prs, through)
+    for line in later:
+        print(line)
+    print(f"{len(later)} author(s) merged after the snapshot (PR #{through})." if later
+          else f"Nobody has merged since the snapshot (PR #{through}).")
+    return 1 if later else 0
+
+
+def run_check(args, entries: list[dict], prs: list[dict], through: int | None) -> int:
     problems, skipped = check(entries, prs, through)
-    if args.commits or args.commits_data:
+    with_commits = bool(args.commits or args.commits_data)
+    if with_commits:
         since = snapshot_time(prs, through)
         if args.commits_data:
             data = json.loads(Path(args.commits_data).read_text(encoding="utf-8"))
@@ -421,8 +401,48 @@ def main(argv=None) -> int:
             print(f"  - {problem}")
         return 1
     print(f"OK: {len(entries)} entries match the merged pull requests through #{through} and are in rule order"
-          + (", with commit counts at the snapshot." if args.commits or args.commits_data else "."))
+          + (", with commit counts at the snapshot." if with_commits else "."))
     return 0
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--file", type=Path, default=ROOT / "CONTRIBUTORS.md")
+    parser.add_argument("--prs", metavar="FILE", help="merged pull requests as JSON instead of asking gh")
+    parser.add_argument("--require", action="store_true", help="fail instead of skipping when GitHub cannot be reached")
+    parser.add_argument("--commits", action="store_true", help="also compare commit counts with GitHub's contributors graph at the snapshot (needs gh)")
+    parser.add_argument("--commits-data", metavar="FILE", help="commit data as JSON instead of asking gh (implies --commits)")
+    parser.add_argument("--identities", action="store_true", help="check that every git commit author maps to an entry or an identity map row (needs the git history)")
+    parser.add_argument("--pending", action="store_true", help="list authors who merged after the snapshot and exit 1 if there are any")
+    parser.add_argument("--fix", action="store_true", help="rewrite known PR counts/dates and sort contributor entries")
+    args = parser.parse_args(argv)
+
+    text = args.file.read_text(encoding="utf-8")
+    entries, through = parse(text)
+    if not entries:
+        print(f"error: no contributor entries found in {args.file}")
+        return 1
+    if args.identities:
+        return run_identities(args, text)
+    prs = json.loads(Path(args.prs).read_text(encoding="utf-8")) if args.prs else fetch_prs()
+    if prs is None:
+        if args.fix:
+            print("error: --fix needs merged pull request data from GitHub or --prs FILE")
+            return 2
+        print("note: could not fetch merged pull requests from GitHub (gh missing or offline); "
+              "skipping the contributors check")
+        return 1 if args.require else 0
+    if args.fix:
+        fixed = run_fix(args, text, entries, through, prs)
+        if isinstance(fixed, int):
+            return fixed
+        text, through = fixed
+        entries = parse(text)[0]
+    if through is None:
+        print("note: no 'covering everything merged through **PR #N**' snapshot line found; counting every merged PR")
+    if args.pending:
+        return run_pending(entries, prs, through)
+    return run_check(args, entries, prs, through)
 
 
 if __name__ == "__main__":
