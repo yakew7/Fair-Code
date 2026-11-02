@@ -146,3 +146,42 @@ def test_main_fix_reports_missing_pattern_and_listing_without_suggesting_fix(
     assert "expected pattern not found" in captured.err
     assert "README.md: does not list one, two" in captured.err
     assert "Run 'python3 scripts/check_explainer_count.py --fix'" not in captured.err
+
+
+TABLE = (
+    "intro\n\n"
+    "| Stars | Explainers | Forks |\n|:-:|:-:|:-:|\n| 54 | 108 | 67 |\n| 99 | 1 | 2 |\n\nafter\n"
+)
+
+
+def test_table_cell_finds_the_number_under_the_named_header_whatever_its_position():
+    # #1257
+    cell = check.TableCell("Explainers")
+    found = cell.search(TABLE)
+    assert found.group(1) == "108"
+    start, end = found.span(1)
+    assert TABLE[start:end] == "108"
+
+    moved = "| Audits | Stars | Forks | Explainers |\n|--|--|--|--|\n| 7 | 54 | 67 | 110 |\n"
+    found = cell.search(moved)
+    assert found.group(1) == "110" and moved[found.span(1)[0]:found.span(1)[1]] == "110"
+
+
+def test_table_cell_returns_none_without_the_header_or_a_number():
+    cell = check.TableCell("Explainers")
+    assert cell.search("no table here\n") is None
+    assert cell.search("| Stars | Forks |\n|--|--|\n| 1 | 2 |\n") is None
+    assert cell.search("| Stars | Explainers |\n|--|--|\n| 1 | many |\n") is None
+    assert cell.search("| Stars | Explainers |\n|--|--|\n") is None
+
+
+def test_fix_rewrites_the_right_cell_after_a_column_is_added(tmp_path, monkeypatch, capsys):
+    root = _count_site(tmp_path / "site", count=2)
+    (root / "ROADMAP.md").write_text(
+        "2 explainers published\n"
+        "| New | Stars | Explainers | CI |\n|:-:|:-:|:-:|:-:|\n| 9 | 54 | 108 | ok |\n", encoding="utf-8")
+
+    assert _run_main(root, monkeypatch, ("--fix",)) == 0
+
+    text = (root / "ROADMAP.md").read_text(encoding="utf-8")
+    assert "| 9 | 54 | 2 | ok |" in text

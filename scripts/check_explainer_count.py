@@ -34,6 +34,55 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 EXPLAINERS_DIR = ROOT / "explainers"
 
+class TableCell:
+    """Stands in for a regex in CHECKS: finds the number in the first data row of the markdown table whose header row has
+    a cell named `header`, whatever its position, so adding or reordering a column cannot make the check read the wrong
+    cell or nothing. `search` returns an object with `group(1)` and `span(1)` like a regex match, or None."""
+
+    def __init__(self, header: str):
+        self.header = header
+        self.pattern = f"the first data row's cell under the table header {header!r}"
+
+    def search(self, text: str):
+        offset = 0
+        lines = text.splitlines(keepends=True)
+        for number, line in enumerate(lines):
+            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            if line.lstrip().startswith("|") and self.header in cells:
+                column = cells.index(self.header)
+                position = offset + len(line)
+                for row in lines[number + 1:]:
+                    stripped = row.strip()
+                    if not stripped.startswith("|"):
+                        return None
+                    if not re.fullmatch(r"[|\s:-]+", stripped):
+                        parts = row.split("|")
+                        # parts[0] is the text before the first pipe; cell `column` is parts[column + 1]
+                        if column + 1 >= len(parts) - 1:
+                            return None
+                        cell = parts[column + 1]
+                        found = re.search(r"\d+", cell)
+                        if not found:
+                            return None
+                        start = position + sum(len(part) + 1 for part in parts[:column + 1]) + found.start()
+                        return _Found(found.group(), (start, start + len(found.group())))
+                    position += len(row)
+                return None
+            offset += len(line)
+        return None
+
+
+class _Found:
+    def __init__(self, value: str, span: tuple[int, int]):
+        self._value, self._span = value, span
+
+    def group(self, _index: int = 1) -> str:
+        return self._value
+
+    def span(self, _index: int = 1) -> tuple[int, int]:
+        return self._span
+
+
 # (relative path, regex whose sole capture group is the claimed count)
 CHECKS = [
     ("README.md", re.compile(r"Show all (\d+) explainers")),
@@ -43,8 +92,8 @@ CHECKS = [
     ("METRICS.md", re.compile(r"Explainers-(\d+)-blueviolet")),
     ("METRICS.md", re.compile(r"\| Explainers \| (\d+) \|")),
     ("ROADMAP.md", re.compile(r"(\d+) explainers published")),
-    # the "Current traction" table's Explainers column: | Stars | Contributors | Forks | Watching | Social | Countries | Audits | Explainers |
-    ("ROADMAP.md", re.compile(r"^\| \d+ \| \d+ \| \d+ \| \d+ \| [^|]+ \| \d+ \| \d+ \| (\d+) \|", re.M)),
+    # the "Current traction" table: the cell under the "Explainers" header, found by name (#1257)
+    ("ROADMAP.md", TableCell("Explainers")),
 ]
 
 # Places that must list every explainer by slug (relative path, regex whose
