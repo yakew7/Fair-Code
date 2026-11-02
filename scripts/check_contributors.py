@@ -22,6 +22,7 @@ counts are listed as skipped, not failed.
     python3 scripts/check_contributors.py                 # asks `gh` for the merged pull requests
     python3 scripts/check_contributors.py --prs FILE      # FILE: gh pr list --state merged --limit 5000 --json number,author,mergedAt
     python3 scripts/check_contributors.py --commits       # also compare commit counts (about 60 gh requests)
+    python3 scripts/check_contributors.py --commits --save-commits F  # also keep the fetched data (a --fix --commits run fetches once)
     python3 scripts/check_contributors.py --commits-data F # F: {"live": {login: n}, "after_snapshot": {login: n}}
     python3 scripts/check_contributors.py --identities   # every git commit author maps to an entry or an identity map row
     python3 scripts/check_contributors.py --pending       # who merged after the snapshot (exit 1 if anyone), for the weekly report
@@ -188,6 +189,22 @@ def fetch_commit_data(entries: list[dict], since: str, repo: str = "yakew7/Fair-
     return {"live": live, "after_snapshot": after}
 
 
+_COMMIT_DATA: dict[str, dict] = {}
+
+
+def get_commit_data(args, entries: list[dict], since: str) -> dict | None:
+    """The commit data for `since`, fetched once per run (`--fix --commits` compares after it rewrites, which used to
+    fetch the same sixty requests again) and written to `--save-commits FILE` when given (#1248)."""
+    if since not in _COMMIT_DATA:
+        data = fetch_commit_data(entries, since)
+        if data is None:
+            return None
+        _COMMIT_DATA[since] = data
+        if getattr(args, "save_commits", None):
+            Path(args.save_commits).write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return _COMMIT_DATA[since]
+
+
 def snapshot_time(prs: list[dict], through: int | None) -> str | None:
     """One second after the snapshot PR was merged, so its own merge commit is not counted as 'after'."""
     from datetime import datetime, timedelta, timezone
@@ -350,7 +367,7 @@ def run_fix(args, text: str, entries: list[dict], through: int | None, prs: list
         # move the snapshot to the newest merged PR and take the commit counts as of that moment
         newest = max(pr["number"] for pr in prs)
         since = snapshot_time(prs, newest)
-        data = fetch_commit_data(entries, since) if since else None
+        data = get_commit_data(args, entries, since) if since else None
         if data is None:
             print("error: --fix --commits needs the GitHub CLI (gh) signed in and online")
             return 2
@@ -386,7 +403,7 @@ def run_check(args, entries: list[dict], prs: list[dict], through: int | None) -
             print("error: --commits needs the snapshot PR in the merged pull request data")
             return 2
         else:
-            data = fetch_commit_data(entries, since)
+            data = get_commit_data(args, entries, since)
         if data is None:
             print("error: --commits needs the GitHub CLI (gh) signed in and online")
             return 2
@@ -412,6 +429,7 @@ def main(argv=None) -> int:
     parser.add_argument("--require", action="store_true", help="fail instead of skipping when GitHub cannot be reached")
     parser.add_argument("--commits", action="store_true", help="also compare commit counts with GitHub's contributors graph at the snapshot (needs gh)")
     parser.add_argument("--commits-data", metavar="FILE", help="commit data as JSON instead of asking gh (implies --commits)")
+    parser.add_argument("--save-commits", metavar="FILE", help="write the fetched commit data to FILE (usable later as --commits-data)")
     parser.add_argument("--identities", action="store_true", help="check that every git commit author maps to an entry or an identity map row (needs the git history)")
     parser.add_argument("--pending", action="store_true", help="list authors who merged after the snapshot and exit 1 if there are any")
     parser.add_argument("--fix", action="store_true", help="rewrite known PR counts/dates and sort contributor entries")

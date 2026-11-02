@@ -302,3 +302,31 @@ def test_identities_flag_fails_on_an_unmapped_author_and_passes_when_all_map(tmp
     assert script.main(["--file", str(tmp_path / "CONTRIBUTORS.md"), "--identities"]) == 0
     assert "OK: every git author maps" in capsys.readouterr().out
 
+
+
+def test_fix_with_commits_fetches_the_commit_data_once(tmp_path, capsys, monkeypatch):
+    # #1248: the comparison after the rewrite reuses the data the rewrite fetched
+    prs = PRS + [pr(120, "bob", "2026-10-31")]
+    calls = []
+
+    def fake_fetch(entries, since):
+        calls.append(since)
+        return {"live": {"alice": 5, "bob": 4, "carol": 3}, "after_snapshot": {}}
+
+    monkeypatch.setattr(script, "fetch_commit_data", fake_fetch)
+    monkeypatch.setattr(script, "_COMMIT_DATA", {})
+    code, out = run(tmp_path, capsys, prs=prs, extra=("--fix", "--commits"))
+    assert len(calls) == 1 and "with commit counts at the snapshot" in out
+
+
+def test_save_commits_writes_the_fetched_data_for_commits_data(tmp_path, capsys, monkeypatch):
+    prs = PRS + [pr(100, "x", "2026-10-24", bot=True)]
+    data = {"live": {"alice": 5, "bob": 4, "carol": 3}, "after_snapshot": {}}
+    monkeypatch.setattr(script, "fetch_commit_data", lambda entries, since: data)
+    monkeypatch.setattr(script, "_COMMIT_DATA", {})
+    saved = tmp_path / "commits.json"
+    code, out = run(tmp_path, capsys, prs=prs, extra=("--commits", "--save-commits", str(saved)))
+    assert code == 0 and json.loads(saved.read_text(encoding="utf-8")) == data
+
+    code, out = run(tmp_path, capsys, prs=prs, extra=("--commits-data", str(saved)))
+    assert code == 0 and "with commit counts at the snapshot" in out
