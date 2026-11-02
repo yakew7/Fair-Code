@@ -343,3 +343,31 @@ def test_a_malformed_host_entry_is_rejected(tmp_path):
     ignore.write_text("host:https://x.example.org reason\n", encoding="utf-8")
     with pytest.raises(ValueError, match="host:name reason"):
         script.load_ignore_list(ignore)
+
+
+def test_retry_delay_and_per_host_options_are_used(server, tmp_path, monkeypatch, capsys):
+    # #1254
+    doc = tmp_path / "doc.md"
+    doc.write_text(f"[a]({server}/flaky) [b]({server}/ok)\n", encoding="utf-8")
+    _Handler.flaky_seen.clear()
+    slept = []
+    monkeypatch.setattr(script.time, "sleep", slept.append)
+    seen = {}
+    real_run = script.run
+
+    def spy(*args, **kwargs):
+        seen["per_host"] = kwargs.get("per_host")
+        return real_run(*args, **kwargs)
+
+    monkeypatch.setattr(script, "run", spy)
+    monkeypatch.setattr(script, "RETRY_DELAY", script.RETRY_DELAY)      # main() assigns it; restored afterwards
+    assert script.main([str(doc), "--check-local", "--timeout", "5", "--retry-delay", "7", "--per-host", "1"]) == 0
+    assert slept == [7.0] and seen["per_host"] == 1
+    assert "2 ok" in capsys.readouterr().out
+
+
+def test_per_host_must_be_at_least_one(tmp_path):
+    doc = tmp_path / "doc.md"
+    doc.write_text("[a](https://example.org/a)\n", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        script.main([str(doc), "--per-host", "0"])

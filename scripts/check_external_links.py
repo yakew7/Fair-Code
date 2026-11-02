@@ -9,6 +9,7 @@ keeps one issue up to date, and nothing in `make lint` or a pull request depends
     python3 scripts/check_external_links.py                  # explainers/*.md and the top-level docs
     python3 scripts/check_external_links.py --limit 20       # only the first 20 links
     python3 scripts/check_external_links.py --json           # machine-readable, for the workflow
+    python3 scripts/check_external_links.py --retry-delay 5 --per-host 1   # slower, gentler on a strict host
     python3 scripts/check_external_links.py --fail-on-broken # exit 1 when something is broken (off by default)
     python3 scripts/check_external_links.py --ignore-file F  # use another ignore list (default: the one below)
 
@@ -250,8 +251,9 @@ def _check_doi(doi: str, timeout: float) -> tuple[str, str]:
 
 
 def run(urls: dict[str, list[str]], limit: int | None = None, workers: int = 8, timeout: float = 15.0,
-        ignore: dict[str, str] | None = None) -> dict:
+        ignore: dict[str, str] | None = None, per_host: int | None = None) -> dict:
     ignore = ignore or {}
+    per_host = PER_HOST_REQUESTS if per_host is None else per_host
 
     def ignore_key(url: str) -> str | None:
         """The ignore entry that covers `url`: the exact URL, else its `host:` entry."""
@@ -267,7 +269,7 @@ def run(urls: dict[str, list[str]], limit: int | None = None, workers: int = 8, 
     results = {"ok": [], "moved": [], "broken": [], "unknown": []}
     host_slots: dict[str, threading.Semaphore] = {}
     for url in items:
-        host_slots.setdefault(urllib.parse.urlsplit(url).netloc.lower(), threading.Semaphore(PER_HOST_REQUESTS))
+        host_slots.setdefault(urllib.parse.urlsplit(url).netloc.lower(), threading.Semaphore(per_host))
 
     def check_with_host_limit(url: str) -> tuple[str, str]:
         with host_slots[urllib.parse.urlsplit(url).netloc.lower()]:
@@ -329,18 +331,31 @@ def report_needs_issue(report: dict) -> bool:
     return bool(report["broken"] or report.get("stale_ignored"))
 
 
+def _positive_int(value: str) -> int:
+    number = int(value)
+    if number < 1:
+        raise argparse.ArgumentTypeError("must be at least 1")
+    return number
+
+
 def main(argv=None) -> int:
+    global RETRY_DELAY
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("paths", nargs="*", type=Path, help="markdown files to check (default: explainers/*.md and the top-level docs)")
     parser.add_argument("--limit", type=int, help="check at most this many links")
     parser.add_argument("--timeout", type=float, default=15.0)
+    parser.add_argument("--retry-delay", type=float, default=RETRY_DELAY, metavar="SECONDS",
+                        help=f"wait before the one retry of a 429 or 5xx answer (default {RETRY_DELAY:g}; a Retry-After header wins, up to {RETRY_AFTER_CAP:g})")
+    parser.add_argument("--per-host", type=_positive_int, default=PER_HOST_REQUESTS, metavar="N",
+                        help=f"at most N concurrent requests to one host (default {PER_HOST_REQUESTS})")
     parser.add_argument("--check-local", action="store_true", help="also check localhost and example.com links (for tests)")
     parser.add_argument("--ignore-file", type=Path, default=IGNORE_FILE, help="URL-and-reason list of links not to check")
     parser.add_argument("--json", action="store_true", help="print the report as JSON")
     parser.add_argument("--fail-on-broken", action="store_true", help="exit 1 when a link is broken (off by default)")
     args = parser.parse_args(argv)
+    RETRY_DELAY = args.retry_delay
     report = run(collect_urls(args.paths or default_paths(), () if args.check_local else SKIP_HOSTS), args.limit,
-                 timeout=args.timeout, ignore=load_ignore_list(args.ignore_file))
+                 timeout=args.timeout, ignore=load_ignore_list(args.ignore_file), per_host=args.per_host)
     print(json.dumps(report, indent=2) if args.json else render(report))
     return 1 if args.fail_on_broken and report["broken"] else 0
 
