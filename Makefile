@@ -5,7 +5,7 @@
 .DEFAULT_GOAL := help
 PY := python3
 
-.PHONY: help setup test test-fast test-browser setup-browser coverage key-fold key-fold-check build-explainers favicons fix-explainer-count external-links traction-live contributors-commits contributors-pending metrics-row lint audits check
+.PHONY: help setup test test-fast test-browser setup-browser coverage key-fold key-fold-check build-explainers favicons fix-explainer-count external-links traction-live contributors-commits contributors-pending metrics-row doctor lint audits check
 
 help:  ## Show the available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -59,6 +59,9 @@ contributors-pending:  ## List who merged after the CONTRIBUTORS.md snapshot (ne
 
 metrics-row:  ## Print the next weekly METRICS.md row from GitHub's live figures (needs gh; prints, never edits; add ARGS=--apply to write the figures too)
 	$(PY) scripts/draft_metrics_row.py $(ARGS)
+
+doctor:  ## Warn when an installed package shadows a standard library module (an old pathlib.py backport once broke imports)
+	$(PY) scripts/check_environment.py
 
 lint:  ## Enforce the em-dash-free rule + check for broken doc links + issue numbers in docs (needs gh, skipped offline) + explainer counts and listings + explainer structure + traction figures agreeing across README/ROADMAP/METRICS + dataset source links agreeing between the README and the audit scripts + CONTRIBUTORS.md matching the merged PRs (needs gh, skipped offline) + ruff (mirrors the lint workflow)
 	$(PY) scripts/check_em_dash.py
