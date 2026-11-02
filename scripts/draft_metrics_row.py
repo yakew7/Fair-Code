@@ -9,6 +9,11 @@ and carries the cells GitHub cannot supply (social views, countries, code audits
     python3 scripts/draft_metrics_row.py                    # row for today's ISO week, from gh
     python3 scripts/draft_metrics_row.py --date 2026-11-03  # row for the week containing that date
     python3 scripts/draft_metrics_row.py --live-data FILE   # FILE: {"stars", "forks", "watching", "contributors", "issues_closed"}
+    python3 scripts/draft_metrics_row.py --pending-closes   # also count the open issues the commits ahead of the base close on merge
+
+A sweep row's Issues Closed is what is already closed this week plus what the sweep's commits close when they merge, so
+`--pending-closes` adds the still-open issues named by `Closes #N` in the commits ahead of the base branch (a saved
+--live-data file can carry the number as "pending_closes").
 
 It prints one line and changes nothing; paste it under the last row of the weekly table, then update the figures in
 README.md and ROADMAP.md and the badges. If the newest row is already for that week it says so and exits 1.
@@ -52,8 +57,9 @@ def build_row(previous: list[str], live: dict, day: datetime.date) -> str:
     week = iso_week(day)
     if previous[0] == week:
         raise ValueError(f"the newest row is already for {week}")
+    closed = live["issues_closed"] + live.get("pending_closes", 0)
     cells = [week, str(live["stars"]), str(live["forks"]), str(live["watching"]), str(live["contributors"]),
-             previous[5], previous[6], str(live["issues_closed"]), previous[8]]
+             previous[5], previous[6], str(closed), previous[8]]
     return "| " + " | ".join(cells) + " |"
 
 
@@ -64,11 +70,24 @@ def fetch_issues_closed(since: datetime.date, repo: str) -> int | None:
     return int(done.stdout.strip()) if done.returncode == 0 and done.stdout.strip().isdigit() else None
 
 
+def fetch_open_among(numbers, repo: str) -> int | None:
+    """How many of the issues `numbers` are still open (an already closed one is in the closed count), or None on failure."""
+    total = 0
+    for number in sorted(numbers):
+        done = subprocess.run(["gh", "api", f"repos/{repo}/issues/{number}", "--jq", ".state"], capture_output=True, text=True)
+        if done.returncode != 0:
+            return None
+        total += done.stdout.strip() == "open"
+    return total
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--file", type=Path, default=ROOT / "METRICS.md")
     parser.add_argument("--date", type=datetime.date.fromisoformat, default=None, help="any date in the week (default: today)")
     parser.add_argument("--live-data", metavar="FILE", help="GitHub's figures as JSON instead of asking gh")
+    parser.add_argument("--pending-closes", action="store_true",
+                        help="add the open issues the commits ahead of the base branch close on merge to Issues Closed")
     args = parser.parse_args(argv)
     day = args.date or datetime.date.today()
 
@@ -87,6 +106,13 @@ def main(argv=None) -> int:
             print("error: could not count the issues closed this week", file=sys.stderr)
             return 2
         live["issues_closed"] = closed
+        if args.pending_closes:
+            refs = importlib.import_module("scripts.check_issue_refs")
+            pending = fetch_open_among(refs.local_commits_close(), traction.REPO)
+            if pending is None:
+                print("error: could not look up the issues the local commits close", file=sys.stderr)
+                return 2
+            live["pending_closes"] = pending
     try:
         print(build_row(latest_row(args.file.read_text(encoding="utf-8")), live, day))
     except ValueError as error:
