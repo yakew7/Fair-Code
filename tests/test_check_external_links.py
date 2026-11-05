@@ -412,3 +412,30 @@ def test_main_fix_moved_rewrites_after_reporting(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "1 moved" in out and "Rewrote 1 moved link(s) in 1 file(s)" in out
     assert doc.read_text(encoding="utf-8") == "[a](https://new.example.org/a)\n"
+
+def test_fix_moved_rewrites_additional_link_formats(tmp_path):
+    doc = tmp_path / "doc.md"
+    doc.write_text(
+        '[Google](https://old.example.org/a "Search")\n'
+        '[google]: https://old.example.org/a\n'
+        '<a href="https://old.example.org/a">Google</a>\n',
+        encoding="utf-8",
+    )
+
+    report = {
+        "moved": [{
+            "url": "https://old.example.org/a",
+            "detail": "https://new.example.org/a",
+            "files": ["doc.md"],
+        }]
+    }
+
+    count, files = script.fix_moved(report, root=tmp_path)
+
+    assert count == 1
+    assert files == [doc]
+    assert doc.read_text(encoding="utf-8") == (
+        '[Google](https://new.example.org/a "Search")\n'
+        '[google]: https://new.example.org/a\n'
+        '<a href="https://new.example.org/a">Google</a>\n'
+    )

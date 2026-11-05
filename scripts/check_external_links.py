@@ -336,27 +336,52 @@ LOGIN_OR_ERROR = re.compile(r"/(?:log-?in|sign-?in|signup|auth|error|404)(?:[/?#
 
 
 def fix_moved(report: dict, root: Path = ROOT) -> tuple[int, list[Path]]:
-    """Rewrite each permanently moved link to the address its redirect ended on, in the files that cite it (#1255).
-    Only `[text](URL)` and `<URL>` forms are rewritten, a target that looks like a login or error page is left alone,
-    and ignored URLs never reach the report. Returns (links rewritten, files changed); run `make build-explainers`
-    after changing an explainer."""
+    """Rewrite moved links in Markdown and HTML formats."""
     changed: dict[Path, str] = {}
     count = 0
+
     for item in report.get("moved", []):
         old, new = item["url"], item["detail"]
+
         if LOGIN_OR_ERROR.search(urllib.parse.urlsplit(new).path):
             continue
+
+        escaped_old = re.escape(old)
+
         for name in item["files"]:
             path = Path(name) if Path(name).is_absolute() else root / name
-            text = changed.get(path) or path.read_text(encoding="utf-8")
-            fixed = text.replace(f"]({old})", f"]({new})").replace(f"<{old}>", f"<{new}>")
+            text = changed.get(path)
+            if text is None:
+                text = path.read_text(encoding="utf-8")
+
+            fixed = re.sub(
+                rf"(\]\(\s*){escaped_old}(?=\s*(?:\"[^\"]*\"|'[^']*'|\([^)]*\))?\s*\))",
+                lambda m: m.group(1) + new,
+                text,
+            )
+
+            fixed = re.sub(
+                rf"(?m)^(\s*\[[^\]]+\]:\s*<?){escaped_old}(?=>?(?:\s+.*)?$)",
+                lambda m: m.group(1) + new,
+                fixed,
+            )
+
+            fixed = re.sub(
+                rf"""(?i)(\bhref\s*=\s*)(["']){escaped_old}\2""",
+                lambda m: m.group(1) + m.group(2) + new + m.group(2),
+                fixed,
+            )
+
+            fixed = fixed.replace(f"<{old}>", f"<{new}>")
+
             if fixed != text:
                 changed[path] = fixed
                 count += 1
+
     for path, text in changed.items():
         path.write_text(text, encoding="utf-8")
-    return count, sorted(changed)
 
+    return count, sorted(changed)
 
 def _positive_int(value: str) -> int:
     number = int(value)
