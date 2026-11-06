@@ -36,9 +36,12 @@ import shutil
 import sys
 from pathlib import Path
 
-try:                                    # run as a script (scripts/ on the path) or imported as scripts.<name>
-    from scripts.ghcall import run_gh
-except ImportError:
+if __package__:                         # imported as scripts.<name> (tests, python -m) or run as a script (scripts/ is sys.path[0])
+    from .ghcall import run_gh
+else:
+    import os as _os
+    import sys as _sys
+    _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
     from ghcall import run_gh
 
 ROOT = Path(__file__).resolve().parent.parent
