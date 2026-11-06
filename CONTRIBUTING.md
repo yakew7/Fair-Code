@@ -104,10 +104,10 @@ Prerequisites for the full `make check`: Python 3.10 or newer, Node 18 or newer 
 | A test that runs a README command | Every `faircode ...` line in the README, CONTRIBUTING and SPEC code blocks is checked against the CLI's argument parser; one of them uses a flag or value that no longer exists | Fix the example or the CLI |
 | `check_generated_files_current.py` (CI) | Generated explainer pages, sitemap, OG images or `llms-full.txt` are out of date | `make build-explainers`, then commit the result |
 
-**Contributor check exceptions.** `scripts/check_contributors.py` has two dictionaries for people the checks cannot cover, and each entry needs a reason:
+**Contributor check exceptions.** `scripts/contributors-exceptions.json` has two sections for people the checks cannot cover (a data file, so no code change is needed), and each entry needs a reason, which the script refuses to load without (`--exceptions FILE` reads another file):
 
-- `COMMIT_EXCEPTIONS` (keyed by lower-case GitHub handle): a contributor with merged pull requests whose commits no GitHub API counts, because the commit email is not linked to the account (for example a local hostname or a placeholder address). `--commits` reports them as excused instead of failing. Add one only after checking that both `gh api repos/yakew7/Fair-Code/contributors` and `commits?author=LOGIN` return nothing for the login, and explain the unlinked email in the person's row of the Git identity map.
-- `UNLISTED_AUTHORS` (keyed by lower-case git author name): a commit author who deliberately has no entry, such as a commit that cites a pull request that does not exist. `--identities` skips them. Give the commit and what was decided.
+- `commit_exceptions` (keyed by lower-case GitHub handle): a contributor with merged pull requests whose commits no GitHub API counts, because the commit email is not linked to the account (for example a local hostname or a placeholder address). `--commits` reports them as excused instead of failing. Add one only after checking that both `gh api repos/yakew7/Fair-Code/contributors` and `commits?author=LOGIN` return nothing for the login, and explain the unlinked email in the person's row of the Git identity map.
+- `unlisted_authors` (keyed by lower-case git author name or co-author name): a commit author who deliberately has no entry, such as a commit that cites a pull request that does not exist. `--identities` skips them. Give the commit and what was decided.
 
 Everyone else is expected to have an entry and a Git identity map row (their git author names in backticks), so a new contributor is added to the file, not to these lists.
 

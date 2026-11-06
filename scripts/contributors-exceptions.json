@@ -1,0 +1,11 @@
+{
+  "commit_exceptions": {
+    "ayaan-20-11": "commit email not linked to the GitHub account",
+    "raonishanth2000-hub": "commit email not linked to the GitHub account",
+    "ege-arhan": "commit email not linked to the GitHub account"
+  },
+  "unlisted_authors": {
+    "erol tasci": "commit 530b58d cites PR #632, which does not exist; the attribution was removed in fd41a1e",
+    "voyagerroc-code": "co-author of that same commit 530b58d"
+  }
+}

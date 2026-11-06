@@ -428,3 +428,40 @@ def test_a_co_author_with_no_entry_is_reported_and_tools_and_bots_are_not():
     assert script.unmapped_authors(IDENTITY_DOC, authors) == [
         "Dana <dana@example.org>: 2 commit(s) map to no entry or Git identity map row"]
     assert "voyagerroc-code" in script.UNLISTED_AUTHORS
+
+
+def test_the_committed_exceptions_file_loads_with_a_reason_for_every_entry():
+    # #1270
+    commit, unlisted = script.load_exceptions()
+    assert set(commit) == {"ayaan-20-11", "raonishanth2000-hub", "ege-arhan"}
+    assert {"erol tasci", "voyagerroc-code"} <= set(unlisted)
+    assert all(reason for reason in [*commit.values(), *unlisted.values()])
+    assert script.COMMIT_EXCEPTIONS == commit and script.UNLISTED_AUTHORS == unlisted
+
+
+def test_load_exceptions_lowercases_names_and_rejects_a_missing_reason(tmp_path):
+    good = tmp_path / "e.json"
+    good.write_text(json.dumps({"commit_exceptions": {"Carol": "unlinked email"}, "unlisted_authors": {"Some Body": "why"}}))
+    assert script.load_exceptions(good) == ({"carol": "unlinked email"}, {"some body": "why"})
+    assert script.load_exceptions(tmp_path / "missing.json") == ({}, {})
+    for bad in ({"commit_exceptions": {"carol": ""}}, {"unlisted_authors": {"x": 3}}, {"commit_exceptions": ["carol"]}):
+        path = tmp_path / "bad.json"
+        path.write_text(json.dumps(bad))
+        with pytest.raises(ValueError):
+            script.load_exceptions(path)
+
+
+def test_an_entry_added_to_the_json_file_is_honoured_without_touching_the_script(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(script, "COMMIT_EXCEPTIONS", {})
+    monkeypatch.setattr(script, "UNLISTED_AUTHORS", {})
+    exceptions = tmp_path / "exceptions.json"
+    exceptions.write_text(json.dumps({"commit_exceptions": {"carol": "email not linked"}}))
+    data = {"live": {"alice": 5, "bob": 4}, "after_snapshot": {}}                       # carol is in no API
+    (tmp_path / "commits.json").write_text(json.dumps(data))
+    extra = ("--commits-data", str(tmp_path / "commits.json"))
+
+    code, out = run(tmp_path, capsys, extra=extra)
+    assert code == 1 and "carol: not in the contributors API and not in COMMIT_EXCEPTIONS" in out
+
+    code, out = run(tmp_path, capsys, extra=extra + ("--exceptions", str(exceptions)))
+    assert code == 0 and "carol: commit count not compared (email not linked)" in out

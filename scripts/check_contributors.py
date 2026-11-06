@@ -54,14 +54,32 @@ except ImportError:
 ROOT = Path(__file__).resolve().parent.parent
 MAINTAINER = "yakew7"
 SECTIONS = ("Core contributors", "Contributors")
-# Entries whose commits no GitHub API counts, so --commits cannot compare them (#1234). Both the contributors API and
-# `commits?author=LOGIN` return nothing for them because the commit email is not linked to the account (the file's
-# Git identity map explains the same for TanishGoyal-Dev and Ayaan-20-11). Anyone else missing from the API fails.
-COMMIT_EXCEPTIONS = {
-    "ayaan-20-11": "commit email not linked to the GitHub account",
-    "raonishanth2000-hub": "commit email not linked to the GitHub account",
-    "ege-arhan": "commit email not linked to the GitHub account",
-}
+EXCEPTIONS_FILE = ROOT / "scripts" / "contributors-exceptions.json"
+
+
+def load_exceptions(path: Path = EXCEPTIONS_FILE) -> tuple[dict[str, str], dict[str, str]]:
+    """(COMMIT_EXCEPTIONS, UNLISTED_AUTHORS) from the JSON data file (#1270), keys lower-cased. A missing file is two empty
+    lists; an entry without a reason, or a section that is not an object, is an error, so every exception says why.
+
+    commit_exceptions: a contributor whose commits no GitHub API counts (the commit email is not linked to the account), so
+    `--commits` reports them as excused. unlisted_authors: a git author name (or co-author) who deliberately has no entry,
+    so `--identities` skips them."""
+    if not Path(path).is_file():
+        return {}, {}
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    lists = []
+    for section in ("commit_exceptions", "unlisted_authors"):
+        entries = data.get(section, {})
+        if not isinstance(entries, dict):
+            raise ValueError(f"{path}: {section} must be an object of name: reason")
+        for name, reason in entries.items():
+            if not isinstance(reason, str) or not reason.strip():
+                raise ValueError(f"{path}: {section} entry {name!r} needs a reason")
+        lists.append({str(name).lower(): reason.strip() for name, reason in entries.items()})
+    return lists[0], lists[1]
+
+
+COMMIT_EXCEPTIONS, UNLISTED_AUTHORS = load_exceptions()
 
 ENTRY = re.compile(
     r"^### (?P<header>.+)\n\n\*\*(?P<merged>\d+) merged PRs? · (?P<commits>\d+) commits? · "
@@ -270,11 +288,6 @@ def move_snapshot(text: str, prs: list[dict], new_through: int) -> str:
     return text
 
 
-# Commit authors that deliberately have no entry (#1236), by lower-case author name.
-UNLISTED_AUTHORS = {
-    "erol tasci": "commit 530b58d cites PR #632, which does not exist; the attribution was removed in fd41a1e",
-    "voyagerroc-code": "co-author of that same commit 530b58d",
-}
 TRAILER = re.compile(r"^(?P<name>.+?)\s*<(?P<email>[^<>]+)>\s*$")
 IDENTITY_ROW = re.compile(r"^\| \[@([^\]]+)\]\([^)]*\) \| (.+) \|$", re.MULTILINE)
 
@@ -511,6 +524,8 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--file", type=Path, default=ROOT / "CONTRIBUTORS.md")
     parser.add_argument("--prs", metavar="FILE", help="merged pull requests as JSON instead of asking gh")
+    parser.add_argument("--exceptions", type=Path, default=EXCEPTIONS_FILE, metavar="FILE",
+                        help="JSON file of commit_exceptions and unlisted_authors, each name with a reason (default: scripts/contributors-exceptions.json)")
     parser.add_argument("--require", action="store_true", help="fail instead of skipping when GitHub cannot be reached")
     parser.add_argument("--commits", action="store_true", help="also compare commit counts with GitHub's contributors graph at the snapshot (needs gh)")
     parser.add_argument("--commits-data", metavar="FILE", help="commit data as JSON instead of asking gh (implies --commits)")
@@ -521,6 +536,11 @@ def main(argv=None) -> int:
     parser.add_argument("--fix", action="store_true", help="rewrite known PR counts/dates and sort contributor entries")
     args = parser.parse_args(argv)
 
+    if args.exceptions != EXCEPTIONS_FILE:
+        COMMIT_EXCEPTIONS.clear()
+        UNLISTED_AUTHORS.clear()
+        for target, loaded in zip((COMMIT_EXCEPTIONS, UNLISTED_AUTHORS), load_exceptions(args.exceptions)):
+            target.update(loaded)
     text = args.file.read_text(encoding="utf-8")
     entries, through = parse(text)
     if not entries:
