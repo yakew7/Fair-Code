@@ -200,3 +200,24 @@ def test_every_gh_call_of_update_issue_has_a_timeout():
     script.update_issue("o/r", "traction", True, "body", runner=runner)     # list, then edit
     script.update_issue("o/r", "traction", False, "", runner=runner)        # list, then close
     assert len(calls) == 4 and all(call.get("timeout") == script.GH_TIMEOUT for call in calls)
+
+
+def test_contributors_issue_body_gives_the_stub_command_for_each_person_with_no_entry():
+    # #1277
+    body = script.contributors_issue_body(
+        "bob: 2 merged PR(s) after the snapshot (#101, #102); count to update\n"
+        "    #101 fix: a thing\n"
+        "newbie: 1 merged PR(s) after the snapshot (#103); no entry yet\n"
+        "    #103 feat: new\n"
+        "other-new: 1 merged PR(s) after the snapshot (#104); no entry yet\n"
+        "3 author(s) merged after the snapshot (PR #100).\n"
+    )
+    assert "- `python3 scripts/check_contributors.py --stub newbie --commits`" in body
+    assert "- `python3 scripts/check_contributors.py --stub other-new --commits`" in body
+    assert "--stub bob" not in body
+
+
+def test_contributors_issue_body_has_no_stub_section_when_everyone_has_an_entry():
+    body = script.contributors_issue_body(
+        "bob: 1 merged PR(s) after the snapshot (#101); count to update\n1 author(s) merged after the snapshot (PR #100).\n")
+    assert "--stub" not in body and "Start the entry" not in body

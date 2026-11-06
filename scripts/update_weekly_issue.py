@@ -68,6 +68,10 @@ def contributors_issue_body(stdout: str) -> str:
             "snapshot in CONTRIBUTORS.md:", ""]
     # a line indented under an author is one of their pull requests with its title: a nested bullet
     body += [f"  - {line.strip()}" if line.startswith(" ") else f"- {line}" for line in people]
+    newcomers = [line.split(":")[0] for line in people if not line.startswith(" ") and line.endswith("no entry yet")]
+    if newcomers:
+        body += ["", "Start the entry of each person with no entry (this also moves the snapshot, sorts and lists them in an area row):", ""]
+        body += [f"- `python3 scripts/check_contributors.py --stub {login} --commits`" for login in newcomers]
     body += ["", "Add or update their entries, move the snapshot line to the newest merged PR and run "
              "`python3 scripts/check_contributors.py --fix` (then `--commits` to check commit counts). "
              "This issue closes itself on the next weekly run once nobody is pending."]
