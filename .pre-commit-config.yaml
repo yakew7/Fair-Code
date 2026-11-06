@@ -55,6 +55,34 @@ repos:
         pass_filenames: false
         files: '^(explainers/.*\.md|scripts/check_explainer_structure\.py)$'
 
+      - id: check-issue-refs
+        name: check issue numbers cited in ROADMAP, CHANGELOG, CONTRIBUTORS and METRICS (skipped without gh)
+        entry: python3 scripts/check_issue_refs.py
+        language: system
+        pass_filenames: false
+        files: '^(ROADMAP\.md|CHANGELOG\.md|CONTRIBUTORS\.md|METRICS\.md|scripts/check_issue_refs\.py)$'
+
+      - id: check-traction
+        name: check traction figures agree across README, ROADMAP and METRICS
+        entry: python3 scripts/check_traction.py
+        language: system
+        pass_filenames: false
+        files: '^(README\.md|ROADMAP\.md|METRICS\.md|scripts/check_traction\.py)$'
+
+      - id: check-dataset-sources
+        name: check dataset source links agree between the README and the audit scripts
+        entry: python3 scripts/check_dataset_sources.py
+        language: system
+        pass_filenames: false
+        files: '^(README\.md|scripts/check_dataset_sources\.py|.*/(fair|unfair)\.py)$'
+
+      - id: check-contributors
+        name: check CONTRIBUTORS.md matches the merged pull requests (skipped without gh)
+        entry: python3 scripts/check_contributors.py
+        language: system
+        pass_filenames: false
+        files: '^(CONTRIBUTORS\.md|scripts/check_contributors\.py|scripts/contributors-exceptions\.json)$'
+
       - id: pytest
         name: pytest (fast suite, skips slow benchmark tests)
         entry: python3 -m pytest tests/ -q -m "not slow"

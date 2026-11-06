@@ -32,3 +32,29 @@ def test_every_described_makefile_target_is_documented_in_contributing():
     assert "key-fold-check" in targets and len(targets) > 10
     missing = [t for t in targets if t != "help" and not re.search(rf"make {re.escape(t)}(?![\w-])", contributing)]
     assert missing == [], f"add these to CONTRIBUTING.md: {missing}"
+
+
+def test_every_script_make_lint_runs_has_a_pre_commit_hook():
+    # #1276: a commit could pass the hooks and still fail `make lint`
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    recipe = makefile.split("\nlint:", 1)[1].split("\naudits:", 1)[0]
+    scripts = re.findall(r"\$\(PY\) (scripts/\w+\.py)", recipe)
+    hooks = (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+    assert len(scripts) >= 8
+    missing = [script for script in scripts if f"entry: python3 {script}" not in hooks]
+    assert missing == [], f"add a pre-commit hook for: {missing}"
+
+
+def test_the_new_hooks_run_only_for_the_files_their_checks_read():
+    import yaml
+    config = yaml.safe_load((ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"))
+    hooks = {hook["id"]: hook for repo in config["repos"] for hook in repo["hooks"]}
+    for name, touched, untouched in (
+        ("check-issue-refs", "ROADMAP.md", "README.md"),
+        ("check-traction", "METRICS.md", "CHANGELOG.md"),
+        ("check-dataset-sources", "COMPAS/fair.py", "ROADMAP.md"),
+        ("check-contributors", "scripts/contributors-exceptions.json", "METRICS.md"),
+    ):
+        pattern = re.compile(hooks[name]["files"])
+        assert pattern.search(touched) and not pattern.search(untouched), name
+        assert hooks[name]["pass_filenames"] is False
