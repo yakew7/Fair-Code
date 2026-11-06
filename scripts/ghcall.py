@@ -9,14 +9,32 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import os
 
 GH_TIMEOUT = 60.0
+def get_gh_timeout():
+    value = os.getenv("FAIRCODE_GH_TIMEOUT")
+
+    if value is None:
+        return GH_TIMEOUT
+
+    try:
+        timeout = float(value)
+
+        if not 0 < timeout < float("inf"):
+            return GH_TIMEOUT
+
+        return timeout
+
+    except ValueError:
+        return GH_TIMEOUT
+
 TIMED_OUT = 124
 
 
 def run_gh(command: list[str], timeout: float | None = None, **kwargs) -> subprocess.CompletedProcess:
     """`subprocess.run(command, capture_output=True, text=True, timeout=...)`; a timeout returns code 124 and empty output."""
-    limit = GH_TIMEOUT if timeout is None else timeout
+    limit = get_gh_timeout() if timeout is None else timeout
     kwargs.setdefault("capture_output", True)
     kwargs.setdefault("text", True)
     try:

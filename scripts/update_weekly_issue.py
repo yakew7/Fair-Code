@@ -12,12 +12,12 @@ import tempfile
 from pathlib import Path
 
 if __package__:                         # imported as scripts.<name> (tests, python -m) or run as a script (scripts/ is sys.path[0])
-    from .ghcall import GH_TIMEOUT
+    from .ghcall import get_gh_timeout
 else:
     import os as _os
     import sys as _sys
     _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
-    from ghcall import GH_TIMEOUT
+    from ghcall import get_gh_timeout
 
 REPORTS = {
     "external-links": {
@@ -109,13 +109,14 @@ def update_issue(
         return "none"
 
     config = REPORTS[kind]
+    timeout = get_gh_timeout
     existing = runner(
         ["gh", "issue", "list", "--repo", repo, "--state", "open", "--search",
          f'"{config["title"]}" in:title', "--json", "number,title"],
         check=True,
         capture_output=True,
         text=True,
-        timeout=GH_TIMEOUT,
+        timeout=timeout,
     )
     matches = [issue["number"] for issue in json.loads(existing.stdout)
                if issue["title"] == config["title"]]
@@ -133,7 +134,7 @@ def update_issue(
             else:
                 command = ["gh", "issue", "edit", str(issue_number), "--repo", repo,
                            "--body-file", str(body_path)]
-            runner(command, check=True, timeout=GH_TIMEOUT)
+            runner(command, check=True, timeout=timeout)
         finally:
             body_path.unlink(missing_ok=True)
     elif action == "close":
@@ -141,7 +142,7 @@ def update_issue(
             ["gh", "issue", "close", str(issue_number), "--repo", repo,
              "--reason", "completed", "--comment", config["close_comment"]],
             check=True,
-            timeout=GH_TIMEOUT,
+            timeout=timeout,
         )
     return action
 
