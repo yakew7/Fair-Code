@@ -130,6 +130,7 @@ METRICS_FIXTURE = """![Stars](https://img.shields.io/badge/Stars-53-brightgreen?
 | Watching | 8 | 12+ | End of 2026 |
 | Contributors | 55 | 20+ | End of 2026 |
 | Social reach | 30K+ | 40K+ | End of 2026 |
+| Issues closed | 55 (this week, since 2026-10-19) | Track weekly | Ongoing |
 """
 
 
@@ -196,3 +197,26 @@ def test_main_note_prints_the_row_then_the_draft_from_saved_data(tmp_path, capsy
     assert script.main(["--file", str(metrics), "--date", "2026-11-03", "--live-data", str(data), "--note"]) == 0
     out = capsys.readouterr().out.splitlines()
     assert out[0].startswith("| 2026-W45 |") and out[1] == "" and "First thing (#7)" in out[2] and "@bob" in out[2]
+
+
+def test_apply_rewrites_the_targets_issues_closed_row_from_the_new_weekly_row(tmp_path):
+    # #1273: the row said 55 (since 2026-10-19) while the newest weekly row said something else
+    site = _site(tmp_path)
+    script.main(["--file", str(site / "METRICS.md"), "--date", "2026-11-04", "--live-data", _live_file(tmp_path), "--apply"])
+    metrics = (site / "METRICS.md").read_text(encoding="utf-8")
+    assert "| Issues closed | 12 (this week, since 2026-11-02) | Track weekly | Ongoing |" in metrics
+    assert "| 2026-W45 | 54 | 67 | 8 | 58 | 30K+ total | 20 | 12 | 7 total |" in metrics
+
+
+def test_apply_includes_pending_closes_in_the_targets_row(tmp_path):
+    site = _site(tmp_path)
+    data = tmp_path / "live2.json"
+    data.write_text(json.dumps({**LIVE, "pending_closes": 4}), encoding="utf-8")
+    script.main(["--file", str(site / "METRICS.md"), "--date", "2026-11-04", "--live-data", str(data), "--apply"])
+    assert "| Issues closed | 16 (this week, since 2026-11-02) |" in (site / "METRICS.md").read_text(encoding="utf-8")
+
+
+def _live_file(tmp_path):
+    path = tmp_path / "live.json"
+    path.write_text(json.dumps(LIVE), encoding="utf-8")
+    return str(path)

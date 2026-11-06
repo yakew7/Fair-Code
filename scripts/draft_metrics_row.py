@@ -118,6 +118,12 @@ def apply_figures(root: Path, live: dict, row: str) -> list[Path]:
         metrics = _sub_once(metrics, rf"(img\.shields\.io/badge/{name}-)\d+(-)", rf"\g<1>{live[figure]}\g<2>", f"the METRICS {name} badge")
     for figure, name in TARGET_ROWS.items():
         metrics = _sub_once(metrics, rf"^(\|\s*{name}\s*\|\s*)\d+(\s*\|)", rf"\g<1>{live[figure]}\g<2>", f"the METRICS targets {name} row")
+    # the targets table's Issues closed row follows the new weekly row: "N (this week, since <Monday>)" (#1273)
+    cells = [cell.strip() for cell in row.strip().strip("|").split("|")]
+    year, week = cells[0].split("-W")
+    monday = datetime.date.fromisocalendar(int(year), int(week), 1)
+    metrics = _sub_once(metrics, r"^(\|\s*Issues closed\s*\|\s*)[^|]*?(\s*\|)",
+                        rf"\g<1>{cells[7]} (this week, since {monday.isoformat()})\g<2>", "the METRICS targets Issues closed row")
     rows = list(ROW.finditer(metrics))
     if not rows:
         raise ValueError("METRICS.md has no weekly row to append after")
