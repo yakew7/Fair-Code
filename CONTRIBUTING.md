@@ -74,6 +74,7 @@ make build-explainers  # regenerate explainer pages, sitemap, and OG images (dar
 python3 scripts/generate_og_images.py --force  # re-render every existing OG image (by default a card whose PNG exists is skipped, so adding one explainer changes only its two PNGs); use after changing the card design or an explainer's title or summary
 make fix-explainer-count  # correct any stale "N explainers" mention in README/CONTRIBUTORS/METRICS/ROADMAP after adding/removing an explainer
 make key-fold         # regenerate the JS case-folding table (assets/profiler-engine.js KEY_FOLD) after a Unicode upgrade
+make key-fold-check   # verify the JS case-folding table (KEY_FOLD) against Python for every code point both runtimes assign, and report what it could not compare (needs node; `make check` runs it)
 make favicons          # regenerate favicon.ico, apple-touch-icon.png, icon-{192,512}.png after editing logo.svg
 make external-links    # report dead external links (a report, never a gate); a link that is correct but cannot pass an anonymous check goes in scripts/external-links-ignore.txt as `URL reason`, and the report still counts it; a link that moved permanently (301 or 308) is listed with its new address
 python3 scripts/check_external_links.py --fix-moved  # rewrite permanently moved links to their new address in the files that cite them (then `make build-explainers` if an explainer changed)

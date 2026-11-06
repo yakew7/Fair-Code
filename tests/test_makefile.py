@@ -1,4 +1,5 @@
 """The Makefile's targets say what the documentation says they do."""
+import re
 import subprocess
 from pathlib import Path
 
@@ -21,3 +22,13 @@ def test_check_runs_the_environment_doctor_before_anything_that_could_fail_becau
     recipe = dry_run("check")
     assert "scripts/check_environment.py" in recipe
     assert recipe.index("check_environment.py") < recipe.index("check_em_dash.py")
+
+
+def test_every_described_makefile_target_is_documented_in_contributing():
+    # #1275: `make key-fold-check` was the one target a contributor could not find; `help` is the only exception
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    contributing = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    targets = re.findall(r"^([a-zA-Z_-]+):.*?## ", makefile, re.MULTILINE)
+    assert "key-fold-check" in targets and len(targets) > 10
+    missing = [t for t in targets if t != "help" and not re.search(rf"make {re.escape(t)}(?![\w-])", contributing)]
+    assert missing == [], f"add these to CONTRIBUTING.md: {missing}"
