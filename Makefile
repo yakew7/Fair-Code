@@ -13,6 +13,7 @@ help:  ## Show the available targets
 
 setup:  ## Install the package plus the dev tools (pytest, pytest-cov, pytest-xdist, pre-commit, ruff)
 	$(PY) -m pip install -e ".[excel,parquet,proxy,mcp,benchmark]" pytest pytest-cov pytest-xdist pre-commit ruff
+	$(MAKE) --no-print-directory doctor || true
 
 test:  ## Run the full test suite (mirrors CI)
 	$(PY) -m pytest tests/ -q
