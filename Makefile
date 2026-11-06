@@ -24,8 +24,8 @@ test:  ## Run the full test suite (mirrors CI)
 XDIST := $(shell $(PY) -c "import importlib.util as u; print('-n auto' if u.find_spec('xdist') else '')" 2>/dev/null)
 XDIST_ENV := $(if $(XDIST),OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1,)
 
-test-fast:  ## Run the suite without the slow model-training benchmark tests, in parallel when pytest-xdist is installed (CI still runs everything)
-	$(XDIST_ENV) $(PY) -m pytest tests/ -q -m "not slow" $(XDIST) --durations=10
+test-fast:  ## Run the suite without the slow model-training benchmark tests or the Chromium tests (make test-browser), in parallel when pytest-xdist is installed (CI still runs everything)
+	$(XDIST_ENV) $(PY) -m pytest tests/ -q -m "not slow" --ignore=tests/browser $(XDIST) --durations=10
 
 setup-browser:  ## Install Playwright and Chromium for the browser smoke test (tests/browser)
 	$(PY) -m pip install -e ".[browser]" && $(PY) -m playwright install chromium
