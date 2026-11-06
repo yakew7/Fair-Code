@@ -22,8 +22,8 @@ test:  ## Run the full test suite (mirrors CI)
 # about 35 s with it (#1256). Without it the run is serial, and the ten slowest tests are listed either way.
 # Each worker's BLAS is limited to one thread: with all of them multi-threaded the CPU is oversubscribed and the
 # CPU-heavy explainer smoke test hit its 30 s timeout once.
-XDIST := $(shell $(PY) -c "import importlib.util as u; print('-n auto' if u.find_spec('xdist') else '')" 2>/dev/null)
-XDIST_ENV := $(if $(XDIST),OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1,)
+XDIST = $(shell $(PY) -c "import importlib.util as u; print('-n auto' if u.find_spec('xdist') else '')" 2>/dev/null)
+XDIST_ENV = $(if $(XDIST),OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1,)
 
 test-fast:  ## Run the suite without the slow model-training benchmark tests or the Chromium tests (make test-browser), in parallel when pytest-xdist is installed (CI still runs everything)
 	$(XDIST_ENV) $(PY) -m pytest tests/ -q -m "not slow" --ignore=tests/browser $(XDIST) --durations=10

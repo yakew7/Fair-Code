@@ -1,4 +1,5 @@
 """The Makefile's targets say what the documentation says they do."""
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -8,6 +9,17 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def dry_run(target: str) -> str:
     return subprocess.run(["make", "-n", target], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+
+
+def test_help_does_not_run_python(tmp_path, monkeypatch):
+    python = tmp_path / "python3"
+    python.write_text('#!/bin/sh\n: > "$0.called"\nexit 1\n', encoding="utf-8")
+    python.chmod(0o755)
+    monkeypatch.setenv("PATH", str(tmp_path), prepend=os.pathsep)
+
+    subprocess.run(["make", "help"], cwd=ROOT, capture_output=True, check=True)
+
+    assert not python.with_suffix(".called").exists()
 
 
 def test_test_fast_leaves_the_browser_tests_to_make_test_browser():
