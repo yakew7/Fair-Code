@@ -14,3 +14,10 @@ def test_test_fast_leaves_the_browser_tests_to_make_test_browser():
     recipe = dry_run("test-fast")
     assert 'pytest tests/ -q -m "not slow"' in recipe and "--ignore=tests/browser" in recipe
     assert "tests/browser" in dry_run("test-browser")
+
+
+def test_check_runs_the_environment_doctor_before_anything_that_could_fail_because_of_it():
+    # #1268: a stdlib-shadowing module in site-packages makes tests fail with an unrelated ImportError
+    recipe = dry_run("check")
+    assert "scripts/check_environment.py" in recipe
+    assert recipe.index("check_environment.py") < recipe.index("check_em_dash.py")

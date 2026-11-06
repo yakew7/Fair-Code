@@ -103,5 +103,5 @@ audits:  ## Run every audit's unfair.py/fair.py + the CLI smoke tests (mirrors a
 	echo "Benchmark harness smoke test passed: $$(wc -l < "$$tmp/results_fairness.csv") fairness rows written"; \
 	rm -rf "$$tmp"
 
-check: lint key-fold-check test audits  ## Run everything CI runs (lint + full test suite + audits/CLI smoke tests)
+check: doctor lint key-fold-check test audits  ## Run everything CI runs (environment check + lint + full test suite + audits/CLI smoke tests)
 	@echo "All checks passed."
