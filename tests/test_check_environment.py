@@ -1,5 +1,6 @@
 """scripts/check_environment.py names installed modules that shadow the standard library (#1247)."""
 import importlib
+import os
 import sys
 
 script = importlib.import_module("scripts.check_environment")
@@ -31,7 +32,7 @@ def test_ordinary_packages_metadata_and_bytecode_are_not_reported(tmp_path):
 
 
 def test_main_reports_the_module_with_its_owner_and_exits_1(tmp_path, monkeypatch, capsys):
-    monkeypatch.setattr(script, "site_directories", lambda: [_site(tmp_path)])
+    monkeypatch.setattr(script, "search_directories", lambda: [(_site(tmp_path), "site-packages")])
     monkeypatch.setattr(script, "owner_of", lambda name: "pathlib" if name == "pathlib" else None)
     assert script.main() == 1
     out = capsys.readouterr().out
@@ -42,7 +43,7 @@ def test_main_reports_the_module_with_its_owner_and_exits_1(tmp_path, monkeypatc
 def test_main_passes_on_a_clean_environment(tmp_path, monkeypatch, capsys):
     (tmp_path / "numpy").mkdir()
     (tmp_path / "numpy" / "__init__.py").write_text("")
-    monkeypatch.setattr(script, "site_directories", lambda: [tmp_path])
+    monkeypatch.setattr(script, "search_directories", lambda: [(tmp_path, "site-packages")])
     assert script.main() == 0
     assert "OK:" in capsys.readouterr().out
 
@@ -50,3 +51,37 @@ def test_main_passes_on_a_clean_environment(tmp_path, monkeypatch, capsys):
 def test_site_directories_exist_and_the_real_interpreter_has_a_stdlib_name_set():
     assert all(path.is_dir() for path in script.site_directories())
     assert "pathlib" in sys.stdlib_module_names
+
+
+def test_search_directories_adds_pythonpath_entries_and_the_working_directory(tmp_path, monkeypatch):
+    # #1267
+    monkeypatch.setattr(script, "site_directories", lambda: [tmp_path / "site"])
+    (tmp_path / "site").mkdir()
+    extra = tmp_path / "extra"
+    extra.mkdir()
+    work = tmp_path / "work"
+    work.mkdir()
+    found = dict(script.search_directories(environ={"PYTHONPATH": os.pathsep.join([str(extra), str(tmp_path / "nope"), ""])}, cwd=work))
+    assert found == {(tmp_path / "site").resolve(): "site-packages", extra.resolve(): "PYTHONPATH",
+                     work.resolve(): "the current directory"}
+
+
+def test_a_directory_listed_twice_keeps_its_first_origin(tmp_path, monkeypatch):
+    monkeypatch.setattr(script, "site_directories", lambda: [tmp_path])
+    found = dict(script.search_directories(environ={"PYTHONPATH": str(tmp_path)}, cwd=tmp_path))
+    assert found == {tmp_path.resolve(): "site-packages"}
+
+
+def test_main_names_a_shadowing_module_in_pythonpath_and_the_current_directory(tmp_path, monkeypatch, capsys):
+    extra, work = tmp_path / "extra", tmp_path / "work"
+    extra.mkdir()
+    work.mkdir()
+    (extra / "enum.py").write_text("")
+    (work / "random.py").write_text("")
+    monkeypatch.setattr(script, "site_directories", lambda: [])
+    monkeypatch.setenv("PYTHONPATH", str(extra))
+    monkeypatch.chdir(work)
+    assert script.main() == 1
+    out = capsys.readouterr().out
+    assert "enum" in out and "in PYTHONPATH" in out and "random" in out and "in the current directory" in out
+    assert "delete or rename" in out
