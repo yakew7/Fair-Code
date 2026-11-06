@@ -21,6 +21,9 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Added
 
+- `scripts/ghcall.py` (#1266): every gh call in the weekly checks has a 60 s timeout; `scripts/contributors-exceptions.json` (#1270) replaces the exception dictionaries; `check_contributors.py --identities` reads co-author trailers (#1269) and `--stub LOGIN --commits` takes commit counts from GitHub (#1271).
+- `check_external_links.py --fix-moved --rebuild` (#1272); the weekly contributors issue lists a stub command per newcomer (#1277); tests tie the workflows to `update_weekly_issue.py`'s CLI (#1274).
+- Pre-commit hooks for the issue-reference, traction, dataset-source and contributors checks (#1276); `pytest-xdist` in the `test` extra (#1265, partly).
 - `check_contributors.py --stub LOGIN` (#1249), `--save-commits FILE` (#1248), pending-list PR titles (#1258) and a check that every entry is in the Contributions by area table (#1259); the contributor check exceptions are documented in CONTRIBUTING (#1261).
 - `check_external_links.py --fix-moved` (#1255), `--retry-delay` and `--per-host` (#1254).
 - `draft_metrics_row.py --pending-closes` (#1251), `--apply` (#1252) and `--note` (#1262).
@@ -45,6 +48,8 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Changed
 
+- `make test-fast` leaves the Chromium tests to `make test-browser` (#1263); `make check` runs `make doctor` first (#1268) and `make doctor` also scans `PYTHONPATH` and the working directory (#1267); `make key-fold-check` is documented and a test covers every target (#1275).
+- `draft_metrics_row.py --apply` rewrites the METRICS targets table's Issues closed row (#1273); the explainer smoke test scales its timeout with the machine load (#1264).
 - `check_issue_refs.py` measures the branch against the default branch of `upstream` (or `origin`) instead of assuming `origin/main` (#1250).
 - `check_explainer_count.py` finds ROADMAP's Explainers cell by its table header (#1257); `check_contributors.py` `main()` is split by mode (#1260).
 - `make test-fast` runs in parallel when pytest-xdist is installed, with single-threaded BLAS per worker, and lists the ten slowest tests (#1256).
