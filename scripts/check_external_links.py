@@ -10,6 +10,7 @@ keeps one issue up to date, and nothing in `make lint` or a pull request depends
     python3 scripts/check_external_links.py --limit 20       # only the first 20 links
     python3 scripts/check_external_links.py --json           # machine-readable, for the workflow
     python3 scripts/check_external_links.py --retry-delay 5 --per-host 1   # slower, gentler on a strict host
+    python3 scripts/check_external_links.py --fix-moved --rebuild   # ... and regenerate the explainer pages if one changed
     python3 scripts/check_external_links.py --fix-moved       # rewrite permanently moved links in the files that cite them
     python3 scripts/check_external_links.py --fail-on-broken # exit 1 when something is broken (off by default)
     python3 scripts/check_external_links.py --ignore-file F  # use another ignore list (default: the one below)
@@ -383,6 +384,15 @@ def fix_moved(report: dict, root: Path = ROOT) -> tuple[int, list[Path]]:
 
     return count, sorted(changed)
 
+def rebuild_explainers(files: list[Path], root: Path = ROOT, runner=None) -> int | None:
+    """Regenerate the explainer pages, data, sitemap, `llms-full.txt` and package mirror when a rewritten file is an explainer
+    (#1272); None when no explainer changed, else the build's exit code."""
+    import subprocess
+    if not any(root / "explainers" in Path(f).parents for f in files):
+        return None
+    return (runner or subprocess.run)([sys.executable, "scripts/build_explainers.py"], cwd=root).returncode
+
+
 def _positive_int(value: str) -> int:
     number = int(value)
     if number < 1:
@@ -404,17 +414,30 @@ def main(argv=None) -> int:
     parser.add_argument("--ignore-file", type=Path, default=IGNORE_FILE, help="URL-and-reason list of links not to check")
     parser.add_argument("--fix-moved", action="store_true",
                         help="rewrite permanently moved links to their new address in the files that cite them")
+    parser.add_argument("--rebuild", action="store_true",
+                        help="with --fix-moved: run scripts/build_explainers.py when an explainer was rewritten, so the generated files match")
     parser.add_argument("--json", action="store_true", help="print the report as JSON")
     parser.add_argument("--fail-on-broken", action="store_true", help="exit 1 when a link is broken (off by default)")
     args = parser.parse_args(argv)
+    if args.rebuild and not args.fix_moved:
+        parser.error("--rebuild only makes sense with --fix-moved")
     RETRY_DELAY = args.retry_delay
     report = run(collect_urls(args.paths or default_paths(), () if args.check_local else SKIP_HOSTS), args.limit,
                  timeout=args.timeout, ignore=load_ignore_list(args.ignore_file), per_host=args.per_host)
     print(json.dumps(report, indent=2) if args.json else render(report))
     if args.fix_moved:
         count, files = fix_moved(report)
+        out = sys.stderr if args.json else sys.stdout
+        explainer_changed = any(ROOT / "explainers" in Path(f).parents for f in files)
         print(f"Rewrote {count} moved link(s) in {len(files)} file(s)"
-              + ("; run `make build-explainers` if an explainer changed." if files else "."), file=sys.stderr if args.json else sys.stdout)
+              + ("." if not explainer_changed or args.rebuild else
+                 "; an explainer changed, so run `make build-explainers` (or use --rebuild) before committing."), file=out)
+        if args.rebuild:
+            status = rebuild_explainers(files)
+            if status is not None:
+                print("Rebuilt the explainer pages." if status == 0 else f"scripts/build_explainers.py failed (exit {status}).", file=out)
+                if status:
+                    return status
     return 1 if args.fail_on_broken and report["broken"] else 0
 
 

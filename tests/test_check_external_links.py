@@ -439,3 +439,51 @@ def test_fix_moved_rewrites_additional_link_formats(tmp_path):
         '[google]: https://new.example.org/a\n'
         '<a href="https://new.example.org/a">Google</a>\n'
     )
+
+
+def test_rebuild_runs_the_explainer_build_only_when_an_explainer_was_rewritten(tmp_path):
+    # #1272
+    from types import SimpleNamespace
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append((command[-1], kwargs["cwd"]))
+        return SimpleNamespace(returncode=0)
+
+    (tmp_path / "explainers").mkdir()
+    explainer, readme = tmp_path / "explainers" / "x.md", tmp_path / "README.md"
+    assert script.rebuild_explainers([readme], root=tmp_path, runner=runner) is None and calls == []
+    assert script.rebuild_explainers([readme, explainer], root=tmp_path, runner=runner) == 0
+    assert calls == [("scripts/build_explainers.py", tmp_path)]
+
+
+def test_main_fix_moved_rebuild_reports_and_returns_a_failed_build(tmp_path, monkeypatch, capsys):
+    explainers = script.ROOT / "explainers"
+    doc = explainers / "tmp-fix-moved-test.md"
+    doc.write_text("[a](https://old.example.org/a)\n", encoding="utf-8")
+    try:
+        report = {"checked": 1, "ok": [], "broken": [], "unknown": [], "ignored": [], "stale_ignored": [],
+                  "moved": [{"url": "https://old.example.org/a", "detail": "https://new.example.org/a", "files": [str(doc)]}]}
+        monkeypatch.setattr(script, "run", lambda *a, **k: report)
+        monkeypatch.setattr(script, "rebuild_explainers", lambda files, **k: 0)
+        assert script.main([str(doc), "--fix-moved", "--rebuild"]) == 0
+        out = capsys.readouterr().out
+        assert "Rewrote 1 moved link(s) in 1 file(s)." in out and "Rebuilt the explainer pages." in out
+
+        doc.write_text("[a](https://old.example.org/a)\n", encoding="utf-8")
+        monkeypatch.setattr(script, "rebuild_explainers", lambda files, **k: 3)
+        assert script.main([str(doc), "--fix-moved", "--rebuild"]) == 3
+        assert "build_explainers.py failed (exit 3)" in capsys.readouterr().out
+
+        doc.write_text("[a](https://old.example.org/a)\n", encoding="utf-8")
+        assert script.main([str(doc), "--fix-moved"]) == 0
+        assert "an explainer changed, so run `make build-explainers` (or use --rebuild)" in capsys.readouterr().out
+    finally:
+        doc.unlink(missing_ok=True)
+
+
+def test_rebuild_without_fix_moved_is_an_error(tmp_path):
+    doc = tmp_path / "doc.md"
+    doc.write_text("[a](https://example.org/a)\n", encoding="utf-8")
+    with pytest.raises(SystemExit):
+        script.main([str(doc), "--rebuild"])
