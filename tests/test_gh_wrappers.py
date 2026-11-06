@@ -2,6 +2,7 @@
 
 The other tests replace these functions with fakes; here a fake `subprocess.run` records the command lines.
 """
+import subprocess
 import importlib
 import json
 from types import SimpleNamespace
@@ -11,6 +12,7 @@ import pytest
 contributors = importlib.import_module("scripts.check_contributors")
 traction = importlib.import_module("scripts.check_traction")
 metrics = importlib.import_module("scripts.draft_metrics_row")
+ghcall = importlib.import_module("scripts.ghcall")
 
 MODULES = [contributors, traction, metrics]
 
@@ -32,7 +34,7 @@ class FakeGh:
 
 def install(monkeypatch, module, answers, gh=True):
     fake = FakeGh(answers)
-    monkeypatch.setattr(module.subprocess, "run", fake)
+    monkeypatch.setattr(subprocess, "run", fake)
     monkeypatch.setattr(module.shutil, "which", lambda name: "/usr/bin/gh" if gh else None)
     return fake
 
@@ -124,6 +126,42 @@ def test_fetch_closed_issues_lists_number_and_title(monkeypatch):
 
 
 @pytest.mark.parametrize("module", MODULES)
-def test_every_wrapper_module_still_uses_the_plain_subprocess_and_shutil_modules(module):
-    # the fakes above patch these two names; a module that imported them differently would escape the fake
-    assert hasattr(module, "subprocess") and hasattr(module, "shutil")
+def test_every_wrapper_module_calls_gh_through_the_timeout_helper(module):
+    # #1266: no module may call subprocess.run for gh itself any more
+    source = open(module.__file__, encoding="utf-8").read()
+    assert "run_gh" in source
+    assert 'subprocess.run(["gh"' not in source
+
+
+def test_run_gh_gives_every_call_a_timeout_and_turns_a_timeout_into_a_failed_result(monkeypatch, capsys):
+    seen = {}
+
+    def fake_run(command, **kwargs):
+        seen.update(kwargs)
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    done = ghcall.run_gh(["gh", "api", "repos/o/r"], timeout=5)
+    assert seen["timeout"] == 5 and seen["capture_output"] is True and seen["text"] is True
+    assert (done.returncode, done.stdout) == (ghcall.TIMED_OUT, "")
+    assert "did not answer within 5 s" in capsys.readouterr().err
+
+    monkeypatch.setattr(subprocess, "run", lambda command, **kwargs: SimpleNamespace(returncode=0, stdout="ok", **{"stderr": ""}) if kwargs["timeout"] == ghcall.GH_TIMEOUT else None)
+    assert ghcall.run_gh(["gh", "x"]).stdout == "ok"                            # the default timeout is applied
+
+
+@pytest.mark.parametrize("call", [
+    lambda: contributors.fetch_prs(),
+    lambda: traction.fetch_live(),
+    lambda: metrics.fetch_issues_closed(__import__("datetime").date(2026, 11, 2), "o/r"),
+    lambda: metrics.fetch_open_among({1}, "o/r"),
+    lambda: contributors.fetch_commit_data([{"handle": "a", "deleted": False}], "2026-11-01T00:00:00Z"),
+])
+def test_a_stalled_gh_call_behaves_like_an_offline_one(monkeypatch, capsys, call):
+    def stalled(command, **kwargs):
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    monkeypatch.setattr(subprocess, "run", stalled)
+    monkeypatch.setattr(contributors.shutil, "which", lambda name: "/usr/bin/gh")
+    monkeypatch.setattr(traction.shutil, "which", lambda name: "/usr/bin/gh")
+    assert call() is None

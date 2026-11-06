@@ -187,3 +187,16 @@ def test_contributors_issue_body_nests_each_pull_request_title_under_its_author(
         "1 author(s) merged after the snapshot (PR #100).\n"
     )
     assert "- bob: 2 merged PR(s) after the snapshot (#101, #102); count to update\n  - #101 fix: a thing\n  - #102 docs: another\n" in body
+
+
+def test_every_gh_call_of_update_issue_has_a_timeout():
+    # #1266
+    calls = []
+
+    def runner(command, **kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(stdout=json.dumps([{"number": 42, "title": script.REPORTS["traction"]["title"]}]))
+
+    script.update_issue("o/r", "traction", True, "body", runner=runner)     # list, then edit
+    script.update_issue("o/r", "traction", False, "", runner=runner)        # list, then close
+    assert len(calls) == 4 and all(call.get("timeout") == script.GH_TIMEOUT for call in calls)

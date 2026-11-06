@@ -11,6 +11,10 @@ import sys
 import tempfile
 from pathlib import Path
 
+try:                                    # run as a script (scripts/ on the path) or imported as scripts.<name>
+    from scripts.ghcall import GH_TIMEOUT
+except ImportError:
+    from ghcall import GH_TIMEOUT
 
 REPORTS = {
     "external-links": {
@@ -104,6 +108,7 @@ def update_issue(
         check=True,
         capture_output=True,
         text=True,
+        timeout=GH_TIMEOUT,
     )
     matches = [issue["number"] for issue in json.loads(existing.stdout)
                if issue["title"] == config["title"]]
@@ -121,7 +126,7 @@ def update_issue(
             else:
                 command = ["gh", "issue", "edit", str(issue_number), "--repo", repo,
                            "--body-file", str(body_path)]
-            runner(command, check=True)
+            runner(command, check=True, timeout=GH_TIMEOUT)
         finally:
             body_path.unlink(missing_ok=True)
     elif action == "close":
@@ -129,6 +134,7 @@ def update_issue(
             ["gh", "issue", "close", str(issue_number), "--repo", repo,
              "--reason", "completed", "--comment", config["close_comment"]],
             check=True,
+            timeout=GH_TIMEOUT,
         )
     return action
 

@@ -35,6 +35,9 @@ NOT_A_PYPROJECT_DEPENDENCY = {"faircode", "pytest"}
 # Helper modules that live in tests/ itself (e.g. js_helpers.py) are local, not dependencies; they
 # are importable because pyproject.toml puts tests/ on pytest's pythonpath (#938, #945).
 TESTS_LOCAL_MODULES = {path.stem for path in (ROOT / "tests").glob("*.py")}
+# The scripts/ modules import each other both as `scripts.<name>` (imported by tests) and as bare `<name>` (run as a
+# script, when scripts/ is sys.path[0]); neither is a third-party package.
+TESTS_LOCAL_MODULES |= {"scripts"} | {path.stem for path in (ROOT / "scripts").glob("*.py")}
 
 
 def _normalize(name):

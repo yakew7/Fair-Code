@@ -31,10 +31,14 @@ import argparse
 import json
 import re
 import shutil
-import subprocess
 import sys
 from datetime import date, timedelta
 from pathlib import Path
+
+try:                                    # run as a script (scripts/ on the path) or imported as scripts.<name>
+    from scripts.ghcall import run_gh
+except ImportError:
+    from ghcall import run_gh
 
 ROOT = Path(__file__).resolve().parent.parent
 REPO = "yakew7/Fair-Code"
@@ -195,7 +199,7 @@ def fetch_live(repo: str = REPO, week_bounds: tuple[str, str] | None = None) -> 
         return None
 
     def api(*args: str):
-        done = subprocess.run(["gh", "api", *args], capture_output=True, text=True)
+        done = run_gh(["gh", "api", *args])
         if done.returncode != 0 or not done.stdout.strip():
             return None
         try:

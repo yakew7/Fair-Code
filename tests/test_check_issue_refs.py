@@ -1,5 +1,6 @@
 """scripts/check_issue_refs.py compares roadmap/changelog issue numbers with GitHub (#963, #981)."""
 
+import subprocess
 import importlib
 import json
 
@@ -130,7 +131,7 @@ def test_load_states_skips_when_gh_is_missing_or_the_issue_query_fails(monkeypat
         returncode = 1
 
     monkeypatch.setattr(script.shutil, "which", lambda _name: "/usr/bin/gh")
-    monkeypatch.setattr(script.subprocess, "run", lambda *args, **kwargs: Failed())
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: Failed())
     assert script.load_states(None) is None
 
 
@@ -145,7 +146,7 @@ def test_load_states_merges_pull_requests_when_available(monkeypatch):
         Result(0, '[{"number": 2, "state": "MERGED"}]'),
     ))
     monkeypatch.setattr(script.shutil, "which", lambda _name: "/usr/bin/gh")
-    monkeypatch.setattr(script.subprocess, "run", lambda *args, **kwargs: next(results))
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: next(results))
     assert script.load_states(None) == {1: "open", 2: "merged"}
 
 
@@ -157,7 +158,7 @@ def test_load_states_keeps_issue_states_when_the_pull_request_query_fails(monkey
 
     results = iter((Result(0, '[{"number": 1, "state": "CLOSED"}]'), Result(1, "")))
     monkeypatch.setattr(script.shutil, "which", lambda _name: "/usr/bin/gh")
-    monkeypatch.setattr(script.subprocess, "run", lambda *args, **kwargs: next(results))
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: next(results))
     assert script.load_states(None) == {1: "closed"}
 
 

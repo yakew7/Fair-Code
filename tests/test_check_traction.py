@@ -1,4 +1,5 @@
 """scripts/check_traction.py keeps the traction figures in step across README, ROADMAP and METRICS (#1097)."""
+import subprocess
 import importlib
 from pathlib import Path
 
@@ -281,11 +282,11 @@ def test_fetch_live_queries_issue_only_count_for_the_week_and_fails_on_incomplet
         {"total_count": 28, "incomplete_results": False, "items": []},
     ]
 
-    def run(command, capture_output, text):
+    def run(command, **kwargs):
         calls.append(command)
         return SimpleNamespace(returncode=0, stdout=json.dumps(replies[len(calls) - 1]))
 
-    monkeypatch.setattr(check.subprocess, "run", run)
+    monkeypatch.setattr(subprocess, "run", run)
     live = check.fetch_live(week_bounds=("2026-10-19", "2026-10-25"))
 
     assert live == {"stars": 51, "forks": 63, "watching": 8, "contributors": 1, "issues_closed": 28}

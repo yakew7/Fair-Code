@@ -1,4 +1,5 @@
 """scripts/draft_metrics_row.py prints the next METRICS.md weekly row from GitHub's figures (#1242)."""
+import subprocess
 import datetime
 import importlib
 import json
@@ -81,10 +82,10 @@ def test_pending_closes_are_added_to_the_issues_closed_cell(tmp_path, capsys):
 def test_open_issues_are_counted_and_a_closed_one_is_not(monkeypatch):
     from types import SimpleNamespace
     states = {1: "open", 2: "closed", 3: "open"}
-    monkeypatch.setattr(script.subprocess, "run", lambda command, **kw: SimpleNamespace(
+    monkeypatch.setattr(subprocess, "run", lambda command, **kw: SimpleNamespace(
         returncode=0, stdout=states[int(command[2].rsplit("/", 1)[1])] + "\n"))
     assert script.fetch_open_among({1, 2, 3}, "o/r") == 2
-    monkeypatch.setattr(script.subprocess, "run", lambda command, **kw: SimpleNamespace(returncode=1, stdout=""))
+    monkeypatch.setattr(subprocess, "run", lambda command, **kw: SimpleNamespace(returncode=1, stdout=""))
     assert script.fetch_open_among({1}, "o/r") is None
 
 

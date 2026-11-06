@@ -33,9 +33,13 @@ import json
 import os
 import re
 import shutil
-import subprocess
 import sys
 from pathlib import Path
+
+try:                                    # run as a script (scripts/ on the path) or imported as scripts.<name>
+    from scripts.ghcall import run_gh
+except ImportError:
+    from ghcall import run_gh
 
 ROOT = Path(__file__).resolve().parent.parent
 REF = re.compile(r"#(\d+)")
@@ -111,13 +115,11 @@ def load_states(issues_file: str | None) -> dict[int, str] | None:
     else:
         if shutil.which("gh") is None:
             return None
-        done = subprocess.run(["gh", "issue", "list", "--state", "all", "--limit", "5000", "--json", "number,state"],
-                              capture_output=True, text=True, cwd=ROOT)
+        done = run_gh(["gh", "issue", "list", "--state", "all", "--limit", "5000", "--json", "number,state"], cwd=ROOT)
         if done.returncode != 0:
             return None
         data = json.loads(done.stdout)
-        prs = subprocess.run(["gh", "pr", "list", "--state", "all", "--limit", "5000", "--json", "number,state"],
-                             capture_output=True, text=True, cwd=ROOT)
+        prs = run_gh(["gh", "pr", "list", "--state", "all", "--limit", "5000", "--json", "number,state"], cwd=ROOT)
         if prs.returncode == 0:
             data.extend(json.loads(prs.stdout))
     return {int(i["number"]): str(i["state"]).lower() for i in data}

@@ -28,9 +28,13 @@ import importlib
 import json
 import re
 import shutil
-import subprocess
 import sys
 from pathlib import Path
+
+try:                                    # run as a script (scripts/ on the path) or imported as scripts.<name>
+    from scripts.ghcall import run_gh
+except ImportError:
+    from ghcall import run_gh
 
 ROOT = Path(__file__).resolve().parent.parent
 HEADER = "| Week | Stars | Forks | Watching | Contributors | Social Views | Countries | Issues Closed | Code Audits |"
@@ -66,9 +70,8 @@ def build_row(previous: list[str], live: dict, day: datetime.date) -> str:
 
 
 def fetch_issues_closed(since: datetime.date, repo: str) -> int | None:
-    done = subprocess.run(["gh", "api", "-X", "GET", "search/issues", "-f",
-                           f"q=repo:{repo} is:issue is:closed closed:>={since.isoformat()}", "--jq", ".total_count"],
-                          capture_output=True, text=True)
+    done = run_gh(["gh", "api", "-X", "GET", "search/issues", "-f",
+                   f"q=repo:{repo} is:issue is:closed closed:>={since.isoformat()}", "--jq", ".total_count"])
     return int(done.stdout.strip()) if done.returncode == 0 and done.stdout.strip().isdigit() else None
 
 
@@ -146,8 +149,8 @@ def draft_note(week: str, since: datetime.date, previous: list[str], live: dict,
 
 
 def fetch_closed_issues(since: datetime.date, repo: str) -> list[dict] | None:
-    done = subprocess.run(["gh", "issue", "list", "--repo", repo, "--state", "closed", "--limit", "500", "--search",
-                           f"closed:>={since.isoformat()}", "--json", "number,title"], capture_output=True, text=True)
+    done = run_gh(["gh", "issue", "list", "--repo", repo, "--state", "closed", "--limit", "500", "--search",
+                   f"closed:>={since.isoformat()}", "--json", "number,title"])
     return json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else None
 
 
@@ -155,7 +158,7 @@ def fetch_open_among(numbers, repo: str) -> int | None:
     """How many of the issues `numbers` are still open (an already closed one is in the closed count), or None on failure."""
     total = 0
     for number in sorted(numbers):
-        done = subprocess.run(["gh", "api", f"repos/{repo}/issues/{number}", "--jq", ".state"], capture_output=True, text=True)
+        done = run_gh(["gh", "api", f"repos/{repo}/issues/{number}", "--jq", ".state"])
         if done.returncode != 0:
             return None
         total += done.stdout.strip() == "open"

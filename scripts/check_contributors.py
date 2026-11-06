@@ -46,6 +46,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+try:                                    # run as a script (scripts/ on the path) or imported as scripts.<name>
+    from scripts.ghcall import run_gh
+except ImportError:
+    from ghcall import run_gh
+
 ROOT = Path(__file__).resolve().parent.parent
 MAINTAINER = "yakew7"
 SECTIONS = ("Core contributors", "Contributors")
@@ -180,7 +185,7 @@ def fetch_commit_data(entries: list[dict], since: str, repo: str = "yakew7/Fair-
         return None
 
     def api(*args: str):
-        done = subprocess.run(["gh", "api", *args], capture_output=True, text=True)
+        done = run_gh(["gh", "api", *args])
         return json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else None
 
     people = api("--paginate", "--slurp", f"repos/{repo}/contributors?per_page=100")
@@ -190,8 +195,8 @@ def fetch_commit_data(entries: list[dict], since: str, repo: str = "yakew7/Fair-
     logins = [e["handle"] for e in entries if not e["deleted"] and e["handle"].lower() in {k.lower() for k in live}]
 
     def since_count(login: str) -> int | None:
-        done = subprocess.run(["gh", "api", "--paginate", f"repos/{repo}/commits?author={login}&since={since}&per_page=100",
-                               "--jq", ".[].sha"], capture_output=True, text=True)
+        done = run_gh(["gh", "api", "--paginate", f"repos/{repo}/commits?author={login}&since={since}&per_page=100",
+                       "--jq", ".[].sha"])
         return len(done.stdout.split()) if done.returncode == 0 else None
 
     with concurrent.futures.ThreadPoolExecutor(8) as pool:
@@ -361,8 +366,8 @@ def fix_document(text: str, prs: list[dict], through: int | None, commits: dict[
 def fetch_prs() -> list[dict] | None:
     if shutil.which("gh") is None:
         return None
-    done = subprocess.run(["gh", "pr", "list", "--state", "merged", "--limit", "5000",
-                           "--json", "number,author,mergedAt,title"], capture_output=True, text=True)
+    done = run_gh(["gh", "pr", "list", "--state", "merged", "--limit", "5000",
+                   "--json", "number,author,mergedAt,title"])
     return json.loads(done.stdout) if done.returncode == 0 else None
 
 
