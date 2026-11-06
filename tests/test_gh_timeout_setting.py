@@ -1,4 +1,3 @@
-import subprocess
 from unittest.mock import patch
 
 from scripts.ghcall import get_gh_timeout, run_gh

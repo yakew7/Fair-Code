@@ -199,7 +199,7 @@ def test_every_gh_call_of_update_issue_has_a_timeout():
 
     script.update_issue("o/r", "traction", True, "body", runner=runner)     # list, then edit
     script.update_issue("o/r", "traction", False, "", runner=runner)        # list, then close
-    assert len(calls) == 4 and all(call.get("timeout") == script.GH_TIMEOUT for call in calls)
+    assert len(calls) == 4 and all(call.get("timeout") == script.get_gh_timeout() for call in calls)
 
 
 def test_contributors_issue_body_gives_the_stub_command_for_each_person_with_no_entry():

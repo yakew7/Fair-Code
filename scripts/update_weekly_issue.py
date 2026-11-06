@@ -109,7 +109,7 @@ def update_issue(
         return "none"
 
     config = REPORTS[kind]
-    timeout = get_gh_timeout
+    timeout = get_gh_timeout()
     existing = runner(
         ["gh", "issue", "list", "--repo", repo, "--state", "open", "--search",
          f'"{config["title"]}" in:title', "--json", "number,title"],
