@@ -28,6 +28,7 @@ counts are listed as skipped, not failed.
     python3 scripts/check_contributors.py --identities   # every git commit author maps to an entry or an identity map row
     python3 scripts/check_contributors.py --pending       # who merged after the snapshot (exit 1 if anyone), for the weekly report
     python3 scripts/check_contributors.py --stub LOGIN     # start an entry for a new contributor (then --fix --commits)
+    python3 scripts/check_contributors.py --stub LOGIN --commits   # the same, with the commit counts taken from GitHub too
     python3 scripts/check_contributors.py --fix --commits # also refresh commit counts and move the snapshot to the newest merged PR
     python3 scripts/check_contributors.py --fix            # refresh known counts/dates and sort entries in place
 
@@ -434,15 +435,31 @@ def add_stub(text: str, login: str, prs: list[dict], area: str = DEFAULT_AREA) -
 
 
 def run_stub(args, text: str, prs: list[dict]) -> int:
+    """Start an entry for `args.stub`. With `--commits` the commit counts (the new person's and everyone's) are taken from
+    the contributors graph at the new snapshot instead of left as the PR-count placeholder (#1271)."""
     try:
         stubbed = add_stub(text, args.stub, prs)
     except ValueError as error:
         print(f"error: {error}")
         return 1
     newest = max(pr["number"] for pr in prs)
-    args.file.write_text(fix_document(stubbed, prs, newest), encoding="utf-8")
-    print(f"added a stub entry for {args.stub} and moved the snapshot to PR #{newest}; replace the TODO sentence, "
-          "then run --fix --commits for the commit counts")
+    commit_counts, note = None, "commit counts are placeholders: run --fix --commits (or add --commits to --stub)"
+    if args.commits:
+        since = snapshot_time(prs, newest)
+        data = get_commit_data(args, parse(stubbed)[0], since) if since else None
+        if data is None:
+            print("error: --stub --commits needs the GitHub CLI (gh) signed in and online")
+            return 2
+        after = {k.lower(): v for k, v in data.get("after_snapshot", {}).items()}
+        commit_counts = {login: n - after.get(login.lower(), 0) for login, n in data["live"].items()
+                         if login.lower() not in COMMIT_EXCEPTIONS}
+        if args.stub.lower() in {login.lower() for login in commit_counts}:
+            note = "commit counts come from the contributors graph at the new snapshot"
+        else:
+            note = (f"{args.stub} is not in the contributors API yet, so their commit count is still the PR-count "
+                    "placeholder; run --fix --commits later")
+    args.file.write_text(fix_document(stubbed, prs, newest, commit_counts), encoding="utf-8")
+    print(f"added a stub entry for {args.stub} and moved the snapshot to PR #{newest}; replace the TODO sentence; {note}")
     return 0
 
 

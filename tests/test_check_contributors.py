@@ -465,3 +465,39 @@ def test_an_entry_added_to_the_json_file_is_honoured_without_touching_the_script
 
     code, out = run(tmp_path, capsys, extra=extra + ("--exceptions", str(exceptions)))
     assert code == 0 and "carol: commit count not compared (email not linked)" in out
+
+
+def _stub_site(tmp_path):
+    prs = PRS + [dict(pr(110, "dave", "2026-10-30"), title="fix: a"), dict(pr(120, "dave", "2026-10-31"), title="docs: b")]
+    (tmp_path / "CONTRIBUTORS.md").write_text(STUB_DOC, encoding="utf-8")
+    (tmp_path / "prs.json").write_text(json.dumps(prs), encoding="utf-8")
+    return ["--file", str(tmp_path / "CONTRIBUTORS.md"), "--prs", str(tmp_path / "prs.json")]
+
+
+def test_stub_with_commits_takes_the_new_persons_commit_count_from_github(tmp_path, capsys, monkeypatch):
+    # #1271
+    base = _stub_site(tmp_path)
+    monkeypatch.setattr(script, "_COMMIT_DATA", {})
+    monkeypatch.setattr(script, "fetch_commit_data", lambda entries, since: {
+        "live": {"alice": 5, "bob": 4, "carol": 3, "dave": 9}, "after_snapshot": {}})
+    assert script.main(base + ["--stub", "dave", "--commits"]) == 0
+    assert "commit counts come from the contributors graph" in capsys.readouterr().out
+    text = (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+    dave = next(e for e in script.parse(text)[0] if e["handle"] == "dave")
+    assert (dave["merged"], dave["commits"]) == (2, 9)
+
+
+def test_stub_with_commits_says_so_when_the_new_person_is_not_in_the_api_yet(tmp_path, capsys, monkeypatch):
+    base = _stub_site(tmp_path)
+    monkeypatch.setattr(script, "_COMMIT_DATA", {})
+    monkeypatch.setattr(script, "fetch_commit_data", lambda entries, since: {
+        "live": {"alice": 5, "bob": 4, "carol": 3}, "after_snapshot": {}})
+    assert script.main(base + ["--stub", "dave", "--commits"]) == 0
+    assert "dave is not in the contributors API yet" in capsys.readouterr().out
+    text = (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+    assert next(e for e in script.parse(text)[0] if e["handle"] == "dave")["commits"] == 2          # the placeholder
+
+
+def test_stub_without_commits_prints_the_reminder(tmp_path, capsys):
+    assert script.main(_stub_site(tmp_path) + ["--stub", "dave"]) == 0
+    assert "commit counts are placeholders" in capsys.readouterr().out
