@@ -167,13 +167,19 @@ def report_unusable(kind: str, status: str, environ=None) -> str:
     return f"::error title={kind} check did not run::{message}"
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """The command line (a function so a test can check the workflows' calls against it, #1274)."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("kind", choices=REPORTS)
     parser.add_argument("report", type=Path, help="external-links JSON report or traction status file")
     parser.add_argument("details", type=Path, nargs="?", help="traction stderr file or contributors stdout file")
     parser.add_argument("--dry-run", action="store_true",
                         help="print the decision and the issue body instead of calling gh (needs no GITHUB_REPOSITORY)")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
     args = parser.parse_args(argv)
 
     if args.kind == "external-links":

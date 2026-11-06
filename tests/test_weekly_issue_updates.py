@@ -221,3 +221,43 @@ def test_contributors_issue_body_has_no_stub_section_when_everyone_has_an_entry(
     body = script.contributors_issue_body(
         "bob: 1 merged PR(s) after the snapshot (#101); count to update\n1 author(s) merged after the snapshot (PR #100).\n")
     assert "--stub" not in body and "Start the entry" not in body
+
+
+WORKFLOWS = Path(__file__).resolve().parent.parent / ".github" / "workflows"
+
+
+def _workflow_calls():
+    """(workflow file name, workflow text, tokens after update_weekly_issue.py) for every workflow `run:` line that calls it."""
+    import shlex
+    calls = []
+    for path in sorted(WORKFLOWS.glob("*.yml")):
+        text = path.read_text(encoding="utf-8")
+        for line in text.splitlines():
+            if "scripts/update_weekly_issue.py" in line:
+                calls.append((path.name, text, shlex.split(line.split("scripts/update_weekly_issue.py", 1)[1])))
+    return calls
+
+
+def test_the_workflows_call_the_script_with_arguments_its_parser_accepts():
+    # #1274: a renamed kind or a changed argument list would only fail on the next Monday
+    calls = _workflow_calls()
+    assert {tokens[0] for _, _, tokens in calls} == set(script.REPORTS), "every report kind needs a workflow, and no workflow an unknown kind"
+    for name, text, tokens in calls:
+        args = script.build_parser().parse_args(tokens)
+        if args.kind != "external-links":
+            assert args.details is not None, f"{name}: {args.kind} needs a status file and an output file"
+        for path in [args.report, args.details]:
+            if path is not None:
+                assert text.count(str(path)) >= 2, f"{name}: {path} is passed to the script but nothing else in the workflow writes it"
+
+
+def test_each_kind_is_called_by_exactly_one_workflow():
+    kinds = [tokens[0] for _, _, tokens in _workflow_calls()]
+    assert sorted(kinds) == sorted(set(kinds))
+
+
+def test_the_parser_rejects_an_unknown_kind_and_a_missing_report():
+    parser = script.build_parser()
+    for bad in (["nope", "status"], ["traction"]):
+        with pytest.raises(SystemExit):
+            parser.parse_args(bad)
