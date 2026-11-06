@@ -407,3 +407,24 @@ def test_stub_refuses_an_existing_entry_and_an_unknown_author(tmp_path, capsys):
     base = ["--file", str(tmp_path / "CONTRIBUTORS.md"), "--prs", str(tmp_path / "prs.json")]
     assert script.main(base + ["--stub", "bob"]) == 1 and "already has an entry" in capsys.readouterr().out
     assert script.main(base + ["--stub", "ghost"]) == 1 and "no merged pull requests" in capsys.readouterr().out
+
+
+def test_git_authors_also_counts_co_authored_by_trailers():
+    # #1269
+    from types import SimpleNamespace
+
+    def runner(command, **kwargs):
+        if "trailers" in command[-1]:
+            return SimpleNamespace(stdout="Dana <dana@example.org>\n\nDana <dana@example.org>\nnot a trailer\n")
+        return SimpleNamespace(stdout="Alice A.|alice@example.org\n")
+
+    assert script.git_authors(runner=runner) == [("Dana", "dana@example.org", 2), ("Alice A.", "alice@example.org", 1)]
+
+
+def test_a_co_author_with_no_entry_is_reported_and_tools_and_bots_are_not():
+    authors = [("Alice A.", "alice@example.org", 1), ("Dana", "dana@example.org", 2),
+               ("Claude Sonnet 5.5", "noreply@anthropic.com", 7), ("Copilot Autofix powered by AI", "1+Copilot@users.noreply.github.com", 7),
+               ("Vercel", "vercel[bot]@users.noreply.github.com", 2), ("Voyagerroc-Code", "3+Voyagerroc-Code@users.noreply.github.com", 1)]
+    assert script.unmapped_authors(IDENTITY_DOC, authors) == [
+        "Dana <dana@example.org>: 2 commit(s) map to no entry or Git identity map row"]
+    assert "voyagerroc-code" in script.UNLISTED_AUTHORS

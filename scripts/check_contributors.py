@@ -273,7 +273,9 @@ def move_snapshot(text: str, prs: list[dict], new_through: int) -> str:
 # Commit authors that deliberately have no entry (#1236), by lower-case author name.
 UNLISTED_AUTHORS = {
     "erol tasci": "commit 530b58d cites PR #632, which does not exist; the attribution was removed in fd41a1e",
+    "voyagerroc-code": "co-author of that same commit 530b58d",
 }
+TRAILER = re.compile(r"^(?P<name>.+?)\s*<(?P<email>[^<>]+)>\s*$")
 IDENTITY_ROW = re.compile(r"^\| \[@([^\]]+)\]\([^)]*\) \| (.+) \|$", re.MULTILINE)
 
 
@@ -292,7 +294,8 @@ def unmapped_authors(text: str, authors: list[tuple[str, str, int]]) -> list[str
     lines = []
     for name, email, count in authors:
         low, mail = name.lower(), email.lower()
-        if "[bot]" in low or "[bot]" in mail or mail == "noreply@github.com" or low in UNLISTED_AUTHORS:
+        if ("[bot]" in low or "[bot]" in mail or mail == "noreply@github.com" or low in UNLISTED_AUTHORS
+                or mail.endswith("@anthropic.com") or low.startswith("copilot")):
             continue
         local = mail.split("@")[0].split("+")[-1] if mail.endswith("@users.noreply.github.com") else None
         if low in names or low in handles or (local and local in handles):
@@ -302,13 +305,20 @@ def unmapped_authors(text: str, authors: list[tuple[str, str, int]]) -> list[str
 
 
 def git_authors(runner=None) -> list[tuple[str, str, int]]:
-    """Distinct (name, email, commits) over the whole history."""
+    """Distinct (name, email, commits) over the whole history: every commit's author, plus each `Co-authored-by:` trailer
+    (#1269), so a person credited only through a trailer is checked like an author."""
     run = runner or subprocess.run
-    done = run(["git", "log", "--format=%an|%ae"], cwd=ROOT, capture_output=True, text=True)
     counts: dict[tuple[str, str], int] = {}
+    done = run(["git", "log", "--format=%an|%ae"], cwd=ROOT, capture_output=True, text=True)
     for line in done.stdout.splitlines():
         name, _, email = line.partition("|")
         counts[(name, email)] = counts.get((name, email), 0) + 1
+    trailers = run(["git", "log", "--format=%(trailers:key=Co-authored-by,valueonly)"], cwd=ROOT, capture_output=True, text=True)
+    for line in trailers.stdout.splitlines():
+        found = TRAILER.match(line.strip())
+        if found:
+            key = (found.group("name"), found.group("email"))
+            counts[key] = counts.get(key, 0) + 1
     return sorted(((n, e, c) for (n, e), c in counts.items()), key=lambda item: (-item[2], item[0]))
 
 
