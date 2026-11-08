@@ -2,6 +2,7 @@
 
 import importlib
 import json
+import re
 
 import pytest
 
@@ -398,6 +399,7 @@ def test_stub_for_a_new_author_leaves_a_file_the_plain_check_passes(tmp_path, ca
     assert (dave["merged"], dave["first"]) == (2, "2026-10-30")
     assert "[@dave](https://github.com/dave) |" in text.split("Contributor tooling & docs")[1]
     capsys.readouterr()
+    _replace_the_todo(tmp_path / "CONTRIBUTORS.md")        # the stub's TODO sentence has to be written by hand (#1285)
     assert script.main(["--file", str(tmp_path / "CONTRIBUTORS.md"), "--prs", str(tmp_path / "prs.json")]) == 0, capsys.readouterr().out
 
 
@@ -501,3 +503,39 @@ def test_stub_with_commits_says_so_when_the_new_person_is_not_in_the_api_yet(tmp
 def test_stub_without_commits_prints_the_reminder(tmp_path, capsys):
     assert script.main(_stub_site(tmp_path) + ["--stub", "dave"]) == 0
     assert "commit counts are placeholders" in capsys.readouterr().out
+
+
+def test_todo_problems_names_each_entry_that_still_has_the_stub_sentence():
+    # #1285: `--stub` writes "TODO: describe the work ..." and nothing noticed if it was committed
+    doc = DOC.replace("### Carol - [@carol](https://github.com/carol)\n\n**2 merged PRs · 3 commits · first merged 2026-06-02**\n",
+                      "### Carol - [@carol](https://github.com/carol)\n\n**2 merged PRs · 3 commits · first merged 2026-06-02**\n\n"
+                      "TODO: describe the work in a sentence or two. Merged: [#6].\n")
+    assert script.todo_problems(DOC) == []
+    assert script.todo_problems(doc) == ["carol: the entry still has a TODO placeholder sentence (written by --stub); describe their work"]
+
+
+def test_a_todo_in_one_entry_is_not_blamed_on_its_neighbours():
+    doc = DOC.replace("Text.\n", "Text with TODO: mid-sentence.\n")        # alice's entry, in the Core section
+    assert [p.split(":")[0] for p in script.todo_problems(doc)] == ["alice"]
+
+
+def test_the_plain_check_fails_on_a_left_over_stub_and_passes_once_it_is_replaced(tmp_path, capsys):
+    stubbed = DOC.replace("Text.\n", "TODO: describe the work in a sentence or two.\n")
+    code, out = run(tmp_path, capsys, doc=stubbed)
+    assert code == 1 and "alice: the entry still has a TODO placeholder" in out
+    code, out = run(tmp_path, capsys, doc=DOC)
+    assert code == 0
+
+
+def _replace_the_todo(path):
+    """Replace the whole `TODO:` line of a stub with a real sentence, as the person writing the entry would."""
+    path.write_text(re.sub(r"^TODO:.*$", "Fixed a thing.", path.read_text(encoding="utf-8"), flags=re.MULTILINE), encoding="utf-8")
+
+
+def test_a_stub_just_written_fails_until_its_sentence_is_replaced(tmp_path, capsys):
+    base = _stub_site(tmp_path)
+    assert script.main(base + ["--stub", "dave"]) == 0
+    capsys.readouterr()
+    assert script.main(base) == 1 and "dave: the entry still has a TODO placeholder" in capsys.readouterr().out
+    _replace_the_todo(tmp_path / "CONTRIBUTORS.md")
+    assert script.main(base) == 0

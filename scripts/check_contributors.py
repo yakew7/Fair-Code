@@ -11,7 +11,8 @@ Contributors):
     anything merged later is expected to be missing until the next sweep;
   * the order of the entries against the rule above;
   * that every merged-PR author up to the snapshot (bots and the maintainer aside) has an entry;
-  * that every entry's handle appears in at least one row of the "Contributions by area" table.
+  * that every entry's handle appears in at least one row of the "Contributions by area" table;
+  * that no entry still holds the `TODO:` sentence `--stub` writes.
 
 Commit counts are only used to break ties in the order unless `--commits` is given (#1199). The contributors API is
 live and cannot be asked for a past date, so with `--commits` the expected count at the snapshot is the live
@@ -176,6 +177,21 @@ def area_table_problems(text: str, entries: list[dict]) -> list[str]:
     table = text[start:end if end != -1 else len(text)].lower()
     return [f"{e['handle']}: has an entry but is in no row of the Contributions by area table"
             for e in entries if not e["deleted"] and f"@{e['handle'].lower()}]" not in table]
+
+
+def todo_problems(text: str) -> list[str]:
+    """Entries that still contain the `TODO:` sentence `--stub` writes (#1285), so a placeholder cannot reach the published
+    page. An entry is the text from its header to the next entry or section."""
+    starts = [m.start() for m in ENTRY.finditer(text)]
+    heads = [m.start() for m in re.finditer(r"^## ", text, re.MULTILINE)]
+    problems = []
+    for match in ENTRY.finditer(text):
+        end = min([p for p in starts + heads if p > match.start()] or [len(text)])
+        if "TODO:" in text[match.start():end]:
+            handle = HANDLE.search(match.group("header"))
+            name = (handle.group(1) or handle.group(2)) if handle else match.group("header")
+            problems.append(f"{name}: the entry still has a TODO placeholder sentence (written by --stub); describe their work")
+    return problems
 
 
 def commit_problems(entries: list[dict], live: dict[str, int], after: dict[str, int]) -> tuple[list[str], list[str]]:
@@ -512,6 +528,7 @@ def run_pending(entries: list[dict], prs: list[dict], through: int | None) -> in
 def run_check(args, text: str, entries: list[dict], prs: list[dict], through: int | None) -> int:
     problems, skipped = check(entries, prs, through)
     problems += area_table_problems(text, entries)
+    problems += todo_problems(text)
     with_commits = bool(args.commits or args.commits_data)
     if with_commits:
         since = snapshot_time(prs, through)
