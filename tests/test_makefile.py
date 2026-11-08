@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def dry_run(target: str, *variables: str) -> str:
-    return subprocess.run(["make", "-n", target, *variables], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    return subprocess.run(["make", "-n", "--no-print-directory", target, *variables], cwd=ROOT, capture_output=True, text=True, check=True).stdout
 
 
 def test_help_does_not_run_python(tmp_path, monkeypatch):
