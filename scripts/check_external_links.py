@@ -112,7 +112,7 @@ def collect_urls(paths, skip_hosts=SKIP_HOSTS) -> dict[str, list[str]]:
     return found
 
 
-def check_url(url: str, timeout: float = 15.0) -> tuple[str, str]:
+def check_url(url: str, timeout: float = 15.0, retry_delay: float | None = None) -> tuple[str, str]:
     """(status class, detail) with the class one of 'ok', 'moved', 'broken' or 'unknown'.
 
     For 'moved' the detail is the address the redirect chain ended on.
@@ -120,12 +120,12 @@ def check_url(url: str, timeout: float = 15.0) -> tuple[str, str]:
     for method in ("HEAD", "GET"):
         try:
             try:
-                return _open(url, method, USER_AGENT, timeout)
+                return _open(url, method, USER_AGENT, timeout, retry_delay)
             except urllib.error.HTTPError as error:
                 if error.code != 404:
                     raise
                 # Some sites answer 404 to a non-browser user agent: retry once as a browser, with GET.
-                return _open(url, "GET" if method == "HEAD" else method, BROWSER_USER_AGENT, timeout)
+                return _open(url, "GET" if method == "HEAD" else method, BROWSER_USER_AGENT, timeout, retry_delay)
         except urllib.error.HTTPError as error:
             result = _classify_http_error(error, url, method, timeout)
             if result is None:
@@ -136,15 +136,17 @@ def check_url(url: str, timeout: float = 15.0) -> tuple[str, str]:
     return "unknown", "no response"
 
 
-def _retry_delay(error: urllib.error.HTTPError) -> float:
+def _retry_delay(error: urllib.error.HTTPError, default: float | None = None) -> float:
+    """Seconds to wait before the retry: the Retry-After header (up to a cap), else `default` (the module's RETRY_DELAY)."""
+    fallback = RETRY_DELAY if default is None else default
     header = error.headers.get("Retry-After") if error.headers else None
     try:
-        return min(max(float(header), 0.0), RETRY_AFTER_CAP) if header is not None else RETRY_DELAY
+        return min(max(float(header), 0.0), RETRY_AFTER_CAP) if header is not None else fallback
     except ValueError:
-        return RETRY_DELAY
+        return fallback
 
 
-def _open(url: str, method: str, user_agent: str, timeout: float) -> tuple[str, str]:
+def _open(url: str, method: str, user_agent: str, timeout: float, retry_delay: float | None = None) -> tuple[str, str]:
     """One request; a 429 or 5xx is tried once more after a short wait (Retry-After up to a cap), since those are
     usually a busy server rather than a dead page."""
     try:
@@ -152,7 +154,7 @@ def _open(url: str, method: str, user_agent: str, timeout: float) -> tuple[str, 
     except urllib.error.HTTPError as error:
         if error.code not in RETRY_STATUSES:
             raise
-        time.sleep(_retry_delay(error))
+        time.sleep(_retry_delay(error, retry_delay))
         return _open_once(url, method, user_agent, timeout)
 
 
@@ -253,7 +255,7 @@ def _check_doi(doi: str, timeout: float) -> tuple[str, str]:
 
 
 def run(urls: dict[str, list[str]], limit: int | None = None, workers: int = 8, timeout: float = 15.0,
-        ignore: dict[str, str] | None = None, per_host: int | None = None) -> dict:
+        ignore: dict[str, str] | None = None, per_host: int | None = None, retry_delay: float | None = None) -> dict:
     ignore = ignore or {}
     per_host = PER_HOST_REQUESTS if per_host is None else per_host
 
@@ -275,7 +277,7 @@ def run(urls: dict[str, list[str]], limit: int | None = None, workers: int = 8, 
 
     def check_with_host_limit(url: str) -> tuple[str, str]:
         with host_slots[urllib.parse.urlsplit(url).netloc.lower()]:
-            return check_url(url, timeout)
+            return check_url(url, timeout, **({} if retry_delay is None else {"retry_delay": retry_delay}))
 
     with concurrent.futures.ThreadPoolExecutor(workers) as pool:
         for url, (kind, detail) in zip(items, pool.map(check_with_host_limit, items)):
@@ -401,7 +403,6 @@ def _positive_int(value: str) -> int:
 
 
 def main(argv=None) -> int:
-    global RETRY_DELAY
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("paths", nargs="*", type=Path, help="markdown files to check (default: explainers/*.md and the top-level docs)")
     parser.add_argument("--limit", type=int, help="check at most this many links")
@@ -421,9 +422,9 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if args.rebuild and not args.fix_moved:
         parser.error("--rebuild only makes sense with --fix-moved")
-    RETRY_DELAY = args.retry_delay
     report = run(collect_urls(args.paths or default_paths(), () if args.check_local else SKIP_HOSTS), args.limit,
-                 timeout=args.timeout, ignore=load_ignore_list(args.ignore_file), per_host=args.per_host)
+                 timeout=args.timeout, ignore=load_ignore_list(args.ignore_file), per_host=args.per_host,
+                 retry_delay=args.retry_delay)
     print(json.dumps(report, indent=2) if args.json else render(report))
     if args.fix_moved:
         count, files = fix_moved(report)

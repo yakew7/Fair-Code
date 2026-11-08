@@ -360,7 +360,6 @@ def test_retry_delay_and_per_host_options_are_used(server, tmp_path, monkeypatch
         return real_run(*args, **kwargs)
 
     monkeypatch.setattr(script, "run", spy)
-    monkeypatch.setattr(script, "RETRY_DELAY", script.RETRY_DELAY)      # main() assigns it; restored afterwards
     assert script.main([str(doc), "--check-local", "--timeout", "5", "--retry-delay", "7", "--per-host", "1"]) == 0
     assert slept == [7.0] and seen["per_host"] == 1
     assert "2 ok" in capsys.readouterr().out
@@ -487,3 +486,32 @@ def test_rebuild_without_fix_moved_is_an_error(tmp_path):
     doc.write_text("[a](https://example.org/a)\n", encoding="utf-8")
     with pytest.raises(SystemExit):
         script.main([str(doc), "--rebuild"])
+
+
+def test_main_leaves_the_module_retry_delay_alone_and_passes_the_option_down(tmp_path, monkeypatch):
+    # #1287: --retry-delay used to be applied by assigning the module global
+    doc = tmp_path / "doc.md"
+    doc.write_text("[a](https://example.org/a)\n", encoding="utf-8")
+    seen = {}
+    monkeypatch.setattr(script, "run", lambda *a, **k: seen.update(k) or {"checked": 0, "ok": [], "moved": [], "broken": [], "unknown": [],
+                                                                         "ignored": [], "stale_ignored": []})
+    before = script.RETRY_DELAY
+    assert script.main([str(doc), "--retry-delay", "7"]) == 0
+    assert script.RETRY_DELAY == before and seen["retry_delay"] == 7.0
+
+
+def test_retry_delay_parameter_reaches_the_sleep_and_overrides_the_constant(server, monkeypatch):
+    _Handler.flaky_seen.clear()
+    slept = []
+    monkeypatch.setattr(script.time, "sleep", slept.append)
+    monkeypatch.setattr(script, "RETRY_DELAY", 99.0)
+    assert script.check_url(server + "/flaky", timeout=5, retry_delay=3.0) == ("ok", "200")
+    assert slept == [3.0]
+    assert script._retry_delay(urllib.error.HTTPError("http://x", 503, "x", {}, io.BytesIO())) == 99.0
+
+
+def test_run_passes_the_retry_delay_to_each_check(monkeypatch):
+    seen = []
+    monkeypatch.setattr(script, "check_url", lambda url, timeout, retry_delay=None: seen.append(retry_delay) or ("ok", "200"))
+    script.run({"https://a.example.org/x": ["a.md"], "https://b.example.org/y": ["a.md"]}, retry_delay=4.5)
+    assert seen == [4.5, 4.5]
