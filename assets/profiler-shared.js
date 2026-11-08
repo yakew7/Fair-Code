@@ -12,7 +12,7 @@
 
   // Written into every web export's provenance; tests/test_js_parity_provenance.py checks it against
   // faircode.__version__ and pyproject.toml (#996).
-  var VERSION = '2.3.0';
+  var VERSION = '2.4.0';
 
   // ── Keywords box ────────────────────────────────────────────────────────
   // Extra keywords describe the user's data conventions, not one file, so the text

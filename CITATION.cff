@@ -24,8 +24,8 @@ authors:
 repository-code: "https://github.com/yakew7/Fair-Code"
 url: "https://www.thefaircode.xyz"
 license: MIT
-version: "2.3.0"
-date-released: "2026-10-17"
+version: "2.4.0"
+date-released: "2026-11-08"
 keywords:
   - algorithmic-fairness
   - bias-detection

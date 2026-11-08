@@ -3,8 +3,8 @@
 # Changelog
 
 ![Keep a Changelog](https://img.shields.io/badge/Keep%20a%20Changelog-1.1.0-e05735?style=flat-square)
-![SemVer](https://img.shields.io/badge/SemVer-2.3.0-blue?style=flat-square)
-![Latest](https://img.shields.io/badge/Latest-v2.3.0-brightgreen?style=flat-square)
+![SemVer](https://img.shields.io/badge/SemVer-2.4.0-blue?style=flat-square)
+![Latest](https://img.shields.io/badge/Latest-v2.4.0-brightgreen?style=flat-square)
 
 All notable changes to Fair Code are documented here, newest first.
 
@@ -18,6 +18,39 @@ All notable changes to Fair Code are documented here, newest first.
 > is kept as a historical reference snapshot. See [CLAUDE.md](CLAUDE.md).
 
 ## [Unreleased]
+
+Nothing yet. Changes made after 2.4.0 are listed here until the next release.
+
+## [2.4.0] - 8 Nov 2026
+
+The explainer library grew from 62 to 114 pages, each one tied to a real audit and its code now shipped
+as `explainers/code/<slug>.py`, and the repository's own tooling was swept five times: 213 issues closed
+since `v2.3.0` (286 commits, 69 merged pull requests, 16 contributors), almost all of them checks, reports and
+guards around the results, the docs and the contributor records. Released as `v2.4.0` on 8 Nov 2026.
+
+Highlights:
+
+- **Weekly reports that keep their own tracking issue.** Dead external links (with a Wayback lookup for pages that answer
+  scripts with 403, moved-link detection and `--fix-moved --rebuild`), traction figures against GitHub, and who has merged
+  since the contributors snapshot; a failed `gh` call is now an error annotation, and every `gh` call has a timeout.
+- **Contributor records that check themselves.** `scripts/check_contributors.py` compares PR counts, first-merge dates,
+  commit counts at the snapshot, the area table and git authors (co-author trailers included) with GitHub, and
+  `--stub` and `--fix --commits` write most of an entry. `scripts/draft_metrics_row.py` drafts the weekly METRICS row,
+  figures and sweep note.
+- **Results provenance.** `results/PROVENANCE.json` records what produced `results/`, `diff_results.py` reads it, and a
+  test fails when a benchmark fit stops at `max_iter` anywhere outside the documented cases.
+- **Faster, steadier tests.** `make test-fast` runs in parallel (about 35 s instead of 95 s) when pytest-xdist is installed,
+  `make coverage-fast` reports 97% in about a minute, and the timing-sensitive tests scale with the machine load.
+- **Environment and build checks.** `make doctor` finds modules that shadow the standard library, the generated-files check
+  has timeouts, and the pre-commit hooks now cover every check `make lint` runs.
+
+Upgrade notes:
+
+- `make check` runs `make doctor` first and stops if a package in site-packages, `PYTHONPATH` or the working directory shadows
+  a standard library module; `make check DOCTOR=warn` prints the report and goes on.
+- `make test-fast` no longer runs `tests/browser` (use `make test-browser`), and `pytest-xdist` is in the `test` extra.
+- The contributor check exceptions moved from the script into `scripts/contributors-exceptions.json`.
+- The Python API, the CLI, the MCP server and the web profiler are unchanged apart from the version number.
 
 ### Added
 
