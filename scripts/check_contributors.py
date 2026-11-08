@@ -398,8 +398,16 @@ def fix_document(text: str, prs: list[dict], through: int | None, commits: dict[
             if count != 1:
                 raise ValueError(f"could not locate statistics line for {entry['handle']}")
             blocks.append((entry, block))
+        # the section's closing `---` rule (and whatever follows it) belongs to the section, not to the entry that happens
+        # to be last: split it off before sorting so it stays at the end instead of travelling with that entry
+        last_entry, last_block = blocks[-1]
+        rule = re.search(r"^---[ \t]*$", last_block, re.MULTILINE)
+        tail = ""
+        if rule:
+            tail = last_block[rule.start():]
+            blocks[-1] = (last_entry, last_block[:rule.start()])
         blocks.sort(key=lambda item: (-item[0]["merged"], -item[0]["commits"], item[0]["first"]))
-        replacements.append((start, section_end, "".join(block for _, block in blocks)))
+        replacements.append((start, section_end, "".join(block for _, block in blocks) + tail))
 
     for start, end, replacement in reversed(replacements):
         text = text[:start] + replacement + text[end:]

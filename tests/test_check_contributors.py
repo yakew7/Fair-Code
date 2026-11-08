@@ -539,3 +539,29 @@ def test_a_stub_just_written_fails_until_its_sentence_is_replaced(tmp_path, caps
     assert script.main(base) == 1 and "dave: the entry still has a TODO placeholder" in capsys.readouterr().out
     _replace_the_todo(tmp_path / "CONTRIBUTORS.md")
     assert script.main(base) == 0
+
+
+def test_the_sections_closing_rule_stays_at_the_end_when_entries_are_sorted():
+    # stubbing a second newcomer used to carry the `---` with the entry that had been last and leave it mid-section
+    doc = STUB_DOC
+    prs = PRS + [pr(110, "zed", "2026-10-30"), pr(111, "zed", "2026-10-31"), pr(112, "zed", "2026-11-01")]
+    text = script.add_stub(doc, "zed", prs)             # zed (3 PRs) sorts to the top, carol (the last entry) stays last
+    fixed = script.fix_document(text, prs, 112)
+    entries = [e["handle"] for e in script.parse(fixed)[0]]
+    assert entries.index("zed") < entries.index("bob")
+    body = fixed.split("## Contributors", 1)[1].split("## Contributions by area", 1)[0]
+    assert body.count("\n---\n") == 1 and body.rstrip().endswith("---")
+
+
+def test_two_stubs_in_a_row_leave_one_closing_rule_and_a_file_that_is_otherwise_unchanged(tmp_path, capsys):
+    base = _stub_site(tmp_path)
+    prs = json.loads((tmp_path / "prs.json").read_text(encoding="utf-8")) + [
+        dict(pr(130, "erin", "2026-11-02"), title="docs: x"), dict(pr(131, "erin", "2026-11-03"), title="docs: y")]
+    (tmp_path / "prs.json").write_text(json.dumps(prs), encoding="utf-8")
+    assert script.main(base + ["--stub", "dave"]) == 0
+    assert script.main(base + ["--stub", "erin"]) == 0
+    text = (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+    body = text.split("## Contributors", 1)[1].split("## Contributions by area", 1)[0]
+    assert body.count("\n---\n") == 1
+    assert [e["handle"] for e in script.parse(text)[0]].count("erin") == 1
+    assert script.fix_document(text, prs, 131) == text                        # sorting again changes nothing
