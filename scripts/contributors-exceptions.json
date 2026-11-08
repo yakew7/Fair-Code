@@ -6,6 +6,7 @@
   },
   "unlisted_authors": {
     "erol tasci": "commit 530b58d cites PR #632, which does not exist; the attribution was removed in fd41a1e",
-    "voyagerroc-code": "co-author of that same commit 530b58d"
+    "voyagerroc-code": "co-author of that same commit 530b58d",
+    "ferdi adnil": "co-author trailer on commit 6eec812 (PR #1295) with a local hostname email (ferdi@Ferdis-MacBook-Pro.local) and no linked GitHub account"
   }
 }
