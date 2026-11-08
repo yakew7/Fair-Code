@@ -128,6 +128,24 @@ def _expected_og_slugs():
     return ["home", "profiler"] + [entry["slug"] for entry in entries]
 
 
+BUILD_TIMEOUT = 600.0      # seconds for each of the three regeneration steps (#1292)
+
+
+class BuilderTimeout(RuntimeError):
+    """A regeneration step did not finish within BUILD_TIMEOUT; carries which one."""
+
+    def __init__(self, builder: str, seconds: float):
+        super().__init__(f"{builder} did not finish within {seconds:g} s")
+        self.builder, self.seconds = builder, seconds
+
+
+def _builder_name(cmd) -> str:
+    """A short name for a builder command: its script path, or the module function a `-c` snippet calls."""
+    if len(cmd) > 1 and cmd[1] == "-c":
+        return "the MCP results mirror (scripts.freeze_paper_results)"
+    return cmd[1] if len(cmd) > 1 else " ".join(cmd)
+
+
 def _fresh_build_dir(stack):
     """Returns a Path to a real regeneration of the site, built from what's
     actually on disk right now - not from HEAD. `git worktree add` gives a
@@ -178,11 +196,13 @@ def _fresh_build_dir(stack):
          "mirror_for_mcp(); mirror_current_for_mcp()"],
     ):
         try:
-            subprocess.run(cmd, cwd=tmp, check=True, capture_output=True, text=True)
+            subprocess.run(cmd, cwd=tmp, check=True, capture_output=True, text=True, timeout=BUILD_TIMEOUT)
         except subprocess.CalledProcessError as exc:
             if exc.stderr:
                 print(exc.stderr, file=sys.stderr, end="")
             raise
+        except subprocess.TimeoutExpired as exc:
+            raise BuilderTimeout(_builder_name(cmd), BUILD_TIMEOUT) from exc
 
     return tmp
 
@@ -191,7 +211,12 @@ def main():
     stale = []
 
     with ExitStack() as stack:
-        fresh_dir = _fresh_build_dir(stack)
+        try:
+            fresh_dir = _fresh_build_dir(stack)
+        except BuilderTimeout as exc:
+            print(f"error: {exc}: a hung builder blocks this check, so nothing was compared. "
+                  f"Run it by hand to see where it stalls.", file=sys.stderr)
+            return 1
 
         for pattern in TEXT_GLOBS:
             for path in _tracked_paths(pattern):

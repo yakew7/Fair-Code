@@ -54,7 +54,7 @@ def _empty_repo(tmp_path, monkeypatch, script):
     monkeypatch.setattr(script, "TEXT_GLOBS", [])
 
 
-def _git_repo(root, *, failing_builder=False, require_new_assets=False):
+def _git_repo(root, *, failing_builder=False, require_new_assets=False, hanging_builder=None):
     root.mkdir()
     (root / ".gitignore").write_text("ignored.txt\n", encoding="utf-8")
     (root / "tracked.txt").write_text("committed content\n", encoding="utf-8")
@@ -63,7 +63,9 @@ def _git_repo(root, *, failing_builder=False, require_new_assets=False):
     # a regular package like the real repo's: without it `from scripts.freeze_paper_results import ...` can resolve
     # to an unrelated `scripts` package installed in site-packages (#1192)
     (scripts / "__init__.py").write_text("", encoding="utf-8")
-    if failing_builder:
+    if hanging_builder:
+        builder = "import time\ntime.sleep(60)\n"
+    elif failing_builder:
         builder = "import sys\nprint('builder-specific failure', file=sys.stderr)\nsys.exit(7)\n"
     elif require_new_assets:
         builder = (
@@ -74,8 +76,8 @@ def _git_repo(root, *, failing_builder=False, require_new_assets=False):
         )
     else:
         builder = "pass\n"
-    (scripts / "build_explainers.py").write_text(builder, encoding="utf-8")
-    (scripts / "generate_og_images.py").write_text("pass\n", encoding="utf-8")
+    (scripts / "build_explainers.py").write_text("pass\n" if hanging_builder == "generate_og_images.py" else builder, encoding="utf-8")
+    (scripts / "generate_og_images.py").write_text(builder if hanging_builder == "generate_og_images.py" else "pass\n", encoding="utf-8")
     (scripts / "freeze_paper_results.py").write_text(
         "def mirror_for_mcp(): pass\ndef mirror_current_for_mcp(): pass\n",
         encoding="utf-8",
@@ -420,3 +422,24 @@ def test_main_flags_undecodable_og_images(tmp_path, monkeypatch, capsys):
     assert exit_code == 1
     assert "assets/og/corrupt.png: could not decode:" in captured.out
     assert "assets/og-light/corrupt.png: could not decode:" in captured.out
+
+
+@pytest.mark.parametrize("hanging", ["build_explainers.py", "generate_og_images.py"])
+def test_a_hung_builder_ends_the_check_with_a_message_naming_it(tmp_path, monkeypatch, capsys, hanging):
+    # #1292: the builders used to run with no timeout
+    script = _script()
+    root = _git_repo(tmp_path / "repo", hanging_builder=hanging)
+    monkeypatch.setattr(script, "ROOT", root)
+    monkeypatch.setattr(script, "BUILD_TIMEOUT", 1.0)
+
+    assert script.main() == 1
+
+    err = capsys.readouterr().err
+    assert f"scripts/{hanging} did not finish within 1 s" in err and "nothing was compared" in err
+
+
+def test_builder_names_say_which_step_stalled():
+    script = _script()
+    assert script._builder_name(["python", "scripts/build_explainers.py"]) == "scripts/build_explainers.py"
+    assert "MCP results mirror" in script._builder_name(["python", "-c", "from scripts.freeze_paper_results import x"])
+    assert str(script.BuilderTimeout("scripts/x.py", 5)) == "scripts/x.py did not finish within 5 s"
