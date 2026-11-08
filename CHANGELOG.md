@@ -21,6 +21,9 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Added
 
+- `make coverage-fast` (#1281); `make coverage` runs in parallel when pytest-xdist is installed, which CI's profiler job now gets from the `test` extra (#1265).
+- `draft_metrics_row.py --update` (#1286); `check_environment.py --warn-only` and `make check DOCTOR=warn` (#1290); `tests/load_helpers.py` (#1284).
+- The contributors check fails on a leftover `TODO:` from `--stub` (#1285); `update_weekly_issue.py` reports a failed gh call as an error annotation (#1288); the generated-files builders have a 600 s timeout (#1292).
 - `scripts/ghcall.py` (#1266): every gh call in the weekly checks has a 60 s timeout; `scripts/contributors-exceptions.json` (#1270) replaces the exception dictionaries; `check_contributors.py --identities` reads co-author trailers (#1269) and `--stub LOGIN --commits` takes commit counts from GitHub (#1271).
 - `check_external_links.py --fix-moved --rebuild` (#1272); the weekly contributors issue lists a stub command per newcomer (#1277); tests tie the workflows to `update_weekly_issue.py`'s CLI (#1274).
 - Pre-commit hooks for the issue-reference, traction, dataset-source and contributors checks (#1276); `pytest-xdist` in the `test` extra (#1265, partly).
@@ -48,6 +51,8 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Changed
 
+- The pre-push pytest hook ignores `tests/browser` like `make test-fast` (#1282); the link checker's retry delay is a parameter, not a module global (#1287); the profile scaling test measures CPU time (#1284).
+- `check_contributors.py` keeps a section's closing rule at its end when entries are sorted.
 - `make test-fast` leaves the Chromium tests to `make test-browser` (#1263); `make check` runs `make doctor` first (#1268) and `make doctor` also scans `PYTHONPATH` and the working directory (#1267); `make key-fold-check` is documented and a test covers every target (#1275).
 - `draft_metrics_row.py --apply` rewrites the METRICS targets table's Issues closed row (#1273); the explainer smoke test scales its timeout with the machine load (#1264).
 - `check_issue_refs.py` measures the branch against the default branch of `upstream` (or `origin`) instead of assuming `origin/main` (#1250).
