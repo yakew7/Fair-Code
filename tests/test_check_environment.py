@@ -85,3 +85,20 @@ def test_main_names_a_shadowing_module_in_pythonpath_and_the_current_directory(t
     out = capsys.readouterr().out
     assert "enum" in out and "in PYTHONPATH" in out and "random" in out and "in the current directory" in out
     assert "delete or rename" in out
+
+
+def test_warn_only_prints_the_report_but_exits_0_and_the_default_says_how_to_continue(tmp_path, monkeypatch, capsys):
+    # #1290
+    site = _site(tmp_path)
+    monkeypatch.setattr(script, "search_directories", lambda: [(site, "site-packages")])
+    monkeypatch.setattr(script, "owner_of", lambda name: None)
+    assert script.main() == 1
+    assert "make check DOCTOR=warn" in capsys.readouterr().out
+    assert script.main(["--warn-only"]) == 0
+    out = capsys.readouterr().out
+    assert "pathlib" in out and "warn-only: continuing anyway." in out and "make check DOCTOR=warn" not in out
+
+
+def test_warn_only_is_quiet_about_options_on_a_clean_environment(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(script, "search_directories", lambda: [(tmp_path, "site-packages")])
+    assert script.main(["--warn-only"]) == 0 and "OK:" in capsys.readouterr().out

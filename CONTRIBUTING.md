@@ -82,7 +82,7 @@ make traction-live     # compare the traction figures with GitHub (needs gh; the
 make contributors-commits  # compare CONTRIBUTORS.md PR and commit counts with GitHub at the snapshot (needs gh, about a minute)
 make contributors-pending  # list who merged after the CONTRIBUTORS.md snapshot (needs gh)
 make metrics-row         # print the next weekly METRICS.md row from GitHub's live figures (needs gh; the social, countries and audits cells are carried over)
-make doctor              # warn when a package in site-packages shadows a standard library module (an old pathlib.py backport once broke the CLI tests with an ImportError on collections)
+make doctor              # (DOCTOR=warn never fails, e.g. `make check DOCTOR=warn`) warn when a package in site-packages shadows a standard library module (an old pathlib.py backport once broke the CLI tests with an ImportError on collections)
 make lint              # em-dash-free check + broken internal doc link check + issue-number check + explainer counts + traction figures + dataset source links + CONTRIBUTORS.md vs merged PRs + ruff
 ```
 

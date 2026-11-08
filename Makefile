@@ -68,8 +68,10 @@ contributors-pending:  ## List who merged after the CONTRIBUTORS.md snapshot (ne
 metrics-row:  ## Print the next weekly METRICS.md row from GitHub's live figures (needs gh; prints, never edits; add ARGS=--apply to write the figures too)
 	$(PY) scripts/draft_metrics_row.py $(ARGS)
 
-doctor:  ## Warn when an installed package shadows a standard library module (an old pathlib.py backport once broke imports)
-	$(PY) scripts/check_environment.py
+# DOCTOR=warn prints the doctor's report without failing: `make check DOCTOR=warn` goes on past a shadowing module (#1290)
+DOCTOR ?= fail
+doctor:  ## Warn when an installed package shadows a standard library module (an old pathlib.py backport once broke imports); DOCTOR=warn never fails
+	$(PY) scripts/check_environment.py $(if $(filter warn,$(DOCTOR)),--warn-only,)
 
 lint:  ## Enforce the em-dash-free rule + check for broken doc links + issue numbers in docs (needs gh, skipped offline) + explainer counts and listings + explainer structure + traction figures agreeing across README/ROADMAP/METRICS + dataset source links agreeing between the README and the audit scripts + CONTRIBUTORS.md matching the merged PRs (needs gh, skipped offline) + ruff (mirrors the lint workflow)
 	$(PY) scripts/check_em_dash.py

@@ -7,8 +7,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def dry_run(target: str) -> str:
-    return subprocess.run(["make", "-n", target], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+def dry_run(target: str, *variables: str) -> str:
+    return subprocess.run(["make", "-n", target, *variables], cwd=ROOT, capture_output=True, text=True, check=True).stdout
 
 
 def test_help_does_not_run_python(tmp_path, monkeypatch):
@@ -78,3 +78,10 @@ def test_the_pre_push_pytest_hook_selects_the_same_tests_as_make_test_fast():
     entry = re.search(r"entry: (python3 -m pytest .*)", hooks).group(1)
     selection = lambda command: (re.findall(r'-m "([^"]+)"', command), re.findall(r"--ignore=(\S+)", command), re.findall(r"tests/(?=\s|$)", command))
     assert selection(entry) == selection(dry_run("test-fast").splitlines()[-1]), (entry, dry_run("test-fast"))
+
+
+def test_doctor_warn_mode_is_selected_with_a_make_variable():
+    # #1290: a harmless or unfixable shadowing module must not stop `make check`
+    assert "--warn-only" not in dry_run("doctor")
+    assert dry_run("doctor", "DOCTOR=warn").strip().endswith("--warn-only")
+    assert "--warn-only" in dry_run("check", "DOCTOR=warn") and "--warn-only" not in dry_run("check")

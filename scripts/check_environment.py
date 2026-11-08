@@ -10,11 +10,13 @@ current directory, which shadow the standard library the same way (a stray `rand
 says which of these a module was found in:
 
     python3 scripts/check_environment.py          # also: make doctor
+    python3 scripts/check_environment.py --warn-only   # same report, exit 0 (make check DOCTOR=warn)
 
-Exit code: 0 = nothing shadows the standard library, 1 = at least one module does.
+Exit code: 0 = nothing shadows the standard library (or --warn-only), 1 = at least one module does.
 """
 from __future__ import annotations
 
+import argparse
 import importlib.metadata
 import os
 import site
@@ -77,7 +79,11 @@ def owner_of(name: str) -> str | None:
     return owners[0] if owners else None
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--warn-only", action="store_true",
+                        help="print the report but exit 0, for a machine with a shadowing module that cannot be removed (#1290)")
+    args = parser.parse_args(argv or [])
     origins = dict(search_directories())
     shadows = shadowing_modules(list(origins))
     if not shadows:
@@ -90,8 +96,12 @@ def main() -> int:
         owner = owner_of(name) if origin == "site-packages" else None
         remedy = f"python3 -m pip uninstall {owner}" if owner else f"delete or rename {path}"
         print(f"  - {name}: {path} (in {origin}; fix: {remedy})")
+    if args.warn_only:
+        print("warn-only: continuing anyway.")
+        return 0
+    print("To go on without fixing it: make check DOCTOR=warn (or run this script with --warn-only).")
     return 1
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))
