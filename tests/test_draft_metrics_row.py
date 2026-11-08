@@ -220,3 +220,40 @@ def _live_file(tmp_path):
     path = tmp_path / "live.json"
     path.write_text(json.dumps(LIVE), encoding="utf-8")
     return str(path)
+
+
+def test_a_row_for_the_current_week_is_refused_unless_update_is_given_and_vice_versa():
+    # #1286
+    previous = script.latest_row(METRICS)
+    with pytest.raises(ValueError, match=r"already for 2026-W43 \(use --update"):
+        script.build_row(previous, LIVE, datetime.date(2026, 10, 22))
+    with pytest.raises(ValueError, match="not 2026-W45: drop --update"):
+        script.build_row(previous, LIVE, datetime.date(2026, 11, 3), update=True)
+    row = script.build_row(previous, LIVE, datetime.date(2026, 10, 22), update=True)
+    assert row == "| 2026-W43 | 54 | 67 | 8 | 58 | 30K+ total | 20 | 12 | 7 total |"      # hand-written cells kept
+
+
+def test_apply_with_update_rewrites_the_newest_row_in_place(tmp_path, capsys):
+    site = _site(tmp_path)
+    assert script.main(["--file", str(site / "METRICS.md"), "--date", "2026-10-22", "--live-data", _live_file(tmp_path),
+                        "--update", "--apply"]) == 0
+    metrics = (site / "METRICS.md").read_text(encoding="utf-8")
+    assert metrics.count("| 2026-W43 |") == 1 and "| 2026-W43 | 54 | 67 | 8 | 58 | 30K+ total | 20 | 12 | 7 total |" in metrics
+    assert "| 2026-W42 | 51 | 58 | 8 | 53 |" in metrics                         # the earlier week is untouched
+    assert "| Issues closed | 12 (this week, since 2026-10-19) |" in metrics
+    assert "badge/Stars-54-" in metrics
+
+
+def test_update_note_compares_with_the_week_before_the_refreshed_one(tmp_path, capsys):
+    metrics = tmp_path / "METRICS.md"
+    metrics.write_text(METRICS, encoding="utf-8")
+    data = tmp_path / "live.json"
+    data.write_text(json.dumps({**LIVE, "closed_issues": [], "pending": []}), encoding="utf-8")
+    assert script.main(["--file", str(metrics), "--date", "2026-10-22", "--live-data", str(data), "--update", "--note"]) == 0
+    assert "stars `51 → 54`" in capsys.readouterr().out                          # W42 had 51 stars; W43 is being refreshed
+
+
+def test_latest_row_can_look_back_and_complains_when_there_is_nothing_there():
+    assert script.latest_row(METRICS, back=1)[0] == "2026-W42"
+    with pytest.raises(ValueError, match="no weekly row 2 before"):
+        script.latest_row(METRICS, back=2)

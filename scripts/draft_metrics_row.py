@@ -10,6 +10,7 @@ and carries the cells GitHub cannot supply (social views, countries, code audits
     python3 scripts/draft_metrics_row.py --date 2026-11-03  # row for the week containing that date
     python3 scripts/draft_metrics_row.py --live-data FILE   # FILE: {"stars", "forks", "watching", "contributors", "issues_closed"}
     python3 scripts/draft_metrics_row.py --note             # also print a draft sweep note: closed issues, figure changes, new people
+    python3 scripts/draft_metrics_row.py --update           # refresh the newest row when it is already this week's (with --apply: in place)
     python3 scripts/draft_metrics_row.py --apply            # also write the row and the figures into METRICS.md, README.md and ROADMAP.md
     python3 scripts/draft_metrics_row.py --pending-closes   # also count the open issues the commits ahead of the base close on merge
 
@@ -53,19 +54,22 @@ def week_start(day: datetime.date) -> datetime.date:
     return day - datetime.timedelta(days=day.weekday())
 
 
-def latest_row(text: str) -> list[str]:
-    """The cells of the newest weekly row."""
+def latest_row(text: str, back: int = 0) -> list[str]:
+    """The cells of the newest weekly row (`back` rows earlier with back > 0)."""
     rows = ROW.findall(text)
-    if not rows:
-        raise ValueError("METRICS.md has no weekly row")
-    return [cell.strip() for cell in rows[-1].strip().strip("|").split("|")]
+    if len(rows) <= back:
+        raise ValueError("METRICS.md has no weekly row" if not rows else f"METRICS.md has no weekly row {back} before the newest")
+    return [cell.strip() for cell in rows[-1 - back].strip().strip("|").split("|")]
 
 
-def build_row(previous: list[str], live: dict, day: datetime.date) -> str:
-    """The next row: GitHub's figures for stars, forks, watching, contributors and issues closed, the rest carried over."""
+def build_row(previous: list[str], live: dict, day: datetime.date, update: bool = False) -> str:
+    """The next row: GitHub's figures for stars, forks, watching, contributors and issues closed, the rest carried over.
+    With `update` the newest row may already be for this week: it is rebuilt from its own hand-written cells (#1286)."""
     week = iso_week(day)
-    if previous[0] == week:
-        raise ValueError(f"the newest row is already for {week}")
+    if previous[0] == week and not update:
+        raise ValueError(f"the newest row is already for {week} (use --update to refresh it)")
+    if update and previous[0] != week:
+        raise ValueError(f"the newest row is for {previous[0]}, not {week}: drop --update to add this week's row")
     closed = live["issues_closed"] + live.get("pending_closes", 0)
     cells = [week, str(live["stars"]), str(live["forks"]), str(live["watching"]), str(live["contributors"]),
              previous[5], previous[6], str(closed), previous[8]]
@@ -90,7 +94,7 @@ def _sub_once(text: str, pattern: str, replacement: str, what: str) -> str:
     return text
 
 
-def apply_figures(root: Path, live: dict, row: str) -> list[Path]:
+def apply_figures(root: Path, live: dict, row: str, replace: bool = False) -> list[Path]:
     """Write the new weekly `row` and the live stars, forks, watching and contributors into every place they are typed:
     the README traction table (External Contributors is one below the total), the ROADMAP Current traction row, the
     METRICS badges, its targets table and the weekly table (#1252). The cells check_traction.py reads are the ones
@@ -130,7 +134,10 @@ def apply_figures(root: Path, live: dict, row: str) -> list[Path]:
     rows = list(ROW.finditer(metrics))
     if not rows:
         raise ValueError("METRICS.md has no weekly row to append after")
-    metrics = metrics[:rows[-1].end()] + "\n" + row + metrics[rows[-1].end():]
+    if replace:                         # refresh the newest row in place (--update) instead of appending a new week
+        metrics = metrics[:rows[-1].start()] + row + metrics[rows[-1].end():]
+    else:
+        metrics = metrics[:rows[-1].end()] + "\n" + row + metrics[rows[-1].end():]
     texts["METRICS.md"] = metrics
 
     changed = []
@@ -183,6 +190,8 @@ def main(argv=None) -> int:
                         help="add the open issues the commits ahead of the base branch close on merge to Issues Closed")
     parser.add_argument("--note", action="store_true",
                         help="also print a draft sweep note (closed issues, figure changes, people merged since the snapshot)")
+    parser.add_argument("--update", action="store_true",
+                        help="refresh the newest row when it is already for this week (instead of refusing), with --apply in place")
     parser.add_argument("--apply", action="store_true",
                         help="also write the row and the figures into METRICS.md, README.md and ROADMAP.md (next to --file)")
     args = parser.parse_args(argv)
@@ -211,8 +220,11 @@ def main(argv=None) -> int:
                 return 2
             live["pending_closes"] = pending
     try:
-        previous = latest_row(args.file.read_text(encoding="utf-8"))
-        row = build_row(previous, live, day)
+        metrics_text = args.file.read_text(encoding="utf-8")
+        previous = latest_row(metrics_text)
+        row = build_row(previous, live, day, update=args.update)
+        if args.update:                 # the note compares with the week before the one being refreshed
+            previous = latest_row(metrics_text, back=1)
         print(row)
         if args.note:
             if not args.live_data:
@@ -225,7 +237,7 @@ def main(argv=None) -> int:
             print()
             print(draft_note(iso_week(day), week_start(day), previous, live, live.get("closed_issues", []), live.get("pending", [])))
         if args.apply:
-            changed = apply_figures(args.file.parent, live, row)
+            changed = apply_figures(args.file.parent, live, row, replace=args.update)
             print("updated: " + ", ".join(path.name for path in changed), file=sys.stderr)
     except ValueError as error:
         print(f"error: {error}", file=sys.stderr)
