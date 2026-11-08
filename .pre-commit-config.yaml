@@ -85,7 +85,7 @@ repos:
 
       - id: pytest
         name: pytest (fast suite, skips slow benchmark tests)
-        entry: python3 -m pytest tests/ -q -m "not slow"
+        entry: python3 -m pytest tests/ -q -m "not slow" --ignore=tests/browser
         language: system
         pass_filenames: false
         stages: [pre-push]

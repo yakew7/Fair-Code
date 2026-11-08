@@ -70,3 +70,11 @@ def test_the_new_hooks_run_only_for_the_files_their_checks_read():
         pattern = re.compile(hooks[name]["files"])
         assert pattern.search(touched) and not pattern.search(untouched), name
         assert hooks[name]["pass_filenames"] is False
+
+
+def test_the_pre_push_pytest_hook_selects_the_same_tests_as_make_test_fast():
+    # #1282: the hook still collected tests/browser after `make test-fast` stopped doing so (#1263)
+    hooks = (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8")
+    entry = re.search(r"entry: (python3 -m pytest .*)", hooks).group(1)
+    selection = lambda command: (re.findall(r'-m "([^"]+)"', command), re.findall(r"--ignore=(\S+)", command), re.findall(r"tests/(?=\s|$)", command))
+    assert selection(entry) == selection(dry_run("test-fast").splitlines()[-1]), (entry, dry_run("test-fast"))
