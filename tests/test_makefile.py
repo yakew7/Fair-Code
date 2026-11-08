@@ -87,7 +87,18 @@ def test_doctor_warn_mode_is_selected_with_a_make_variable():
     assert "--warn-only" in dry_run("check", "DOCTOR=warn") and "--warn-only" not in dry_run("check")
 
 
-def test_coverage_fast_skips_the_slow_tests_and_make_coverage_does_not():
-    # #1281: CI's profiler job runs `make coverage`, and the slow tests must stay in it
-    assert '-m "not slow"' in dry_run("coverage-fast", "XDIST=-n auto")
-    assert "--cov=faircode" in dry_run("coverage-fast") and "not slow" not in dry_run("coverage")
+def test_coverage_runs_the_whole_suite_in_parallel_when_xdist_is_there_and_coverage_fast_skips_the_slow_tests():
+    # #1265, #1281: CI's profiler job runs `make coverage`, and the slow tests must stay in it
+    full = dry_run("coverage", "XDIST=-n auto")
+    assert "-n auto" in full and "--cov=faircode" in full and 'not slow' not in full
+    assert "OMP_NUM_THREADS=1" in full
+    fast = dry_run("coverage-fast", "XDIST=-n auto")
+    assert '-m "not slow"' in fast and "-n auto" in fast and "--cov=faircode" in fast
+    serial = dry_run("coverage", "XDIST=")
+    assert "-n auto" not in serial and "OMP_NUM_THREADS" not in serial
+
+
+def test_ci_profiler_job_still_runs_make_coverage():
+    workflow = (ROOT / ".github" / "workflows" / "audits.yml").read_text(encoding="utf-8")
+    assert "run: make coverage\n" in workflow
+    assert "pytest-xdist" in (ROOT / "pyproject.toml").read_text(encoding="utf-8")

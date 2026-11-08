@@ -128,7 +128,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[test,excel,parquet,proxy,mcp]"
 
-      # One run: the whole suite with line coverage printed at the end. A test failure fails the
+      # One run: the whole suite with line coverage printed at the end, in parallel because the `test`
+      # extra installs pytest-xdist (about half the time of a serial run, #1265). A test failure fails the
       # job; the coverage figure itself is informational, not a gate (#932).
       - name: Run profiler tests (with coverage report)
         run: make coverage

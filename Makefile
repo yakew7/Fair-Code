@@ -34,11 +34,12 @@ setup-browser:  ## Install Playwright and Chromium for the browser smoke test (t
 test-browser:  ## Open the real pages in Chromium and fail on any console error (run `make setup-browser` once first)
 	$(PY) -m pytest tests/browser -q
 
-coverage:  ## Run the full test suite with a faircode/ coverage report (what CI's profiler job runs; the figure is informational, not a gate)
-	$(PY) -m pytest tests/ -q --cov=faircode --cov-report=term-missing
+# Measured on an 8-core laptop under other load (#1265, #1281): the whole suite with coverage took 675 s in one process and
+# 316 s with four xdist workers (the same 1,586 tests, 99% line coverage of faircode/); the suite without the `slow`
+# benchmark tests took 60 s with four workers and reports 97%.
+coverage:  ## Run the full test suite with a faircode/ coverage report, in parallel when pytest-xdist is installed (what CI's profiler job runs; the figure is informational, not a gate)
+	$(XDIST_ENV) $(PY) -m pytest tests/ -q --ignore=tests/browser $(XDIST) --cov=faircode --cov-report=term-missing
 
-# Measured on an 8-core laptop under other load (#1281): the whole suite with coverage took 675 s and reports 99% line
-# coverage of faircode/; without the `slow` benchmark tests it reports 97% (60 s with four xdist workers).
 coverage-fast:  ## The same coverage report without the slow benchmark tests: about a fifth of the time for 97% instead of 99%
 	$(XDIST_ENV) $(PY) -m pytest tests/ -q -m "not slow" --ignore=tests/browser $(XDIST) --cov=faircode --cov-report=term-missing
 
