@@ -1,4 +1,3 @@
-import os
 import re
 import subprocess
 import sys
@@ -6,6 +5,7 @@ import time
 from pathlib import Path
 
 import pytest
+from load_helpers import load_factor
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EXPLAINERS_DIR = REPO_ROOT / "explainers"
@@ -35,16 +35,6 @@ def runnable_blocks():
                 id=f"{path.name}-python-block-{block_number}",
                 marks=marks,
             )
-
-
-def load_factor(loadavg=None, cpus=None) -> float:
-    """How much slower than an idle machine this one is right now (1.0 to 4.0): the one-minute load average per core, so a
-    block that takes 5 s alone is not failed at 30 s because the suite runs on every core next to other work (#1264)."""
-    try:
-        load = (loadavg or os.getloadavg)()[0]
-    except (AttributeError, OSError):
-        return 1.0
-    return max(1.0, min(4.0, load / (cpus or os.cpu_count() or 1)))
 
 
 def run_block(code, slow, runner=subprocess.run, factor=None):
@@ -80,17 +70,6 @@ def test_runnable_explainer_python_blocks(path, block_number, code, slow):
         f"{path.relative_to(REPO_ROOT)} Python block {block_number} exited "
         f"with status {result.returncode} after {seconds:.1f}s.\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     )
-
-
-def test_load_factor_scales_with_the_load_per_core_and_is_bounded():
-    assert load_factor(lambda: (0.5, 0, 0), 8) == 1.0
-    assert load_factor(lambda: (16.0, 0, 0), 8) == 2.0
-    assert load_factor(lambda: (400.0, 0, 0), 8) == 4.0
-
-    def unavailable():
-        raise OSError
-
-    assert load_factor(unavailable, 8) == 1.0
 
 
 def test_a_block_that_times_out_once_is_run_again_at_the_slow_timeout():
