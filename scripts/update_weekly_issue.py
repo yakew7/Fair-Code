@@ -171,6 +171,26 @@ def report_unusable(kind: str, status: str, environ=None) -> str:
     return f"::error title={kind} check did not run::{message}"
 
 
+def gh_call_failed(kind: str, error: Exception, environ=None) -> str:
+    """The error annotation (and job summary) for a gh call of `update_issue` that timed out or failed, so the job fails
+    with a readable message instead of a Python traceback (#1288)."""
+    env = os.environ if environ is None else environ
+    if isinstance(error, subprocess.TimeoutExpired):
+        what = f"`{' '.join(str(part) for part in error.cmd[:4])} ...` did not answer within {error.timeout:g} s"
+    elif isinstance(error, subprocess.CalledProcessError):
+        detail = (error.stderr or "").strip().splitlines()
+        what = (f"`{' '.join(str(part) for part in error.cmd[:4])} ...` exited with status {error.returncode}"
+                + (f" ({detail[-1]})" if detail else ""))
+    else:
+        what = f"{type(error).__name__}: {error}"
+    message = f"the {kind} report could not update its tracking issue: {what}"
+    summary = env.get("GITHUB_STEP_SUMMARY")
+    if summary:
+        with open(summary, "a", encoding="utf-8") as handle:
+            handle.write(f"### {kind} report could not update its issue\n\n{message}.\n")
+    return f"::error title={kind} report could not update its issue::{message}"
+
+
 def build_parser() -> argparse.ArgumentParser:
     """The command line (a function so a test can check the workflows' calls against it, #1274)."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -207,7 +227,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         print(describe_dry_run(args.kind, state, body))
         return 0
-    update_issue(os.environ["GITHUB_REPOSITORY"], args.kind, state, body)
+    try:
+        update_issue(os.environ["GITHUB_REPOSITORY"], args.kind, state, body)
+    except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as error:
+        print(gh_call_failed(args.kind, error))
+        return 1
     return 0
 
 

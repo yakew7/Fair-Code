@@ -1,5 +1,6 @@
 import importlib
 import json
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -261,3 +262,36 @@ def test_the_parser_rejects_an_unknown_kind_and_a_missing_report():
     for bad in (["nope", "status"], ["traction"]):
         with pytest.raises(SystemExit):
             parser.parse_args(bad)
+
+
+def _status_files(tmp_path, status="1\n"):
+    state, out = tmp_path / "status", tmp_path / "out.txt"
+    state.write_text(status)
+    out.write_text("someone: 1 merged PR(s) after the snapshot (#9); no entry yet\n1 author(s) merged after the snapshot (PR #1).\n")
+    return [str(state), str(out)]
+
+
+@pytest.mark.parametrize("error, expected", [
+    (subprocess.TimeoutExpired(["gh", "issue", "list", "--repo", "o/r"], 60), "did not answer within 60 s"),
+    (subprocess.CalledProcessError(4, ["gh", "issue", "edit", "7"], stderr="boom\nHTTP 502\n"), "exited with status 4 (HTTP 502)"),
+])
+def test_a_failed_or_timed_out_gh_call_gives_an_error_annotation_and_exit_1(error, expected, tmp_path, monkeypatch, capsys):
+    # #1288: this used to end in a Python traceback
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    monkeypatch.setenv("GITHUB_REPOSITORY", "owner/repo")
+
+    def failing(*args, **kwargs):
+        raise error
+
+    monkeypatch.setattr(script, "update_issue", failing)
+    assert script.main(["contributors", *_status_files(tmp_path)]) == 1
+
+    printed = capsys.readouterr().out
+    assert printed.startswith("::error title=contributors report could not update its issue::") and expected in printed
+    assert "contributors report could not update its issue" in summary.read_text(encoding="utf-8")
+
+
+def test_the_annotation_names_an_unexpected_error_type_too(monkeypatch):
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    assert "ValueError: bad" in script.gh_call_failed("traction", ValueError("bad"))
