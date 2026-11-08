@@ -5,7 +5,7 @@
 .DEFAULT_GOAL := help
 PY := python3
 
-.PHONY: help setup test test-fast test-browser setup-browser coverage key-fold key-fold-check build-explainers favicons fix-explainer-count external-links traction-live contributors-commits contributors-pending metrics-row doctor lint audits check
+.PHONY: help setup test test-fast test-browser setup-browser coverage coverage-fast key-fold key-fold-check build-explainers favicons fix-explainer-count external-links traction-live contributors-commits contributors-pending metrics-row doctor lint audits check
 
 help:  ## Show the available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -36,6 +36,11 @@ test-browser:  ## Open the real pages in Chromium and fail on any console error 
 
 coverage:  ## Run the full test suite with a faircode/ coverage report (what CI's profiler job runs; the figure is informational, not a gate)
 	$(PY) -m pytest tests/ -q --cov=faircode --cov-report=term-missing
+
+# Measured on an 8-core laptop under other load (#1281): the whole suite with coverage took 675 s and reports 99% line
+# coverage of faircode/; without the `slow` benchmark tests it reports 97% (60 s with four xdist workers).
+coverage-fast:  ## The same coverage report without the slow benchmark tests: about a fifth of the time for 97% instead of 99%
+	$(XDIST_ENV) $(PY) -m pytest tests/ -q -m "not slow" --ignore=tests/browser $(XDIST) --cov=faircode --cov-report=term-missing
 
 key-fold:  ## Regenerate the JS case-folding table (KEY_FOLD) from this machine's Python and node, e.g. after a Unicode upgrade
 	$(PY) scripts/generate_key_fold.py

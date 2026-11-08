@@ -85,3 +85,9 @@ def test_doctor_warn_mode_is_selected_with_a_make_variable():
     assert "--warn-only" not in dry_run("doctor")
     assert dry_run("doctor", "DOCTOR=warn").strip().endswith("--warn-only")
     assert "--warn-only" in dry_run("check", "DOCTOR=warn") and "--warn-only" not in dry_run("check")
+
+
+def test_coverage_fast_skips_the_slow_tests_and_make_coverage_does_not():
+    # #1281: CI's profiler job runs `make coverage`, and the slow tests must stay in it
+    assert '-m "not slow"' in dry_run("coverage-fast", "XDIST=-n auto")
+    assert "--cov=faircode" in dry_run("coverage-fast") and "not slow" not in dry_run("coverage")

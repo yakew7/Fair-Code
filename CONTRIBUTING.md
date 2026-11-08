@@ -70,6 +70,7 @@ make audits            # every audit's unfair.py/fair.py + the CLI smoke tests (
 make setup-browser     # once: install Playwright + Chromium for the browser smoke test (tests/browser, #988)
 make test-browser      # open profiler.html, benchmark.html and index.html in Chromium; fails on any console error
 make coverage          # test suite with pytest-cov line coverage (informational, not a CI gate)
+make coverage-fast     # the same without the slow benchmark tests: about a fifth of the time for 97% instead of 99%
 make build-explainers  # regenerate explainer pages, sitemap, and OG images (dark + light) after editing explainers/*.md
 python3 scripts/generate_og_images.py --force  # re-render every existing OG image (by default a card whose PNG exists is skipped, so adding one explainer changes only its two PNGs); use after changing the card design or an explainer's title or summary
 make fix-explainer-count  # correct any stale "N explainers" mention in README/CONTRIBUTORS/METRICS/ROADMAP after adding/removing an explainer
