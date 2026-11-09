@@ -148,19 +148,65 @@ def apply_figures(root: Path, live: dict, row: str, replace: bool = False) -> li
     return changed
 
 
-def draft_note(week: str, since: datetime.date, previous: list[str], live: dict, closed: list[dict], pending: list[str]) -> str:
+def draft_note(
+    week: str,
+    since: datetime.date,
+    previous: list[str],
+    live: dict,
+    closed: list[dict],
+    pending: list[str],
+    pending_issues: list[dict] | None = None
+) -> str:
     """A starting sweep note (a markdown quote line): the issues closed since `since` as `title (#N)` items, how the figures
     moved against the previous row and who merged after the contributors snapshot (#1262). It is a draft to edit."""
-    items = "; ".join(f"{issue['title']} (#{issue['number']})" for issue in sorted(closed, key=lambda i: i["number"]))
+
+    issue_items = [
+        (issue["number"], f"{issue['title']} (#{issue['number']})")
+        for issue in closed
+    ]
+
+    for issue in pending_issues or []:
+        issue_items.append((
+            issue["number"],
+            f"{issue['title']} (#{issue['number']}, closing on merge)"
+        ))
+
+    items = "; ".join(item for _, item in sorted(issue_items))
+
     moves = []
-    for name, cell, now in (("stars", previous[1], live["stars"]), ("forks", previous[2], live["forks"]),
-                            ("watching", previous[3], live["watching"]), ("contributors", previous[4], live["contributors"])):
-        moves.append(f"{name} `{cell} → {now}`" if str(now) != cell else f"{name} unchanged at {now}")
-    people = [line.split(":")[0] for line in pending if line and not line.startswith(" ")]
-    note = (f"> **{week} - DRAFT, {len(closed)} issue(s) closed since {since.isoformat()}:** "
-            + (items if items else "none yet") + ". Figures: " + ", ".join(moves) + ".")
+    for name, cell, now in (
+        ("stars", previous[1], live["stars"]),
+        ("forks", previous[2], live["forks"]),
+        ("watching", previous[3], live["watching"]),
+        ("contributors", previous[4], live["contributors"])
+    ):
+        moves.append(
+            f"{name} `{cell} → {now}`"
+            if str(now) != cell
+            else f"{name} unchanged at {now}"
+        )
+
+    people = [
+        line.split(":")[0]
+        for line in pending
+        if line and not line.startswith(" ")
+    ]
+
+    note = (
+        f"> **{week} - DRAFT, {len(closed)} issue(s) closed since {since.isoformat()}:** "
+        + (items if items else "none yet")
+        + ". Figures: "
+        + ", ".join(moves)
+        + "."
+    )
+
     if people:
-        note += " Merged after the CONTRIBUTORS.md snapshot: " + ", ".join(f"@{name}" for name in people) + "."
+        note += (
+            " Merged after the CONTRIBUTORS.md snapshot: "
+            + ", ".join(f"@{name}" for name in people)
+            + "."
+        )
+
     return note
 
 
@@ -180,6 +226,32 @@ def fetch_open_among(numbers, repo: str) -> int | None:
         total += done.stdout.strip() == "open"
     return total
 
+def fetch_open_issues(numbers, repo: str) -> list[dict] | None:
+    """Fetch the number and title of issues that are still open, or None on failure."""
+    issues = []
+
+    for number in sorted(numbers):
+        done = run_gh([
+            "gh", "api",
+            f"repos/{repo}/issues/{number}",
+            "--jq", "{number: .number, title: .title, state: .state}"
+        ])
+
+        if done.returncode != 0:
+            return None
+
+        try:
+            issue = json.loads(done.stdout)
+        except json.JSONDecodeError:
+            return None
+
+        if issue.get("state") == "open":
+            issues.append({
+                "number": issue["number"],
+                "title": issue["title"]
+            })
+
+    return issues
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
@@ -214,11 +286,24 @@ def main(argv=None) -> int:
         live["issues_closed"] = closed
         if args.pending_closes:
             refs = importlib.import_module("scripts.check_issue_refs")
-            pending = fetch_open_among(refs.local_commits_close(), traction.REPO)
+            numbers = refs.local_commits_close()
+
+            pending = fetch_open_among(numbers, traction.REPO)
+
             if pending is None:
                 print("error: could not look up the issues the local commits close", file=sys.stderr)
                 return 2
+
             live["pending_closes"] = pending
+
+            if args.note:
+                pending_issues = fetch_open_issues(numbers, traction.REPO)
+
+                if pending_issues is None:
+                    print("error: could not fetch the pending issue details", file=sys.stderr)
+                    return 2
+
+                live["pending_issues"] = pending_issues
     try:
         metrics_text = args.file.read_text(encoding="utf-8")
         previous = latest_row(metrics_text)
@@ -235,7 +320,17 @@ def main(argv=None) -> int:
                 live["pending"] = contributors.pending(entries, prs, through) if prs is not None else []
                 live["closed_issues"] = fetch_closed_issues(week_start(day), traction.REPO) or []
             print()
-            print(draft_note(iso_week(day), week_start(day), previous, live, live.get("closed_issues", []), live.get("pending", [])))
+            print(
+                draft_note(
+                    iso_week(day),
+                    week_start(day),
+                    previous,
+                    live,
+                    live.get("closed_issues", []),
+                    live.get("pending", []),
+                    live.get("pending_issues", [])
+                )
+            )
         if args.apply:
             changed = apply_figures(args.file.parent, live, row, replace=args.update)
             print("updated: " + ", ".join(path.name for path in changed), file=sys.stderr)
