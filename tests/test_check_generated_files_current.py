@@ -443,3 +443,26 @@ def test_builder_names_say_which_step_stalled():
     assert script._builder_name(["python", "scripts/build_explainers.py"]) == "scripts/build_explainers.py"
     assert "MCP results mirror" in script._builder_name(["python", "-c", "from scripts.freeze_paper_results import x"])
     assert str(script.BuilderTimeout("scripts/x.py", 5)) == "scripts/x.py did not finish within 5 s"
+
+def test_build_timeout_uses_environment_variable(monkeypatch):
+    script = _script()
+    monkeypatch.setenv("FAIRCODE_BUILD_TIMEOUT", "120")
+
+    assert script._get_build_timeout() == 120.0
+
+
+def test_build_timeout_defaults_to_600(monkeypatch):
+    script = _script()
+    monkeypatch.delenv("FAIRCODE_BUILD_TIMEOUT", raising=False)
+
+    assert script._get_build_timeout() == 600.0
+
+
+@pytest.mark.parametrize("value", ["abc", "", "0", "-10"])
+def test_build_timeout_invalid_values_fall_back_to_600(
+    monkeypatch, value
+):
+    script = _script()
+    monkeypatch.setenv("FAIRCODE_BUILD_TIMEOUT", value)
+
+    assert script._get_build_timeout() == 600.0
