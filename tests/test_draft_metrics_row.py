@@ -80,6 +80,31 @@ def test_pending_closes_are_added_to_the_issues_closed_cell(tmp_path, capsys):
 
 
 def test_open_issues_are_counted_and_a_closed_one_is_not(monkeypatch):
+    
+    from types import SimpleNamespace
+
+    issues = {
+        1: {"number": 1, "title": "First issue", "state": "open"},
+        2: {"number": 2, "title": "Second issue", "state": "closed"},
+        3: {"number": 3, "title": "Third issue", "state": "open"}
+    }
+
+    def fake_run(command, **kwargs):
+        number = int(command[2].rsplit("/", 1)[1])
+
+        return SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps(issues[number])
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    result = script.fetch_open_issues({1, 2, 3}, "o/r")
+
+    assert result == [
+        {"number": 1, "title": "First issue"},
+        {"number": 3, "title": "Third issue"}
+    ]
     from types import SimpleNamespace
     states = {1: "open", 2: "closed", 3: "open"}
     monkeypatch.setattr(subprocess, "run", lambda command, **kw: SimpleNamespace(
@@ -191,12 +216,41 @@ def test_draft_note_with_nothing_closed_or_pending_says_so():
 def test_main_note_prints_the_row_then_the_draft_from_saved_data(tmp_path, capsys):
     metrics = tmp_path / "METRICS.md"
     metrics.write_text(METRICS, encoding="utf-8")
+
     data = tmp_path / "live.json"
-    data.write_text(json.dumps({**LIVE, "closed_issues": [{"number": 7, "title": "First thing"}],
-                                "pending": ["bob: 1 merged PR(s) after the snapshot (#9); count to update"]}), encoding="utf-8")
-    assert script.main(["--file", str(metrics), "--date", "2026-11-03", "--live-data", str(data), "--note"]) == 0
+    data.write_text(
+        json.dumps({
+            **LIVE,
+            "closed_issues": [
+                {"number": 7, "title": "First thing"}
+            ],
+            "pending": [
+                "bob: 1 merged PR(s) after the snapshot (#9); count to update"
+            ],
+            "pending_issues": [
+                {"number": 10, "title": "Fix metrics note"},
+                {"number": 11, "title": "Update issue tracking"}
+            ]
+        }),
+        encoding="utf-8"
+    )
+
+    assert script.main([
+        "--file", str(metrics),
+        "--date", "2026-11-03",
+        "--live-data", str(data),
+        "--note"
+    ]) == 0
+
     out = capsys.readouterr().out.splitlines()
-    assert out[0].startswith("| 2026-W45 |") and out[1] == "" and "First thing (#7)" in out[2] and "@bob" in out[2]
+
+    assert out[0].startswith("| 2026-W45 |")
+    assert out[1] == ""
+
+    assert "First thing (#7)" in out[2]
+    assert "Fix metrics note (#10, closing on merge)" in out[2]
+    assert "Update issue tracking (#11, closing on merge)" in out[2]
+    assert "@bob" in out[2]
 
 
 def test_apply_rewrites_the_targets_issues_closed_row_from_the_new_weekly_row(tmp_path):
