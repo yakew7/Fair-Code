@@ -65,6 +65,9 @@ afterward is exactly the case this now catches; it no longer needs to run
 after CI's own build_explainers.py/generate_og_images.py steps to be
 meaningful, though CI still runs it there too.
 
+The regeneration timeout can be configured with the optional
+FAIRCODE_BUILD_TIMEOUT environment variable (in seconds). Invalid or
+non-positive values fall back to the default of 600 seconds.
 Run locally:  python3 scripts/check_generated_files_current.py
 Exit code:    0 = everything current, 1 = something is genuinely stale.
 """
@@ -76,8 +79,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import os
 from contextlib import ExitStack
 from pathlib import Path
+
 
 from PIL import Image
 
@@ -128,7 +133,19 @@ def _expected_og_slugs():
     return ["home", "profiler"] + [entry["slug"] for entry in entries]
 
 
-BUILD_TIMEOUT = 600.0      # seconds for each of the three regeneration steps (#1292)
+def _get_build_timeout() -> float:
+    """Returns the build timeout from FAIRCODE_BUILD_TIMEOUT, or 600 seconds."""
+    try:
+        timeout = float(os.environ.get("FAIRCODE_BUILD_TIMEOUT", "600"))
+        if timeout > 0:
+            return timeout
+    except ValueError:
+        pass
+
+    return 600.0
+
+
+BUILD_TIMEOUT = _get_build_timeout()   # seconds for each of the three regeneration steps (#1292)
 
 
 class BuilderTimeout(RuntimeError):
