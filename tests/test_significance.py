@@ -143,3 +143,26 @@ def test_intersectional_small_doubly_disadvantaged_cell_warns():
     assert rep["intersectional"]["small_sample_warning"]
     # The a and b groups on their own are far larger than the 30-row floor.
     assert (mask_a.sum() >= 30) and (mask_b.sum() >= 30)
+
+def test_empty_group_is_not_reported_significant():
+    a = []
+    b = [0, 1, 0, 1]
+
+    gap, ci_low, ci_high = bootstrap_ci(a, b)
+
+    assert np.isnan(gap)
+    assert np.isnan(ci_low)
+    assert np.isnan(ci_high)
+
+    assert permutation_test(a, b) == 1.0
+
+    rep = significance_report(a, b)
+
+    assert np.isnan(rep["gap"])
+    assert np.isnan(rep["ci_low"])
+    assert np.isnan(rep["ci_high"])
+    assert rep["p_value"] == 1.0
+    assert rep["significant"] is False
+    assert rep["n_a"] == 0
+    assert rep["n_b"] == 4
+    assert rep["small_sample_warning"] is True

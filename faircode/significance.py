@@ -29,6 +29,10 @@ import numpy as np
 def _as_array(group):
     return np.asarray(group, dtype=float)
 
+def _mean_or_nan(values):
+    """Return the mean, or NaN when the group is empty."""
+    return float(np.mean(values)) if len(values) else float("nan")
+
 
 # ── Bootstrap confidence interval ───────────────────────────────────────────
 def _bootstrap_means(values, n_resamples, rng):
@@ -54,6 +58,9 @@ def bootstrap_ci(group_a, group_b, n_resamples=10000, confidence=0.95,
                  random_state=42):
     a = _as_array(group_a)
     b = _as_array(group_b)
+    if len(a) == 0 or len(b) == 0:
+        nan = float("nan")
+        return nan, nan, nan
     gap = a.mean() - b.mean()
     rng = np.random.default_rng(random_state)
     means_a = _bootstrap_means(a, n_resamples, rng)
@@ -69,6 +76,8 @@ def bootstrap_ci(group_a, group_b, n_resamples=10000, confidence=0.95,
 def permutation_test(group_a, group_b, n_permutations=10000, random_state=42):
     a = _as_array(group_a)
     b = _as_array(group_b)
+    if len(a) == 0 or len(b) == 0:
+        return 1.0
     observed = abs(a.mean() - b.mean())
     pooled = np.concatenate([a, b])
     n_pool = len(pooled)
@@ -104,6 +113,18 @@ def significance_report(group_a, group_b, n_resamples=10000,
     """
     a = _as_array(group_a)
     b = _as_array(group_b)
+    if len(a) == 0 or len(b) == 0:
+        nan = float("nan")
+        return {
+            "gap": nan,
+            "ci_low": nan,
+            "ci_high": nan,
+            "p_value": 1.0,
+            "significant": False,
+            "n_a": len(a),
+            "n_b": len(b),
+            "small_sample_warning": True,
+        }
     gap, ci_low, ci_high = bootstrap_ci(a, b, n_resamples, confidence,
                                         random_state)
     p_value = permutation_test(a, b, n_permutations, random_state)
@@ -168,8 +189,8 @@ def intersectional_report(outcome, mask_a, mask_b, n_resamples=10000,
 
     # Marginal gap = the gap each attribute reports on its own, ignoring the
     # other. This is exactly what a single-axis audit measures for that attr.
-    gap_a_alone = float(y[a].mean() - y[~a].mean())
-    gap_b_alone = float(y[b].mean() - y[~b].mean())
+    gap_a_alone = _mean_or_nan(y[a]) - _mean_or_nan(y[~a])
+    gap_b_alone = _mean_or_nan(y[b]) - _mean_or_nan(y[~b])
 
     intersectional = significance_report(y[both], y[neither], n_resamples,
                                          n_permutations, confidence,
@@ -181,7 +202,7 @@ def intersectional_report(outcome, mask_a, mask_b, n_resamples=10000,
                      > abs(gap_a_alone) + abs(gap_b_alone))
 
     def _rate(mask):
-        return float(y[mask].mean()) if mask.any() else float("nan")
+        return _mean_or_nan(y[mask])
 
     cell_rates = {
         "both": _rate(both),
