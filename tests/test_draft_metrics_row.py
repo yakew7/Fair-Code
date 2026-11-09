@@ -105,7 +105,6 @@ def test_open_issues_are_counted_and_a_closed_one_is_not(monkeypatch):
         {"number": 1, "title": "First issue"},
         {"number": 3, "title": "Third issue"}
     ]
-    from types import SimpleNamespace
     states = {1: "open", 2: "closed", 3: "open"}
     monkeypatch.setattr(subprocess, "run", lambda command, **kw: SimpleNamespace(
         returncode=0, stdout=states[int(command[2].rsplit("/", 1)[1])] + "\n"))
