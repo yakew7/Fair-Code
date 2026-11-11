@@ -435,7 +435,7 @@ def test_a_co_author_with_no_entry_is_reported_and_tools_and_bots_are_not():
 def test_the_committed_exceptions_file_loads_with_a_reason_for_every_entry():
     # #1270
     commit, unlisted = script.load_exceptions()
-    assert set(commit) == {"ayaan-20-11", "raonishanth2000-hub", "ege-arhan"}
+    assert {"ayaan-20-11", "raonishanth2000-hub", "ege-arhan", "ranjanasri6"} <= set(commit)      # a superset: new exceptions are data
     assert {"erol tasci", "voyagerroc-code"} <= set(unlisted)
     assert all(reason for reason in [*commit.values(), *unlisted.values()])
     assert script.COMMIT_EXCEPTIONS == commit and script.UNLISTED_AUTHORS == unlisted

@@ -34,7 +34,7 @@ ordered by merged PR count, most first - ties broken by commit count, then by ea
 date. Within each entry, the PR numbers link the claim to the actual diff, so nothing here is an
 unverifiable "thanks to".
 
-**Snapshot:** 2026-11-06, covering everything merged through **PR #1298**.
+**Snapshot:** 2026-11-09, covering everything merged through **PR #1313**.
 Anything merged after that date is real and welcome, but is not yet reflected here - the
 [contributors graph](https://github.com/yakew7/Fair-Code/graphs/contributors) is always the live
 source of truth, and the `contrib.rocks` grid above regenerates from it automatically.
@@ -359,6 +359,12 @@ Made the web profiler's proxy-hint results screen-reader friendly: `aria-live="p
 
 Made the web engine's `ageToNumeric()` parse scientific-notation, `inf` and very large ages the way pandas does, with Python/JS parity tests in `tests/test_js_parity.py` ([#849](https://github.com/yakew7/Fair-Code/pull/849), closing issue #837).
 
+### [@renuvenugopal178](https://github.com/renuvenugopal178)
+
+**1 merged PR · 2 commits · first merged 2026-11-09**
+
+Made the generated-files builder timeout configurable through the `FAIRCODE_BUILD_TIMEOUT` environment variable, falling back to 600 s for a missing or invalid value ([#1313](https://github.com/yakew7/Fair-Code/pull/1313), for issue #1306).
+
 ### Aarav Saroliya - [@Aarav1611](https://github.com/Aarav1611)
 
 **1 merged PR · 1 commit · first merged 2026-05-23**
@@ -581,6 +587,18 @@ Extended `check_external_links.py --fix-moved` to the link forms it skipped: lin
 
 Made the GitHub CLI timeout of the weekly checks configurable through the `FAIRCODE_GH_TIMEOUT` environment variable, keeping the 60 s default when it is missing or invalid, and used it in `update_weekly_issue.py`, with tests for the timeout behaviour ([#1295](https://github.com/yakew7/Fair-Code/pull/1295), closing issue #1293).
 
+### [@pvarchanavijay](https://github.com/pvarchanavijay)
+
+**1 merged PR · 1 commit · first merged 2026-11-09**
+
+Made `draft_metrics_row.py --note` list the open issues that the local commits are about to close, so a sweep note written before the push names its own issues ([#1310](https://github.com/yakew7/Fair-Code/pull/1310), closing issue #1304).
+
+### [@ranjanasri6](https://github.com/ranjanasri6)
+
+**1 merged PR · 1 commit · first merged 2026-11-09**
+
+Handled empty groups in `faircode/significance.py` so the benchmark tests no longer emit `RuntimeWarning: Mean of empty slice` ([#1311](https://github.com/yakew7/Fair-Code/pull/1311), closing issue #1303). The commit on `main` is authored by [@PRIYANKA2272004](https://github.com/PRIYANKA2272004), so GitHub counts it for that account, not this one.
+
 ---
 
 ## Contributions by area
@@ -597,7 +615,7 @@ A cross-cut of the same work, for anyone looking for who to ask about what.
 | **CI & workflows** (`.github/`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@cannotdoit13](https://github.com/cannotdoit13), [@Shreyash0712](https://github.com/Shreyash0712), [@evanjain-dot](https://github.com/evanjain-dot), [@propcgamer20-png](https://github.com/propcgamer20-png), [@Swastik-Yadav](https://github.com/Swastik-Yadav), [@AnayDhawan](https://github.com/AnayDhawan), [@raonishanth2000-hub](https://github.com/raonishanth2000-hub), [@saikeerthanakavuri](https://github.com/saikeerthanakavuri) |, [@dxnnystyles](https://github.com/dxnnystyles)
 | **Website & explainer build** | [@yakew7](https://github.com/yakew7), [@anujkamdar](https://github.com/anujkamdar), [@Swastik-Yadav](https://github.com/Swastik-Yadav), [@Ayaan-20-11](https://github.com/Ayaan-20-11), [@sushicat75](https://github.com/sushicat75), [@propcgamer20-png](https://github.com/propcgamer20-png), [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan), [@slsgzs-cloud](https://github.com/slsgzs-cloud), [@Rayan-and-beyond](https://github.com/Rayan-and-beyond), [@AnayDhawan](https://github.com/AnayDhawan), [@thadidaniel-ctrl](https://github.com/thadidaniel-ctrl), [@Abitha1861](https://github.com/Abitha1861) |, [@minutechreview](https://github.com/minutechreview)
 | **Tests** (`tests/`) | [@yakew7](https://github.com/yakew7), [@ahmdkaml](https://github.com/ahmdkaml), [@tomatotomata](https://github.com/tomatotomata), [@ImMortaL0P](https://github.com/ImMortaL0P), [@evanjain-dot](https://github.com/evanjain-dot), [@propcgamer20-png](https://github.com/propcgamer20-png), [@mahirhir](https://github.com/mahirhir), [@StudentSuite3](https://github.com/StudentSuite3), [@oxura](https://github.com/oxura), [@shauryagangrade](https://github.com/shauryagangrade), [@nitishchauhan002](https://github.com/nitishchauhan002), [@be-student](https://github.com/be-student), [@wangzhengzhuo05](https://github.com/wangzhengzhuo05), [@Rayan-and-beyond](https://github.com/Rayan-and-beyond), [@KingEmma7](https://github.com/KingEmma7), [@dxnnystyles](https://github.com/dxnnystyles), [@Aaqibhafeezkhan](https://github.com/Aaqibhafeezkhan) |
-| **Contributor tooling & docs** | [@yakew7](https://github.com/yakew7), [@Enard52](https://github.com/Enard52), [@propcgamer20-png](https://github.com/propcgamer20-png), [@ahmdkaml](https://github.com/ahmdkaml), [@Swastik-Yadav](https://github.com/Swastik-Yadav), [@Circout-sudo](https://github.com/Circout-sudo), [@nivedmahendran](https://github.com/nivedmahendran), [@lovishmenaria14-gif](https://github.com/lovishmenaria14-gif), [@Zinniacodes01](https://github.com/Zinniacodes01), [@carryok](https://github.com/carryok), [@SatvikMishra08](https://github.com/SatvikMishra08), [@minutechreview](https://github.com/minutechreview), [@Asmit-08](https://github.com/Asmit-08), [@Gauravbhati2099](https://github.com/Gauravbhati2099), [@AchieverSana](https://github.com/AchieverSana), [@kavadiyajiya-ux](https://github.com/kavadiyajiya-ux), [@ExoticA1A](https://github.com/ExoticA1A), [@isaaclimmy](https://github.com/isaaclimmy) |
+| **Contributor tooling & docs** | [@yakew7](https://github.com/yakew7), [@Enard52](https://github.com/Enard52), [@propcgamer20-png](https://github.com/propcgamer20-png), [@ahmdkaml](https://github.com/ahmdkaml), [@Swastik-Yadav](https://github.com/Swastik-Yadav), [@Circout-sudo](https://github.com/Circout-sudo), [@nivedmahendran](https://github.com/nivedmahendran), [@lovishmenaria14-gif](https://github.com/lovishmenaria14-gif), [@Zinniacodes01](https://github.com/Zinniacodes01), [@carryok](https://github.com/carryok), [@SatvikMishra08](https://github.com/SatvikMishra08), [@minutechreview](https://github.com/minutechreview), [@Asmit-08](https://github.com/Asmit-08), [@Gauravbhati2099](https://github.com/Gauravbhati2099), [@AchieverSana](https://github.com/AchieverSana), [@kavadiyajiya-ux](https://github.com/kavadiyajiya-ux), [@ExoticA1A](https://github.com/ExoticA1A), [@isaaclimmy](https://github.com/isaaclimmy), [@pvarchanavijay](https://github.com/pvarchanavijay), [@ranjanasri6](https://github.com/ranjanasri6), [@renuvenugopal178](https://github.com/renuvenugopal178) |
 
 ---
 
@@ -660,6 +678,7 @@ makes `git shortlog -sne` reconcilable with the list above.
 | [@kavadiyajiya-ux](https://github.com/kavadiyajiya-ux) | `Jiya` |
 | [@ExoticA1A](https://github.com/ExoticA1A) | `Alden` |
 | [@isaaclimmy](https://github.com/isaaclimmy) | `Isaac Lim` |
+| [@renuvenugopal178](https://github.com/renuvenugopal178) | `Renu venugopal` |
 
 If your name is wrong, missing, or you would rather be listed under a different handle, or not
 listed at all, open an issue or a one-line PR against this file. It gets merged, no questions asked.
