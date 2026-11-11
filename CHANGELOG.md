@@ -19,7 +19,16 @@ All notable changes to Fair Code are documented here, newest first.
 
 ## [Unreleased]
 
-Nothing yet. Changes made after 2.4.0 are listed here until the next release.
+### Added
+
+- `check_contributors.py --stub` takes several logins and starts each entry with the pull request's summary line (#1299, #1307); the merged PR list now asks `gh` for the body too.
+- `tests/test_benchmark_fast.py` and `tests/test_ci_test_jobs.py` (#1302, #1300, #1301).
+
+### Changed
+
+- The profiler job runs `make coverage-fast`, the benchmark-harness job installs the `test` extra and runs every test marked `slow` once, in parallel (#1300, #1301).
+- The cheap tests of `tests/test_benchmark.py` no longer carry the slow marker, so `make coverage-fast` reports 99% for `faircode/` (#1302).
+- The generated-files check's git calls have a 120 s timeout and name the command that stalled (#1305).
 
 ## [2.4.0] - 8 Nov 2026
 

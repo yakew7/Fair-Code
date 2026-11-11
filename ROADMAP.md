@@ -27,7 +27,7 @@ Fair Code is an open-source responsible AI platform explaining algorithmic bias,
 
 | Stars | Contributors | Forks | Watching | Social Reach | Countries | Audits | Explainers | CI |
 |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| 71 | 61 | 74 | 8 | 30K+ | 20 | 7 | 114 | ✅ every push/PR |
+| 73 | 64 | 77 | 8 | 30K+ | 20 | 7 | 114 | ✅ every push/PR |
 
 > The earlier paper freeze has lifted - the real paper, with fresh results, is now planned for next
 > year. `paper/results-frozen/` (tag `v1.0-paper`, commit `bbef2ba`) is kept as a reference snapshot.
@@ -260,7 +260,8 @@ Go deeper on measurement - fairness dashboards, interactive notebooks, and stati
 - [x] Tooling follow-ups, round three: test-suite scope and timeouts (#1263, #1264), gh timeouts and doctor coverage (#1266, #1267, #1268), contributor check data (#1269, #1270, #1271, #1277), link fixer completeness (#1272, #1278), METRICS targets row (#1273), workflow and Makefile contracts (#1274, #1275) and pre-commit hooks (#1276)
 - [x] Weekly-check and contributor tooling, round four: gh timeouts, the doctor's wider scan and `make check` order, co-author trailers, the exceptions data file, `--stub --commits` and stub commands in the weekly issue, the METRICS targets row, workflow-to-CLI contract tests, documented Makefile targets, the missing pre-commit hooks, `--fix-moved --rebuild`, a load-aware smoke test and a Chromium-free `make test-fast` (#1263, #1264, #1266, #1267, #1268, #1269, #1270, #1271, #1272, #1273, #1274, #1275, #1276, #1277)
 - [x] Tooling follow-ups, round four, fixed in this sweep: the pre-push hook, gh failures in the weekly issue script, the link checker's retry parameter, `draft_metrics_row.py --update`, the `--stub` TODO check, builder timeouts, `DOCTOR=warn`, a CPU-time scaling test, `make coverage-fast` and a parallel `make coverage` (#1282, #1288, #1287, #1286, #1285, #1292, #1290, #1284, #1281, #1265)
-- [ ] Tooling follow-ups, round five: several `--stub` logins, PR summaries and closing issues in stubs (#1299, #1307, #1308), where the slow tests run in CI (#1300, #1301), the 50 lines only the slow tests cover and the empty-slice warnings in `significance.py` (#1302, #1303), the sweep note and pending closes (#1304), git timeouts and a configurable builder timeout (#1305, #1306), the repeated import block (#1283) and `--stub` areas (#1294); the benchmark convergence and run-time issues (#1237, #1238) wait until the audits are rerun
+- [x] Tooling follow-ups, round five, fixed in this sweep: several `--stub` logins and PR summaries in stubs, git timeouts in the generated-files check, one CI job per suite with the test extra in the harness job, and fast tests for `benchmark.py` and `strategies.py` (#1299, #1307, #1305, #1300, #1301, #1302)
+- [ ] Tooling follow-ups, round six: commit authors that differ from the PR author, closing the weekly report issues on a records push, the last 18 lines of `benchmark.py`, splitting `check_contributors.py`, shrinking the slow benchmark fixtures and documenting the CI split (#1316, #1317, #1318, #1319, #1320, #1321); the repeated import block (#1283), `--stub` areas and closing issues (#1294, #1308) and the benchmark convergence and run-time issues (#1237, #1238) are still open
 
 ---
 

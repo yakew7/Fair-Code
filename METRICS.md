@@ -2,9 +2,9 @@
 
 # Fair Code - Metrics Tracker
 
-![Stars](https://img.shields.io/badge/Stars-71-brightgreen?style=flat-square&logo=github)
-![Contributors](https://img.shields.io/badge/Contributors-61-blue?style=flat-square)
-![Forks](https://img.shields.io/badge/Forks-74-orange?style=flat-square)
+![Stars](https://img.shields.io/badge/Stars-73-brightgreen?style=flat-square&logo=github)
+![Contributors](https://img.shields.io/badge/Contributors-64-blue?style=flat-square)
+![Forks](https://img.shields.io/badge/Forks-77-orange?style=flat-square)
 ![Watching](https://img.shields.io/badge/Watching-8-yellow?style=flat-square)
 ![Explainers](https://img.shields.io/badge/Explainers-114-blueviolet?style=flat-square)
 ![Countries](https://img.shields.io/badge/Countries-20-informational?style=flat-square)
@@ -51,6 +51,7 @@ Weekly snapshot of project health. Updated every Friday.
 | 2026-W44 | 55 | 68 | 8 | 58 | 30K+ total | 20 | 50 | 7 total |
 
 | 2026-W45 | 71 | 74 | 8 | 61 | 30K+ total | 20 | 44 | 7 total |
+| 2026-W46 | 73 | 77 | 8 | 64 | 30K+ total | 20 | 8 | 7 total |
 > **2026-W27 - v1.2.0 shipped:** Open Dataset Profiler (CLI + client-side web tool) released; 23 explainers total.
 >
 > **2026-W30 - v1.3.0-v1.3.2 shipped since last snapshot:** Tenant Screening audit (#07) and intersectional bias analysis (v1.3.0), Unsupervised Learning + Model Drift explainers (v1.3.1), Selection Bias explainer (v1.3.2), plus author attribution/schema, `llms.txt`, and a canonical-URL/sitemap fix for AI-crawler and Google Search Console indexing. Watching tracked for the first time this week. **Gap notice:** no snapshot was logged for three weeks (W28-W29) - issues-closed reflects the trailing 7 days, not the full gap.
@@ -140,19 +141,21 @@ Weekly snapshot of project health. Updated every Friday.
 > **2026-W45 (Friday) - the seventeenth sweep: fourteen tooling issues fixed:** `make test-fast` no longer runs the Chromium tests (#1263) and the explainer smoke test scales its timeout with the machine load (#1264); every gh call in the weekly checks has a timeout through `scripts/ghcall.py` (#1266); `make doctor` also scans `PYTHONPATH` and the working directory (#1267) and runs first in `make check` (#1268); `check_contributors.py` reads co-author trailers (#1269), keeps its exceptions in `scripts/contributors-exceptions.json` (#1270), takes commit counts with `--stub --commits` (#1271) and gives the weekly issue a stub command per newcomer (#1277); `--apply` rewrites the targets table's Issues closed row (#1273); the workflows' calls to `update_weekly_issue.py` are tested against its CLI (#1274); `make key-fold-check` is documented with a test for every target (#1275); the pre-commit hooks gain the issue-reference, traction, dataset-source and contributors checks (#1276); and `--fix-moved --rebuild` regenerates the explainer pages (#1272). #1265 (pytest-xdist) is half done: declared in the `test` extra, CI left alone until its time can be measured. #1237 and #1238 stay open because they mean rerunning audits. A parallel `make coverage` run also showed that a `scripts` package in site-packages can shadow ours, which broke running `draft_metrics_row.py` directly on this machine until the imports were made package-aware. CONTRIBUTORS.md is updated through PR #1279 with a new entry for @kavadiyajiya-ux (the `--fix-moved` link forms, #1278) started with the new `--stub --commits`. Forks `68 → 69` and contributors `58 → 59` (live GitHub numbers); stars and watching unchanged. Issues closed (31) is the 17 closed since Monday plus the fourteen this batch closes on merge. Fourteen new tooling issues are open (#1281-#1294), three of them pinned.
 >
 > **2026-W45 (Sunday) - the eighteenth sweep: ten more tooling issues fixed, two new contributors:** the pre-push pytest hook skips the Chromium tests like `make test-fast` (#1282); `update_weekly_issue.py` reports a failed or timed-out gh call as an error annotation (#1288); the link checker takes its retry delay as a parameter (#1287); `draft_metrics_row.py --update` refreshes this week's row (#1286, used to write this one); a TODO left over from `--stub` fails the contributors check (#1285); the generated-files builders have a timeout (#1292); `make check DOCTOR=warn` goes on past a shadowing module (#1290); the profile scaling test measures CPU time and the load factor is shared (#1284); `make coverage-fast` gives 97% in about a minute (#1281) and `make coverage` runs in parallel, 316 s instead of 675 s for the same 99% (#1265). #1283 (the repeated import block) stays open with the reason, #1294 is assigned, and #1237 and #1238 wait for an audit rerun. A fix to `check_contributors.py` came out of stubbing two newcomers in a row: the section's closing rule travelled with the last entry when entries were sorted. Other people closed #1289, #1291 and #1293 in the same days (#1295, #1297, #1298). CONTRIBUTORS.md is updated through PR #1298 with new entries for @ExoticA1A and @isaaclimmy, both started with `--stub --commits`. Stars `55 → 71`, forks `69 → 74` and contributors `59 → 61` (live GitHub numbers; the traction check had been a week behind). Issues closed (44) is the 34 closed since Monday plus the ten this batch closes on merge. Ten new tooling issues are open (#1299-#1308), three of them pinned.
+>
+> **2026-W46 (Wednesday) - the nineteenth sweep: six more tooling issues fixed, three new contributors:** `check_contributors.py --stub` starts several entries in one run (#1299) and fills each with the pull request's summary line (#1307, used for this week's three entries); the generated-files check's git calls have a timeout (#1305); the profiler job runs `make coverage-fast` while the benchmark-harness job installs the test extra and runs every slow test once, in parallel (#1300, #1301); and the cheap benchmark tests left the slow marker with a toy-audit test file, so fast coverage of `faircode/` is 99% instead of 97% (#1302). Other people closed #1303 (empty groups in `significance.py`, #1311), #1304 (`--note` and pending closes, #1310) and #1306 (the configurable builder timeout, #1313). #1283 stays open for the reason on the issue, #1294 and #1308 are assigned, and #1237 and #1238 wait for an audit rerun. CONTRIBUTORS.md is updated through PR #1313 with entries for @pvarchanavijay, @ranjanasri6 and @renuvenugopal178; PR #1311's commit is authored by @PRIYANKA2272004, who has no merged pull request of her own, so that is a documented exception. Stars `71 → 73`, forks `74 → 77` and contributors `61 → 64` (live GitHub numbers). Issues closed (8) is the two closed since Monday plus the six this batch closes on merge. Six new tooling issues are open (#1316-#1321), three of them pinned.
 ---
 
 ## Targets
 
 | Metric | Current | Target | Timeline |
 |--------|--------:|-------:|----------|
-| Stars | 71 | 50+ | End of 2026 |
-| Forks | 74 | 75+ | End of 2026 |
+| Stars | 73 | 50+ | End of 2026 |
+| Forks | 77 | 75+ | End of 2026 |
 | Watching | 8 | 12+ | End of 2026 |
-| Contributors | 61 | 20+ | End of 2026 |
+| Contributors | 64 | 20+ | End of 2026 |
 | Social reach | 30K+ | 40K+ | End of 2026 |
 | Countries reached | 20 | 20+ | End of 2026 |
-| Issues closed | 44 (this week, since 2026-11-02) | Track weekly | Ongoing |
+| Issues closed | 8 (this week, since 2026-11-09) | Track weekly | Ongoing |
 | Code audits | 7 | 8+ | End of 2026 |
 | Explainers | 114 | 120+ | End of 2026 |
 

@@ -1509,9 +1509,9 @@ The full public roadmap - with phases, completion status, and content schedule -
 
 | Metric | Count |
 |--------|------:|
-| GitHub Stars | 71 |
-| External Contributors | 60 |
-| Forks | 74 |
+| GitHub Stars | 73 |
+| External Contributors | 63 |
+| Forks | 77 |
 | Watching | 8 |
 | Combined Social Reach (Instagram + LinkedIn) | 30K+ |
 | Countries Reached (Website Visitors) | 20 |
