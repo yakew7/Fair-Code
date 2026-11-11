@@ -22,7 +22,7 @@ whose header says "account deleted" has no login left on GitHub (its pull reques
 counts are listed as skipped, not failed.
 
     python3 scripts/check_contributors.py                 # asks `gh` for the merged pull requests
-    python3 scripts/check_contributors.py --prs FILE      # FILE: gh pr list --state merged --limit 5000 --json number,author,mergedAt,title
+    python3 scripts/check_contributors.py --prs FILE      # FILE: gh pr list --state merged --limit 5000 --json number,author,mergedAt,title,body
     python3 scripts/check_contributors.py --commits       # also compare commit counts (about 60 gh requests)
     python3 scripts/check_contributors.py --commits --save-commits F  # also keep the fetched data (a --fix --commits run fetches once)
     python3 scripts/check_contributors.py --commits-data F # F: {"live": {login: n}, "after_snapshot": {login: n}}
@@ -418,11 +418,31 @@ def fetch_prs() -> list[dict] | None:
     if shutil.which("gh") is None:
         return None
     done = run_gh(["gh", "pr", "list", "--state", "merged", "--limit", "5000",
-                   "--json", "number,author,mergedAt,title"])
+                   "--json", "number,author,mergedAt,title,body"])
     return json.loads(done.stdout) if done.returncode == 0 else None
 
 
 DEFAULT_AREA = "Contributor tooling & docs"
+
+
+# "## Summary", "**Summary**" or a bare "Summary" line (the form the last pull requests used)
+SUMMARY_HEADING = re.compile(r"^[ \t]*(?:(?:#{1,6}[ \t]*|\*\*)Summary\b[^\n]*|Summary:?)[ \t]*$", re.IGNORECASE | re.MULTILINE)
+
+
+def summary_line(body: str | None) -> str | None:
+    """The first line or bullet under a `Summary` heading of a pull request body, without the bullet mark (#1307); None when
+    the body has no Summary section or a heading follows it before any text."""
+    found = SUMMARY_HEADING.search(body or "")
+    if not found:
+        return None
+    for line in (body or "")[found.end():].splitlines():
+        line = line.strip()
+        if line.startswith("#"):
+            return None
+        text = re.sub(r"^(?:[-*+]|\d+\.)\s+", "", line).strip()
+        if text:
+            return text
+    return None
 
 
 def stub_entry(login: str, prs: list[dict]) -> str:
@@ -434,8 +454,13 @@ def stub_entry(login: str, prs: list[dict]) -> str:
         raise ValueError(f"{login} has no merged pull requests in the data")
     first = min((pr.get("mergedAt") or "")[:10] for pr in mine)
     count = len(mine)
-    links = "; ".join(f"[#{pr['number']}](https://github.com/yakew7/Fair-Code/pull/{pr['number']})"
-                      + (f" {pr['title']}" if pr.get("title") else "") for pr in mine)
+    def link(pr: dict) -> str:
+        text = f"[#{pr['number']}](https://github.com/yakew7/Fair-Code/pull/{pr['number']})"
+        text += f" {pr['title']}" if pr.get("title") else ""
+        summary = summary_line(pr.get("body"))
+        return text + (f" ({summary})" if summary and summary.rstrip(".").lower() != (pr.get("title") or "").rstrip(".").lower() else "")
+
+    links = "; ".join(link(pr) for pr in mine)
     return (f"### [@{login}](https://github.com/{login})\n\n"
             f"**{count} merged PR{'s' if count != 1 else ''} · {count} commit{'s' if count != 1 else ''} · first merged {first}**\n\n"
             f"TODO: describe the work in a sentence or two. Merged: {links}.\n\n")

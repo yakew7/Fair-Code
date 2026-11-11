@@ -616,3 +616,42 @@ def test_the_same_login_twice_is_added_once(tmp_path, capsys):
     base = _two_newcomers(tmp_path)
     assert script.main(base + ["--stub", "dave", "dave"]) == 0
     assert (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8").count("### [@dave]") == 1
+
+
+@pytest.mark.parametrize("body, expected", [
+    ("## Summary\n\nRun the doctor after setup. More.\n\n## Type\nfix", "Run the doctor after setup. More."),
+    ("Summary\n- Added support for X\n- Kept the default\n\nTesting\n- ok", "Added support for X"),
+    ("**Summary**\n1. First change\n", "First change"),
+    ("### summary:  \n* a bullet", "a bullet"),
+    ("## Summary\n\n## Type\nbug", None),
+    ("Summaries are not a heading\n- x", None),
+    ("no section at all", None),
+    ("", None),
+    (None, None),
+])
+def test_summary_line_takes_the_first_line_or_bullet_under_the_summary_heading(body, expected):
+    # #1307
+    assert script.summary_line(body) == expected
+
+
+def test_a_stub_shows_the_pull_request_summary_when_it_has_one_and_only_the_title_when_not():
+    prs = [dict(pr(110, "dave", "2026-10-30"), title="Run the doctor", body="## Summary\n- Runs the doctor after setup\n"),
+           dict(pr(111, "dave", "2026-10-31"), title="Plain change", body="no summary"),
+           dict(pr(112, "dave", "2026-11-01"), title="Same as title", body="## Summary\nSame as title.\n"),
+           dict(pr(113, "dave", "2026-11-02"), title="No body")]
+    stub = script.stub_entry("dave", prs)
+    assert "[#110](https://github.com/yakew7/Fair-Code/pull/110) Run the doctor (Runs the doctor after setup);" in stub
+    assert "[#111](https://github.com/yakew7/Fair-Code/pull/111) Plain change; " in stub
+    assert "Same as title; " in stub and "Same as title (" not in stub          # a summary that repeats the title is dropped
+    assert stub.rstrip().endswith("No body.")
+
+
+def test_the_stub_gets_summaries_from_the_pull_request_data_it_was_given(tmp_path, capsys):
+    base = _two_newcomers(tmp_path)
+    prs = json.loads((tmp_path / "prs.json").read_text(encoding="utf-8"))
+    for item in prs:
+        if item["number"] == 110:
+            item["body"] = "## Summary\n- Fixes the thing\n"
+    (tmp_path / "prs.json").write_text(json.dumps(prs), encoding="utf-8")
+    assert script.main(base + ["--stub", "dave"]) == 0
+    assert "fix: a (Fixes the thing)" in (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")

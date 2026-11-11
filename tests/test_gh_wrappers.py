@@ -45,7 +45,7 @@ def test_fetch_prs_asks_for_merged_pull_requests_with_titles(monkeypatch):
     assert contributors.fetch_prs() == prs
     command = fake.commands[0]
     assert command[:5] == ["gh", "pr", "list", "--state", "merged"] and "5000" in command
-    assert command[command.index("--json") + 1] == "number,author,mergedAt,title"
+    assert command[command.index("--json") + 1] == "number,author,mergedAt,title,body"
 
 
 def test_fetch_prs_is_none_when_gh_fails_or_is_missing(monkeypatch):
