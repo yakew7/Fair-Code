@@ -565,3 +565,54 @@ def test_two_stubs_in_a_row_leave_one_closing_rule_and_a_file_that_is_otherwise_
     assert body.count("\n---\n") == 1
     assert [e["handle"] for e in script.parse(text)[0]].count("erin") == 1
     assert script.fix_document(text, prs, 131) == text                        # sorting again changes nothing
+
+
+def _two_newcomers(tmp_path):
+    prs = PRS + [dict(pr(110, "dave", "2026-10-30"), title="fix: a"), dict(pr(120, "erin", "2026-10-31"), title="docs: b"),
+                 dict(pr(121, "erin", "2026-11-01"), title="docs: c")]
+    (tmp_path / "CONTRIBUTORS.md").write_text(STUB_DOC, encoding="utf-8")
+    (tmp_path / "prs.json").write_text(json.dumps(prs), encoding="utf-8")
+    return ["--file", str(tmp_path / "CONTRIBUTORS.md"), "--prs", str(tmp_path / "prs.json")]
+
+
+def test_one_stub_run_can_start_several_entries_in_rule_order(tmp_path, capsys):
+    # #1299
+    base = _two_newcomers(tmp_path)
+    assert script.main(base + ["--stub", "dave", "erin"]) == 0
+    assert "stub entries for dave, erin" in capsys.readouterr().out
+    text = (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+    handles = [e["handle"] for e in script.parse(text)[0]]
+    assert handles.index("erin") < handles.index("dave")                 # erin has 2 PRs, dave 1
+    assert "covering everything merged through **PR #121**" in text
+    assert text.count("TODO:") == 2
+    assert text.count("[@dave](https://github.com/dave)") == 2 and text.count("[@erin](https://github.com/erin)") == 2   # header + area row
+
+
+def test_one_bad_login_stops_the_whole_stub_run_before_anything_is_written(tmp_path, capsys):
+    base = _two_newcomers(tmp_path)
+    before = (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+    assert script.main(base + ["--stub", "dave", "ghost"]) == 1
+    assert "ghost has no merged pull requests" in capsys.readouterr().out
+    assert (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8") == before
+
+
+def test_several_stubs_with_commits_fetch_the_data_once(tmp_path, capsys, monkeypatch):
+    base = _two_newcomers(tmp_path)
+    calls = []
+
+    def fake_fetch(entries, since):
+        calls.append(since)
+        return {"live": {"alice": 5, "bob": 4, "carol": 3, "dave": 2, "erin": 6}, "after_snapshot": {}}
+
+    monkeypatch.setattr(script, "_COMMIT_DATA", {})
+    monkeypatch.setattr(script, "fetch_commit_data", fake_fetch)
+    assert script.main(base + ["--stub", "dave", "erin", "--commits"]) == 0
+    assert len(calls) == 1 and "commit counts come from the contributors graph" in capsys.readouterr().out
+    entries = {e["handle"]: e for e in script.parse((tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8"))[0]}
+    assert (entries["dave"]["commits"], entries["erin"]["commits"]) == (2, 6)
+
+
+def test_the_same_login_twice_is_added_once(tmp_path, capsys):
+    base = _two_newcomers(tmp_path)
+    assert script.main(base + ["--stub", "dave", "dave"]) == 0
+    assert (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8").count("### [@dave]") == 1

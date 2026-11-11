@@ -28,7 +28,7 @@ counts are listed as skipped, not failed.
     python3 scripts/check_contributors.py --commits-data F # F: {"live": {login: n}, "after_snapshot": {login: n}}
     python3 scripts/check_contributors.py --identities   # every git commit author maps to an entry or an identity map row
     python3 scripts/check_contributors.py --pending       # who merged after the snapshot (exit 1 if anyone), for the weekly report
-    python3 scripts/check_contributors.py --stub LOGIN     # start an entry for a new contributor (then --fix --commits)
+    python3 scripts/check_contributors.py --stub LOGIN [LOGIN ...]  # start an entry for a new contributor (then --fix --commits)
     python3 scripts/check_contributors.py --stub LOGIN --commits   # the same, with the commit counts taken from GitHub too
     python3 scripts/check_contributors.py --fix --commits # also refresh commit counts and move the snapshot to the newest merged PR
     python3 scripts/check_contributors.py --fix            # refresh known counts/dates and sort entries in place
@@ -462,10 +462,14 @@ def add_stub(text: str, login: str, prs: list[dict], area: str = DEFAULT_AREA) -
 
 
 def run_stub(args, text: str, prs: list[dict]) -> int:
-    """Start an entry for `args.stub`. With `--commits` the commit counts (the new person's and everyone's) are taken from
-    the contributors graph at the new snapshot instead of left as the PR-count placeholder (#1271)."""
+    """Start an entry for each login of `args.stub`: all of them are validated first (an existing entry or an author with no
+    merged PRs stops the run before anything is written), added, then sorted and written once, and with `--commits` the commit
+    data is fetched once for everyone (#1299, #1271)."""
+    logins = list(dict.fromkeys(args.stub))
+    stubbed = text
     try:
-        stubbed = add_stub(text, args.stub, prs)
+        for login in logins:
+            stubbed = add_stub(stubbed, login, prs)
     except ValueError as error:
         print(f"error: {error}")
         return 1
@@ -480,13 +484,17 @@ def run_stub(args, text: str, prs: list[dict]) -> int:
         after = {k.lower(): v for k, v in data.get("after_snapshot", {}).items()}
         commit_counts = {login: n - after.get(login.lower(), 0) for login, n in data["live"].items()
                          if login.lower() not in COMMIT_EXCEPTIONS}
-        if args.stub.lower() in {login.lower() for login in commit_counts}:
+        known = {login.lower() for login in commit_counts}
+        missing = [login for login in logins if login.lower() not in known]
+        if not missing:
             note = "commit counts come from the contributors graph at the new snapshot"
         else:
-            note = (f"{args.stub} is not in the contributors API yet, so their commit count is still the PR-count "
+            note = (f"{', '.join(missing)} {'is' if len(missing) == 1 else 'are'} not in the contributors API yet, so "
+                    f"{'their commit count is' if len(missing) == 1 else 'their commit counts are'} still the PR-count "
                     "placeholder; run --fix --commits later")
     args.file.write_text(fix_document(stubbed, prs, newest, commit_counts), encoding="utf-8")
-    print(f"added a stub entry for {args.stub} and moved the snapshot to PR #{newest}; replace the TODO sentence; {note}")
+    print(f"added {'a stub entry' if len(logins) == 1 else 'stub entries'} for {', '.join(logins)} and moved the snapshot to "
+          f"PR #{newest}; replace the TODO sentence{'s' if len(logins) > 1 else ''}; {note}")
     return 0
 
 
@@ -577,7 +585,7 @@ def main(argv=None) -> int:
     parser.add_argument("--save-commits", metavar="FILE", help="write the fetched commit data to FILE (usable later as --commits-data)")
     parser.add_argument("--identities", action="store_true", help="check that every git commit author maps to an entry or an identity map row (needs the git history)")
     parser.add_argument("--pending", action="store_true", help="list authors who merged after the snapshot and exit 1 if there are any")
-    parser.add_argument("--stub", metavar="LOGIN", help="add a starting entry for a new contributor (moves the snapshot, sorts, lists them in an area row)")
+    parser.add_argument("--stub", metavar="LOGIN", nargs="+", help="add a starting entry for a new contributor (moves the snapshot, sorts, lists them in an area row)")
     parser.add_argument("--fix", action="store_true", help="rewrite known PR counts/dates and sort contributor entries")
     args = parser.parse_args(argv)
 
