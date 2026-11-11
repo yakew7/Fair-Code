@@ -96,9 +96,3 @@ def test_coverage_runs_the_whole_suite_in_parallel_when_xdist_is_there_and_cover
     assert '-m "not slow"' in fast and "-n auto" in fast and "--cov=faircode" in fast
     serial = dry_run("coverage", "XDIST=")
     assert "-n auto" not in serial and "OMP_NUM_THREADS" not in serial
-
-
-def test_ci_profiler_job_still_runs_make_coverage():
-    workflow = (ROOT / ".github" / "workflows" / "audits.yml").read_text(encoding="utf-8")
-    assert "run: make coverage\n" in workflow
-    assert "pytest-xdist" in (ROOT / "pyproject.toml").read_text(encoding="utf-8")

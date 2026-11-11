@@ -128,11 +128,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[test,excel,parquet,proxy,mcp]"
 
-      # One run: the whole suite with line coverage printed at the end, in parallel because the `test`
-      # extra installs pytest-xdist (about half the time of a serial run, #1265). A test failure fails the
-      # job; the coverage figure itself is informational, not a gate (#932).
-      - name: Run profiler tests (with coverage report)
-        run: make coverage
+      # One run: the suite without the `slow` tests, with line coverage printed at the end, in parallel because
+      # the `test` extra installs pytest-xdist (#1265). The slow benchmark tests run once, in the
+      # benchmark-harness job below, instead of a second time here (#1300): 97% coverage in about a minute
+      # instead of 99% in five. A test failure fails the job; the coverage figure itself is informational,
+      # not a gate (#932).
+      - name: Run profiler tests (fast suite, with coverage report)
+        run: make coverage-fast
 
       # The JS case-folding table against Python for every code point both runtimes assign; the output
       # says how many it could not compare (the runtimes ship different Unicode versions) (#946).
@@ -169,19 +171,23 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
-      # The `test` extra brings pytest and pytest-xdist (#1301); the harness tests run in parallel with
-      # single-threaded BLAS per worker, as in `make test-fast`.
+      # The `test` extra brings pytest and pytest-xdist (#1301); the other extras are what the slow tests import.
       - name: Install faircode[benchmark] + the test extra
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[test,benchmark]"
+          pip install -e ".[test,benchmark,excel,parquet,proxy,mcp]"
 
-      - name: Run benchmark-harness unit + integration tests
+      - name: Run the benchmark-harness unit tests
+        run: pytest tests/test_metrics.py tests/test_manifest.py tests/test_strategies.py -v
+
+      # Every test marked `slow` runs here and only here (the profiler job skips them, #1300), in parallel
+      # with single-threaded BLAS per worker, as in `make test-fast`.
+      - name: Run every slow test
         env:
           OMP_NUM_THREADS: "1"
           OPENBLAS_NUM_THREADS: "1"
           VECLIB_MAXIMUM_THREADS: "1"
-        run: pytest tests/test_metrics.py tests/test_manifest.py tests/test_strategies.py tests/test_benchmark.py -n auto -v
+        run: pytest tests --ignore=tests/browser -m slow -n auto -v
 
       - name: Smoke-test the CLI end-to-end on one small audit
         run: |
