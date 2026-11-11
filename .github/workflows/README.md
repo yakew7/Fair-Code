@@ -7,7 +7,7 @@ or conditional; their presence alone does not make them merge requirements.
 
 | Workflow | Trigger | Merge gate | Script or action |
 | --- | --- | --- | --- |
-| [Audits](audits.yml) | Push to `main`; pull requests | Required: `run-audits` matrix | `fair.py` and `unfair.py` for each audit; conditional profiler and benchmark-harness checks |
+| [Audits](audits.yml) | Push to `main`; pull requests | Required: `run-audits` matrix | `fair.py` and `unfair.py` for each audit; conditional `profiler` job runs `make coverage-fast` (the suite without the `slow` tests, with coverage), and conditional `benchmark-harness` job runs every test marked `slow` |
 | [Benchmark diff](benchmark-diff.yml) | Pull requests; manual dispatch; `rerun-benchmark` label | Informational; full rerun opt-in | `scripts/diff_results.py` and benchmark CLI |
 | [Build Explainers](build-explainers.yml) | Push to `main`; pull requests matching documentation paths | Informational | `scripts/build_explainers.py`, `scripts/generate_og_images.py`, and generated-file checks |
 | [Validate CITATION.cff](citation.yml) | Push or pull request changing `CITATION.cff` | Informational | `citation-file-format/cffconvert-github-action` |
