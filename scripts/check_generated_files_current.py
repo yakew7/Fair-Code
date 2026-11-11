@@ -148,12 +148,33 @@ def _get_build_timeout() -> float:
 BUILD_TIMEOUT = _get_build_timeout()   # seconds for each of the three regeneration steps (#1292)
 
 
+GIT_TIMEOUT = 120.0        # seconds for each git call that sets up the fresh checkout (#1305)
+
+
 class BuilderTimeout(RuntimeError):
-    """A regeneration step did not finish within BUILD_TIMEOUT; carries which one."""
+    """A regeneration step (a builder, or a git call that sets up the checkout) did not finish in time; carries which one."""
 
     def __init__(self, builder: str, seconds: float):
         super().__init__(f"{builder} did not finish within {seconds:g} s")
         self.builder, self.seconds = builder, seconds
+
+
+def _run_git(args, **kwargs):
+    """`git <args>` in ROOT with a timeout: a stuck git (a lock file, a slow network filesystem) ends the check with a
+    BuilderTimeout naming the command instead of hanging it (#1305)."""
+    try:
+        return subprocess.run(["git", *args], cwd=ROOT, timeout=GIT_TIMEOUT, **kwargs)
+    except subprocess.TimeoutExpired as exc:
+        raise BuilderTimeout("git " + " ".join(args[:2]), GIT_TIMEOUT) from exc
+
+
+def _remove_worktree(path: Path) -> None:
+    """Best-effort cleanup: a failed or stalled removal must not hide the result of the check."""
+    try:
+        subprocess.run(["git", "worktree", "remove", "--force", str(path)], cwd=ROOT, capture_output=True, check=False,
+                       timeout=GIT_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        print(f"note: `git worktree remove` did not finish within {GIT_TIMEOUT:g} s; remove {path} by hand", file=sys.stderr)
 
 
 def _builder_name(cmd) -> str:
@@ -178,25 +199,12 @@ def _fresh_build_dir(stack):
     cleaned up even if a later step raises.
     """
     tmp = Path(tempfile.mkdtemp(prefix="faircode-freshbuild-"))
-    stack.callback(lambda: subprocess.run(
-        ["git", "worktree", "remove", "--force", str(tmp)],
-        cwd=ROOT, capture_output=True, check=False,
-    ))
-    subprocess.run(
-        ["git", "worktree", "add", "--detach", "--quiet", str(tmp), "HEAD"],
-        cwd=ROOT, check=True,
-    )
+    stack.callback(_remove_worktree, tmp)
+    _run_git(["worktree", "add", "--detach", "--quiet", str(tmp), "HEAD"], check=True)
 
-    tracked = subprocess.run(
-        ["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True
-    ).stdout.splitlines()
-    untracked = subprocess.run(
-        ["git", "ls-files", "--others", "--exclude-standard"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.splitlines()
+    tracked = _run_git(["ls-files"], capture_output=True, text=True, check=True).stdout.splitlines()
+    untracked = _run_git(["ls-files", "--others", "--exclude-standard"], capture_output=True, text=True,
+                         check=True).stdout.splitlines()
     for rel in tracked + untracked:
         if not rel.strip():
             continue
@@ -231,7 +239,7 @@ def main():
         try:
             fresh_dir = _fresh_build_dir(stack)
         except BuilderTimeout as exc:
-            print(f"error: {exc}: a hung builder blocks this check, so nothing was compared. "
+            print(f"error: {exc}: a stalled step blocks this check, so nothing was compared. "
                   f"Run it by hand to see where it stalls.", file=sys.stderr)
             return 1
 

@@ -466,3 +466,57 @@ def test_build_timeout_invalid_values_fall_back_to_600(
     monkeypatch.setenv("FAIRCODE_BUILD_TIMEOUT", value)
 
     assert script._get_build_timeout() == 600.0
+
+
+@pytest.mark.parametrize("stalled, expected", [
+    (["worktree", "add"], "git worktree add did not finish within 1 s"),
+    (["ls-files"], "git ls-files did not finish within 1 s"),
+    (["ls-files", "--others"], "git ls-files --others did not finish within 1 s"),
+])
+def test_a_stalled_git_call_ends_the_check_with_a_message_naming_it(tmp_path, monkeypatch, capsys, stalled, expected):
+    # #1305: the builders had a timeout (#1292) but the git calls around them did not
+    script = _script()
+    root = _git_repo(tmp_path / "repo")
+    monkeypatch.setattr(script, "ROOT", root)
+    monkeypatch.setattr(script, "GIT_TIMEOUT", 1.0)
+    real_run = subprocess.run
+
+    def run(command, **kwargs):
+        if command[:1] == ["git"] and command[1:1 + len(stalled)] == stalled:
+            raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+        return real_run(command, **kwargs)
+
+    monkeypatch.setattr(script.subprocess, "run", run)
+    assert script.main() == 1
+    err = capsys.readouterr().err
+    assert expected in err and "nothing was compared" in err
+
+
+def test_every_git_call_of_the_fresh_build_has_a_timeout(tmp_path, monkeypatch):
+    script = _script()
+    root = _git_repo(tmp_path / "repo")
+    monkeypatch.setattr(script, "ROOT", root)
+    seen = []
+    real_run = subprocess.run
+
+    def run(command, **kwargs):
+        if command[:1] == ["git"]:
+            seen.append((command[1], kwargs.get("timeout")))
+        return real_run(command, **kwargs)
+
+    monkeypatch.setattr(script.subprocess, "run", run)
+    with ExitStack() as stack:
+        script._fresh_build_dir(stack)
+    assert {name for name, _ in seen} >= {"worktree", "ls-files"} and all(t == script.GIT_TIMEOUT for _, t in seen)
+
+
+def test_a_stalled_worktree_removal_is_reported_but_does_not_raise(tmp_path, monkeypatch, capsys):
+    script = _script()
+    monkeypatch.setattr(script, "ROOT", tmp_path)
+
+    def run(command, **kwargs):
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    monkeypatch.setattr(script.subprocess, "run", run)
+    script._remove_worktree(tmp_path / "wt")
+    assert "git worktree remove` did not finish" in capsys.readouterr().err
