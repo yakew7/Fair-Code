@@ -130,8 +130,8 @@ jobs:
 
       # One run: the suite without the `slow` tests, with line coverage printed at the end, in parallel because
       # the `test` extra installs pytest-xdist (#1265). The slow benchmark tests run once, in the
-      # benchmark-harness job below, instead of a second time here (#1300): 97% coverage in about a minute
-      # instead of 99% in five. A test failure fails the job; the coverage figure itself is informational,
+      # benchmark-harness job below, instead of a second time here (#1300): the same 99% coverage in about a minute
+      # instead of five. A test failure fails the job; the coverage figure itself is informational,
       # not a gate (#932).
       - name: Run profiler tests (fast suite, with coverage report)
         run: make coverage-fast

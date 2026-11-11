@@ -36,11 +36,12 @@ test-browser:  ## Open the real pages in Chromium and fail on any console error 
 
 # Measured on an 8-core laptop under other load (#1265, #1281): the whole suite with coverage took 675 s in one process and
 # 316 s with four xdist workers (the same 1,586 tests, 99% line coverage of faircode/); the suite without the `slow`
-# benchmark tests took 60 s with four workers and reports 97%.
+# benchmark tests took 60 s with four workers and reported 97% until the cheap benchmark and strategy tests left the
+# slow marker (#1302); it now reports 99% too.
 coverage:  ## Run the full test suite with a faircode/ coverage report, in parallel when pytest-xdist is installed (CI's profiler job runs `coverage-fast` and its benchmark-harness job the slow tests; the figure is informational, not a gate)
 	$(XDIST_ENV) $(PY) -m pytest tests/ -q --ignore=tests/browser $(XDIST) --cov=faircode --cov-report=term-missing
 
-coverage-fast:  ## The same coverage report without the slow benchmark tests: about a fifth of the time for 97% instead of 99%
+coverage-fast:  ## The same coverage report without the slow benchmark tests: about a fifth of the time for the same 99%
 	$(XDIST_ENV) $(PY) -m pytest tests/ -q -m "not slow" --ignore=tests/browser $(XDIST) --cov=faircode --cov-report=term-missing
 
 key-fold:  ## Regenerate the JS case-folding table (KEY_FOLD) from this machine's Python and node, e.g. after a Unicode upgrade

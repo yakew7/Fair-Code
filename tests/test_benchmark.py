@@ -21,8 +21,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-# Every test here trains models (about 80 s in total); `make test-fast` skips them.
-pytestmark = pytest.mark.slow
+# The tests that train models (about 80 s in total) carry `@pytest.mark.slow` one by one and `make test-fast` skips them;
+# the cheap checks in this file (manifest and dataset validation, report writing) run in the fast suite (#1302).
 
 pytest.importorskip("sklearn", reason="the benchmark harness needs the optional benchmark extra")
 pytest.importorskip("fairlearn", reason="the benchmark harness needs the optional benchmark extra")
@@ -47,12 +47,14 @@ def result():
     return run_audit(manifest, n_resamples=N_RESAMPLES, n_permutations=N_PERMUTATIONS)
 
 
+@pytest.mark.slow
 def test_runs_without_raising(result):
     fairness_rows, performance_rows = result
     assert fairness_rows
     assert performance_rows
 
 
+@pytest.mark.slow
 def test_fairness_table_covers_every_strategy_and_model(result):
     fairness_rows, _ = result
     df = pd.DataFrame(fairness_rows)
@@ -64,6 +66,7 @@ def test_fairness_table_covers_every_strategy_and_model(result):
     assert set(df["protected_attribute"]) == {"age"}
 
 
+@pytest.mark.slow
 def test_performance_table_covers_every_strategy_and_model(result):
     _, performance_rows = result
     df = pd.DataFrame(performance_rows)
@@ -72,6 +75,7 @@ def test_performance_table_covers_every_strategy_and_model(result):
     assert set(df["metric"]) == set(PERFORMANCE_METRICS)
 
 
+@pytest.mark.slow
 def test_expected_row_counts(result):
     fairness_rows, performance_rows = result
     n_strategies, n_models = 5, 3
@@ -80,6 +84,7 @@ def test_expected_row_counts(result):
     assert len(performance_rows) == n_strategies * n_models * len(PERFORMANCE_METRICS)
 
 
+@pytest.mark.slow
 def test_every_fairness_row_has_required_keys(result):
     fairness_rows, _ = result
     required = {"audit", "strategy", "model", "protected_attribute", "metric",
@@ -89,6 +94,7 @@ def test_every_fairness_row_has_required_keys(result):
         assert required <= set(row)
 
 
+@pytest.mark.slow
 def test_post_processing_has_no_auc_by_design(result):
     # ThresholdOptimizer (S4) has no probability output - see faircode.strategies.
     _, performance_rows = result
@@ -97,6 +103,7 @@ def test_post_processing_has_no_auc_by_design(result):
     assert post_auc["value"].isna().all()
 
 
+@pytest.mark.slow
 def test_baseline_demographic_parity_gap_is_a_plausible_fraction(result):
     fairness_rows, _ = result
     df = pd.DataFrame(fairness_rows)
@@ -114,6 +121,7 @@ def result_dfs(result):
     return pd.DataFrame(fairness_rows), pd.DataFrame(performance_rows)
 
 
+@pytest.mark.slow
 def test_write_report_always_writes_the_three_csvs(tmp_path, result_dfs):
     fairness_df, performance_df = result_dfs
 
@@ -124,6 +132,7 @@ def test_write_report_always_writes_the_three_csvs(tmp_path, result_dfs):
     assert (out_dir / "summary.csv").is_file()
 
 
+@pytest.mark.slow
 def test_write_report_no_plots_skips_figures_directory(tmp_path, result_dfs):
     fairness_df, performance_df = result_dfs
 
@@ -132,6 +141,7 @@ def test_write_report_no_plots_skips_figures_directory(tmp_path, result_dfs):
     assert not (out_dir / "figures").exists()
 
 
+@pytest.mark.slow
 def test_write_report_default_writes_figures(tmp_path, result_dfs):
     pytest.importorskip("matplotlib", reason="figure generation needs matplotlib")
     fairness_df, performance_df = result_dfs
@@ -164,6 +174,7 @@ def two_attr_result():
     return run_audit(manifest, n_resamples=N_RESAMPLES, n_permutations=N_PERMUTATIONS)
 
 
+@pytest.mark.slow
 def test_intersectional_row_present_for_a_two_attribute_audit(two_attr_result):
     fairness_rows, _ = two_attr_result
     df = pd.DataFrame(fairness_rows)
@@ -176,6 +187,7 @@ def test_intersectional_row_present_for_a_two_attribute_audit(two_attr_result):
     assert (intersectional["metric"] == "intersectional_demographic_parity_diff").all()
 
 
+@pytest.mark.slow
 def test_intersectional_row_has_required_keys(two_attr_result):
     fairness_rows, _ = two_attr_result
     df = pd.DataFrame(fairness_rows)
@@ -236,6 +248,7 @@ def empty_cell_result(tmp_path_factory):
     return run_audit(manifest, n_resamples=N_RESAMPLES, n_permutations=N_PERMUTATIONS)
 
 
+@pytest.mark.slow
 def test_empty_intersectional_cell_is_not_reported_significant(empty_cell_result):
     fairness_rows, _ = empty_cell_result
     df = pd.DataFrame(fairness_rows)
@@ -253,6 +266,7 @@ def test_empty_intersectional_cell_is_not_reported_significant(empty_cell_result
 # run_benchmark() (discovery + seeding + multi-audit aggregation) had no
 # direct test at all.
 
+@pytest.mark.slow
 def test_run_benchmark_discovers_and_runs_a_manifest_directory(tmp_path):
     audit_dir = tmp_path / "Some Audit"
     audit_dir.mkdir()
@@ -267,6 +281,7 @@ def test_run_benchmark_discovers_and_runs_a_manifest_directory(tmp_path):
     assert set(fairness_df["audit"]) == {"german_credit_lending"}
 
 
+@pytest.mark.slow
 def test_run_benchmark_uses_explicit_manifest_list_over_discovery(tmp_path):
     # An explicit `audits` list should be used as-is, without also scanning
     # `root` for other manifests - tmp_path here is deliberately empty.
@@ -278,6 +293,7 @@ def test_run_benchmark_uses_explicit_manifest_list_over_discovery(tmp_path):
     assert not performance_df.empty
 
 
+@pytest.mark.slow
 def test_run_benchmark_seeds_global_random_state(monkeypatch):
     seeds_used = []
     monkeypatch.setattr(np.random, "seed", lambda s: seeds_used.append(s))
