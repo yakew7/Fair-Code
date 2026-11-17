@@ -14,24 +14,25 @@ locally and commit results/ output instead of running it in CI.
 Run from the repo root:  pytest tests/ -q
 """
 
-import shutil
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import pytest
 
-# The tests that train models (about 80 s in total) carry `@pytest.mark.slow` one by one and `make test-fast` skips them;
+# The tests that train the three real model families (about 40 s in total) carry `@pytest.mark.slow` one by one and `make test-fast` skips them;
 # the cheap checks in this file (manifest and dataset validation, report writing) run in the fast suite (#1302).
 
 pytest.importorskip("sklearn", reason="the benchmark harness needs the optional benchmark extra")
 pytest.importorskip("fairlearn", reason="the benchmark harness needs the optional benchmark extra")
 yaml = pytest.importorskip("yaml", reason="the benchmark harness needs the optional benchmark extra")
 
+import faircode.benchmark as benchmark_module
 from faircode.benchmark import GLOBAL_SEED, run_audit, run_benchmark, write_report
 from faircode.manifest import load_manifest
 from faircode.metrics import METRICS, PERFORMANCE_METRICS
 from faircode.strategies import STRATEGIES
+from test_benchmark_fast import LR_ONLY, _write_toy_audit
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SMALL_AUDIT = REPO_ROOT / "German Credit Lending" / "audit.yaml"
@@ -39,6 +40,25 @@ SMALL_AUDIT = REPO_ROOT / "German Credit Lending" / "audit.yaml"
 # Small enough to keep this test fast; not meant to be publication-quality.
 N_RESAMPLES = 50
 N_PERMUTATIONS = 50
+
+
+def _run_lr_only(manifest):
+    """The whole strategy grid with the logistic regression as the only model family: the tests that check the structure of the
+    rows (intersectional cells, empty cells) do not depend on which model produced them, and the three-family run is 5x slower
+    (#1320). The real three-family run stays in the `result` fixture below."""
+    patch = pytest.MonkeyPatch()
+    patch.setattr(benchmark_module, "MODEL_FAMILIES", LR_ONLY)
+    patch.setattr("faircode.models.MODEL_FAMILIES", LR_ONLY)
+    try:
+        return run_audit(manifest, n_resamples=N_RESAMPLES, n_permutations=N_PERMUTATIONS)
+    finally:
+        patch.undo()
+
+
+@pytest.fixture
+def lr_only(monkeypatch):
+    monkeypatch.setattr(benchmark_module, "MODEL_FAMILIES", LR_ONLY)
+    monkeypatch.setattr("faircode.models.MODEL_FAMILIES", LR_ONLY)
 
 
 @pytest.fixture(scope="module")
@@ -171,23 +191,21 @@ TWO_ATTR_AUDIT = REPO_ROOT / "Insurance Denial" / "audit.yaml"
 @pytest.fixture(scope="module")
 def two_attr_result():
     manifest = load_manifest(TWO_ATTR_AUDIT)
-    return run_audit(manifest, n_resamples=N_RESAMPLES, n_permutations=N_PERMUTATIONS)
+    return _run_lr_only(manifest)
 
 
-@pytest.mark.slow
 def test_intersectional_row_present_for_a_two_attribute_audit(two_attr_result):
     fairness_rows, _ = two_attr_result
     df = pd.DataFrame(fairness_rows)
     intersectional = df[df["protected_attribute"] == "age_x_gender"]
 
-    # One row per (strategy, model): 5 strategies x 3 models, all tagged with
+    # One row per (strategy, model): 5 strategies x 1 model here (the grid runs with the logistic regression only), all tagged with
     # the single intersectional metric - the pair combinations() produces for
     # exactly two declared protected attributes.
-    assert len(intersectional) == 5 * 3
+    assert len(intersectional) == 5 * 1
     assert (intersectional["metric"] == "intersectional_demographic_parity_diff").all()
 
 
-@pytest.mark.slow
 def test_intersectional_row_has_required_keys(two_attr_result):
     fairness_rows, _ = two_attr_result
     df = pd.DataFrame(fairness_rows)
@@ -245,15 +263,14 @@ def empty_cell_result(tmp_path_factory):
     manifest_path = audit_dir / "audit.yaml"
     manifest_path.write_text(yaml.dump(manifest_dict))
     manifest = load_manifest(manifest_path)
-    return run_audit(manifest, n_resamples=N_RESAMPLES, n_permutations=N_PERMUTATIONS)
+    return _run_lr_only(manifest)
 
 
-@pytest.mark.slow
 def test_empty_intersectional_cell_is_not_reported_significant(empty_cell_result):
     fairness_rows, _ = empty_cell_result
     df = pd.DataFrame(fairness_rows)
     intersectional = df[df["protected_attribute"] == "attr_a_x_attr_b"]
-    assert len(intersectional) == 5 * 3
+    assert len(intersectional) == 5 * 1
 
     assert intersectional["value"].isna().all()
     assert (~intersectional["significant"]).all()
@@ -266,39 +283,42 @@ def test_empty_intersectional_cell_is_not_reported_significant(empty_cell_result
 # run_benchmark() (discovery + seeding + multi-audit aggregation) had no
 # direct test at all.
 
-@pytest.mark.slow
-def test_run_benchmark_discovers_and_runs_a_manifest_directory(tmp_path):
+def test_run_benchmark_discovers_and_runs_a_manifest_directory(tmp_path, lr_only):
+    # discovery does not depend on the audit or the model: a toy audit with the logistic regression is enough (#1320)
     audit_dir = tmp_path / "Some Audit"
     audit_dir.mkdir()
-    shutil.copy(SMALL_AUDIT, audit_dir / "audit.yaml")
-    shutil.copy(SMALL_AUDIT.parent / "credit_customers.csv", audit_dir / "credit_customers.csv")
+    _write_toy_audit(audit_dir)
 
-    fairness_df, performance_df = run_benchmark(
-        root=str(tmp_path), n_resamples=N_RESAMPLES, n_permutations=N_PERMUTATIONS)
+    fairness_df, performance_df = run_benchmark(root=str(tmp_path), n_resamples=20, n_permutations=20)
 
     assert not fairness_df.empty
     assert not performance_df.empty
-    assert set(fairness_df["audit"]) == {"german_credit_lending"}
+    assert set(fairness_df["audit"]) == {"toy"}
 
 
-@pytest.mark.slow
-def test_run_benchmark_uses_explicit_manifest_list_over_discovery(tmp_path):
+def test_run_benchmark_uses_explicit_manifest_list_over_discovery(tmp_path, lr_only):
     # An explicit `audits` list should be used as-is, without also scanning
-    # `root` for other manifests - tmp_path here is deliberately empty.
-    fairness_df, performance_df = run_benchmark(
-        root=str(tmp_path), audits=[SMALL_AUDIT],
-        n_resamples=N_RESAMPLES, n_permutations=N_PERMUTATIONS)
+    # `root` for other manifests - the root here holds a second audit that must not run.
+    (tmp_path / "other").mkdir()
+    _write_toy_audit(tmp_path / "other")
+    chosen = tmp_path / "chosen"
+    chosen.mkdir()
+    _write_toy_audit(chosen)
+    (chosen / "audit.yaml").write_text((chosen / "audit.yaml").read_text().replace("name: toy", "name: chosen"))
 
-    assert set(fairness_df["audit"]) == {"german_credit_lending"}
+    fairness_df, performance_df = run_benchmark(
+        root=str(tmp_path), audits=[chosen / "audit.yaml"], n_resamples=20, n_permutations=20)
+
+    assert set(fairness_df["audit"]) == {"chosen"}
     assert not performance_df.empty
 
 
-@pytest.mark.slow
-def test_run_benchmark_seeds_global_random_state(monkeypatch):
+def test_run_benchmark_seeds_global_random_state(monkeypatch, tmp_path, lr_only):
     seeds_used = []
     monkeypatch.setattr(np.random, "seed", lambda s: seeds_used.append(s))
+    _write_toy_audit(tmp_path)
 
-    run_benchmark(audits=[SMALL_AUDIT], n_resamples=N_RESAMPLES, n_permutations=N_PERMUTATIONS)
+    run_benchmark(audits=[tmp_path / "audit.yaml"], n_resamples=20, n_permutations=20)
 
     assert seeds_used == [GLOBAL_SEED]
 
