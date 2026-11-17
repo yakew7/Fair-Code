@@ -781,3 +781,70 @@ def test_one_area_applies_to_every_login_of_a_stub_run(tmp_path, capsys):
     assert script.main(base + ["--stub", "dave", "erin", "--area", "Audits"]) == 0
     audits = next(line for line in (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8").splitlines() if line.startswith("| **Audits**"))
     assert "[@dave]" in audits and "[@erin]" in audits
+
+
+def test_a_stub_writes_the_closing_issue_numbers_in_the_entries_own_phrasing():
+    # #1308
+    prs = [dict(pr(110, "dave", "2026-10-30"), title="Fix a thing", body="## Summary\n- Fixes the thing\n", closing_issues=[1304]),
+           dict(pr(111, "dave", "2026-10-31"), title="Two issues", closing_issues=[7, 9]),
+           dict(pr(112, "dave", "2026-11-01"), title="No closes", closing_issues=[]),
+           dict(pr(113, "dave", "2026-11-02"), title="Not looked up")]
+    stub = script.stub_entry("dave", prs)
+    assert "Fix a thing (Fixes the thing, closing issue #1304);" in stub
+    assert "Two issues (closing issues #7, #9);" in stub
+    assert "No closes; " in stub and stub.rstrip().endswith("Not looked up.")
+
+
+def test_run_stub_looks_up_closing_issues_only_for_the_stubbed_peoples_prs_and_only_when_asked(tmp_path, capsys):
+    _two_newcomers(tmp_path)
+    asked = []
+
+    def fetch(numbers):
+        asked.append(sorted(numbers))
+        return {110: [1304], 120: [], 121: [55]}
+
+    prs = json.loads((tmp_path / "prs.json").read_text(encoding="utf-8"))
+    args = script.argparse.Namespace(stub=["dave", "erin"], commits=False, area=script.DEFAULT_AREA, save_commits=None,
+                                     file=tmp_path / "CONTRIBUTORS.md")
+    assert script.run_stub(args, (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8"), prs, fetch_closing=fetch) == 0
+    assert asked == [[110, 120, 121]]                       # not alice's, bob's or carol's PRs
+    text = (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+    assert "(closing issue #1304)" in text and "(closing issue #55)" in text
+
+
+def test_main_does_not_call_gh_for_closing_issues_when_given_saved_pr_data(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(script, "fetch_closing_issues", lambda numbers: pytest.fail("gh must not be called for --prs data"))
+    base = _two_newcomers(tmp_path)
+    assert script.main(base + ["--stub", "dave"]) == 0
+
+
+def test_saved_data_may_carry_the_closing_issues_itself(tmp_path, capsys):
+    base = _two_newcomers(tmp_path)
+    prs = json.loads((tmp_path / "prs.json").read_text(encoding="utf-8"))
+    for item in prs:
+        if item["number"] == 110:
+            item["closing_issues"] = [42]
+    (tmp_path / "prs.json").write_text(json.dumps(prs), encoding="utf-8")
+    assert script.main(base + ["--stub", "dave"]) == 0
+    assert "(closing issue #42)" in (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+
+
+def test_fetch_closing_issues_asks_gh_per_pr_and_gives_up_when_one_call_fails(monkeypatch):
+    from types import SimpleNamespace
+    import subprocess as sp
+    calls = []
+
+    def fake(command, **kwargs):
+        calls.append(command)
+        number = int(command[3])
+        if number == 9:
+            return SimpleNamespace(returncode=1, stdout="")
+        return SimpleNamespace(returncode=0, stdout=json.dumps([number * 10]))
+
+    monkeypatch.setattr(sp, "run", fake)
+    monkeypatch.setattr(script.shutil, "which", lambda name: "/usr/bin/gh")
+    assert script.fetch_closing_issues([7, 8]) == {7: [70], 8: [80]}
+    assert all(c[:3] == ["gh", "pr", "view"] and "closingIssuesReferences" in c for c in calls)
+    assert script.fetch_closing_issues([7, 9]) is None
+    monkeypatch.setattr(script.shutil, "which", lambda name: None)
+    assert script.fetch_closing_issues([7]) is None

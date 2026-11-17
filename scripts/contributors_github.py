@@ -67,6 +67,24 @@ def fetch_commit_authors(numbers: list[int], repo: str = "yakew7/Fair-Code") -> 
     return None if any(authors is None for authors in found) else dict(zip(numbers, found))
 
 
+def fetch_closing_issues(numbers: list[int], repo: str = "yakew7/Fair-Code") -> dict[int, list[int]] | None:
+    """{PR number: the issue numbers it closes} from gh (`closingIssuesReferences`), or None when any call fails (#1308)."""
+    if shutil.which("gh") is None:
+        return None
+
+    def one(number: int) -> list[int] | None:
+        done = run_gh(["gh", "pr", "view", str(number), "--repo", repo, "--json", "closingIssuesReferences",
+                       "--jq", "[.closingIssuesReferences[].number]"])
+        try:
+            return json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else None
+        except json.JSONDecodeError:
+            return None
+
+    with concurrent.futures.ThreadPoolExecutor(8) as pool:
+        found = list(pool.map(one, numbers))
+    return None if any(issues is None for issues in found) else dict(zip(numbers, found))
+
+
 def snapshot_time(prs: list[dict], through: int | None) -> str | None:
     """One second after the snapshot PR was merged, so its own merge commit is not counted as 'after'."""
     from datetime import datetime, timedelta, timezone

@@ -122,7 +122,13 @@ def stub_entry(login: str, prs: list[dict]) -> str:
         text = f"[#{pr['number']}](https://github.com/yakew7/Fair-Code/pull/{pr['number']})"
         text += f" {pr['title']}" if pr.get("title") else ""
         summary = summary_line(pr.get("body"))
-        return text + (f" ({summary})" if summary and summary.rstrip(".").lower() != (pr.get("title") or "").rstrip(".").lower() else "")
+        notes = []
+        if summary and summary.rstrip(".").lower() != (pr.get("title") or "").rstrip(".").lower():
+            notes.append(summary)
+        closing = pr.get("closing_issues") or []
+        if closing:                                        # the entries' own phrasing (#1308)
+            notes.append(f"closing issue{'s' if len(closing) > 1 else ''} " + ", ".join(f"#{n}" for n in closing))
+        return text + (f" ({', '.join(notes)})" if notes else "")
 
     links = "; ".join(link(pr) for pr in mine)
     return (f"### [@{login}](https://github.com/{login})\n\n"
