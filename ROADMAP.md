@@ -27,7 +27,7 @@ Fair Code is an open-source responsible AI platform explaining algorithmic bias,
 
 | Stars | Contributors | Forks | Watching | Social Reach | Countries | Audits | Explainers | CI |
 |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| 73 | 64 | 77 | 8 | 30K+ | 20 | 7 | 114 | ✅ every push/PR |
+| 75 | 65 | 79 | 8 | 30K+ | 20 | 7 | 114 | ✅ every push/PR |
 
 > The earlier paper freeze has lifted - the real paper, with fresh results, is now planned for next
 > year. `paper/results-frozen/` (tag `v1.0-paper`, commit `bbef2ba`) is kept as a reference snapshot.
@@ -261,7 +261,8 @@ Go deeper on measurement - fairness dashboards, interactive notebooks, and stati
 - [x] Weekly-check and contributor tooling, round four: gh timeouts, the doctor's wider scan and `make check` order, co-author trailers, the exceptions data file, `--stub --commits` and stub commands in the weekly issue, the METRICS targets row, workflow-to-CLI contract tests, documented Makefile targets, the missing pre-commit hooks, `--fix-moved --rebuild`, a load-aware smoke test and a Chromium-free `make test-fast` (#1263, #1264, #1266, #1267, #1268, #1269, #1270, #1271, #1272, #1273, #1274, #1275, #1276, #1277)
 - [x] Tooling follow-ups, round four, fixed in this sweep: the pre-push hook, gh failures in the weekly issue script, the link checker's retry parameter, `draft_metrics_row.py --update`, the `--stub` TODO check, builder timeouts, `DOCTOR=warn`, a CPU-time scaling test, `make coverage-fast` and a parallel `make coverage` (#1282, #1288, #1287, #1286, #1285, #1292, #1290, #1284, #1281, #1265)
 - [x] Tooling follow-ups, round five, fixed in this sweep: several `--stub` logins and PR summaries in stubs, git timeouts in the generated-files check, one CI job per suite with the test extra in the harness job, and fast tests for `benchmark.py` and `strategies.py` (#1299, #1307, #1305, #1300, #1301, #1302)
-- [ ] Tooling follow-ups, round six: commit authors that differ from the PR author, closing the weekly report issues on a records push, the last 18 lines of `benchmark.py`, splitting `check_contributors.py`, shrinking the slow benchmark fixtures and documenting the CI split (#1316, #1317, #1318, #1319, #1320, #1321); the repeated import block (#1283), `--stub` areas and closing issues (#1294, #1308) and the benchmark convergence and run-time issues (#1237, #1238) are still open
+- [x] Tooling follow-ups, round six, fixed in this sweep: commit authors that differ from the PR author in `--pending`, the report workflows on a records push, `benchmark.py` fully covered by the fast suite and `check_contributors.py` split into modules (#1316, #1317, #1318, #1319)
+- [ ] Tooling follow-ups, round seven: a spurious Issues Closed report on a records push, shared benchmark test helpers, a stub sentence for a foreign commit author and splitting the contributors tests (#1324, #1325, #1326, #1327); the slow benchmark fixtures (#1320), the repeated import block (#1283), `--stub` areas and closing issues (#1294, #1308) and the benchmark convergence and run-time issues (#1237, #1238) are still open
 
 ---
 

@@ -2,9 +2,9 @@
 
 # Fair Code - Metrics Tracker
 
-![Stars](https://img.shields.io/badge/Stars-73-brightgreen?style=flat-square&logo=github)
-![Contributors](https://img.shields.io/badge/Contributors-64-blue?style=flat-square)
-![Forks](https://img.shields.io/badge/Forks-77-orange?style=flat-square)
+![Stars](https://img.shields.io/badge/Stars-75-brightgreen?style=flat-square&logo=github)
+![Contributors](https://img.shields.io/badge/Contributors-65-blue?style=flat-square)
+![Forks](https://img.shields.io/badge/Forks-79-orange?style=flat-square)
 ![Watching](https://img.shields.io/badge/Watching-8-yellow?style=flat-square)
 ![Explainers](https://img.shields.io/badge/Explainers-114-blueviolet?style=flat-square)
 ![Countries](https://img.shields.io/badge/Countries-20-informational?style=flat-square)
@@ -52,6 +52,7 @@ Weekly snapshot of project health. Updated every Friday.
 
 | 2026-W45 | 71 | 74 | 8 | 61 | 30K+ total | 20 | 44 | 7 total |
 | 2026-W46 | 73 | 77 | 8 | 64 | 30K+ total | 20 | 8 | 7 total |
+| 2026-W47 | 75 | 79 | 8 | 65 | 30K+ total | 20 | 4 | 7 total |
 > **2026-W27 - v1.2.0 shipped:** Open Dataset Profiler (CLI + client-side web tool) released; 23 explainers total.
 >
 > **2026-W30 - v1.3.0-v1.3.2 shipped since last snapshot:** Tenant Screening audit (#07) and intersectional bias analysis (v1.3.0), Unsupervised Learning + Model Drift explainers (v1.3.1), Selection Bias explainer (v1.3.2), plus author attribution/schema, `llms.txt`, and a canonical-URL/sitemap fix for AI-crawler and Google Search Console indexing. Watching tracked for the first time this week. **Gap notice:** no snapshot was logged for three weeks (W28-W29) - issues-closed reflects the trailing 7 days, not the full gap.
@@ -143,19 +144,21 @@ Weekly snapshot of project health. Updated every Friday.
 > **2026-W45 (Sunday) - the eighteenth sweep: ten more tooling issues fixed, two new contributors:** the pre-push pytest hook skips the Chromium tests like `make test-fast` (#1282); `update_weekly_issue.py` reports a failed or timed-out gh call as an error annotation (#1288); the link checker takes its retry delay as a parameter (#1287); `draft_metrics_row.py --update` refreshes this week's row (#1286, used to write this one); a TODO left over from `--stub` fails the contributors check (#1285); the generated-files builders have a timeout (#1292); `make check DOCTOR=warn` goes on past a shadowing module (#1290); the profile scaling test measures CPU time and the load factor is shared (#1284); `make coverage-fast` gives 97% in about a minute (#1281) and `make coverage` runs in parallel, 316 s instead of 675 s for the same 99% (#1265). #1283 (the repeated import block) stays open with the reason, #1294 is assigned, and #1237 and #1238 wait for an audit rerun. A fix to `check_contributors.py` came out of stubbing two newcomers in a row: the section's closing rule travelled with the last entry when entries were sorted. Other people closed #1289, #1291 and #1293 in the same days (#1295, #1297, #1298). CONTRIBUTORS.md is updated through PR #1298 with new entries for @ExoticA1A and @isaaclimmy, both started with `--stub --commits`. Stars `55 → 71`, forks `69 → 74` and contributors `59 → 61` (live GitHub numbers; the traction check had been a week behind). Issues closed (44) is the 34 closed since Monday plus the ten this batch closes on merge. Ten new tooling issues are open (#1299-#1308), three of them pinned.
 >
 > **2026-W46 (Wednesday) - the nineteenth sweep: six more tooling issues fixed, three new contributors:** `check_contributors.py --stub` starts several entries in one run (#1299) and fills each with the pull request's summary line (#1307, used for this week's three entries); the generated-files check's git calls have a timeout (#1305); the profiler job runs `make coverage-fast` while the benchmark-harness job installs the test extra and runs every slow test once, in parallel (#1300, #1301); and the cheap benchmark tests left the slow marker with a toy-audit test file, so fast coverage of `faircode/` is 99% instead of 97% (#1302). Other people closed #1303 (empty groups in `significance.py`, #1311), #1304 (`--note` and pending closes, #1310) and #1306 (the configurable builder timeout, #1313). #1283 stays open for the reason on the issue, #1294 and #1308 are assigned, and #1237 and #1238 wait for an audit rerun. CONTRIBUTORS.md is updated through PR #1313 with entries for @pvarchanavijay, @ranjanasri6 and @renuvenugopal178; PR #1311's commit is authored by @PRIYANKA2272004, who has no merged pull request of her own, so that is a documented exception. Stars `71 → 73`, forks `74 → 77` and contributors `61 → 64` (live GitHub numbers). Issues closed (8) is the two closed since Monday plus the six this batch closes on merge. Six new tooling issues are open (#1316-#1321), three of them pinned.
+>
+> **2026-W47 (Tuesday) - the twentieth sweep: four more tooling issues fixed, one new contributor:** `--pending` names a commit authored by someone other than the PR author (#1316, found through PR #1311); the two report workflows also run on a push that updates the records, so their tracking issues close at once (#1317); `benchmark.py` is at 100% in the fast suite through a new toy-audit output and merge test file (#1318); and `check_contributors.py` is split from 689 lines into four modules of about 200 to 300 (#1319). #1320 (slow benchmark fixtures) is half done: eight structural tests moved to the fast suite and the slow selection went from 118 s to 91 s, not under 60 s, so it stays open with the measurements. Another contributor closed #1321 (which job runs the slow tests, #1322). #1283 stays open for the reason on the issue, #1294, #1306 and #1308 are assigned, and #1237 and #1238 wait for an audit rerun. CONTRIBUTORS.md is updated through PR #1323 with an entry for @tylrcc. Stars `73 → 75`, forks `77 → 79` and contributors `64 → 65` (live GitHub numbers). Issues closed (4) is the four this batch closes on merge (none closed since Monday yet). Four new tooling issues are open (#1324-#1327), three of them pinned.
 ---
 
 ## Targets
 
 | Metric | Current | Target | Timeline |
 |--------|--------:|-------:|----------|
-| Stars | 73 | 50+ | End of 2026 |
-| Forks | 77 | 75+ | End of 2026 |
+| Stars | 75 | 50+ | End of 2026 |
+| Forks | 79 | 75+ | End of 2026 |
 | Watching | 8 | 12+ | End of 2026 |
-| Contributors | 64 | 20+ | End of 2026 |
+| Contributors | 65 | 20+ | End of 2026 |
 | Social reach | 30K+ | 40K+ | End of 2026 |
 | Countries reached | 20 | 20+ | End of 2026 |
-| Issues closed | 8 (this week, since 2026-11-09) | Track weekly | Ongoing |
+| Issues closed | 4 (this week, since 2026-11-16) | Track weekly | Ongoing |
 | Code audits | 7 | 8+ | End of 2026 |
 | Explainers | 114 | 120+ | End of 2026 |
 

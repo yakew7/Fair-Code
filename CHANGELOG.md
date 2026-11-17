@@ -21,11 +21,16 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Added
 
+- `check_contributors.py --pending` names a commit authored by someone other than the pull request author (#1316).
+- `tests/test_benchmark_outputs.py` covers writing, verifying and merging benchmark result sets on a toy audit, so `benchmark.py` is at 100% in the fast suite (#1318).
+- `contributors-drift` and `traction-live` also run on a push to `main` that updates the records (#1317).
 - `check_contributors.py --stub` takes several logins and starts each entry with the pull request's summary line (#1299, #1307); the merged PR list now asks `gh` for the body too.
 - `tests/test_benchmark_fast.py` and `tests/test_ci_test_jobs.py` (#1302, #1300, #1301).
 
 ### Changed
 
+- `scripts/check_contributors.py` is split into `contributors_entries.py`, `contributors_write.py` and `contributors_github.py` plus the command line (#1319).
+- The structural benchmark tests (intersectional rows, empty cell, `run_benchmark` discovery and seeding) run on cheap models in the fast suite (#1320, partly).
 - The profiler job runs `make coverage-fast`, the benchmark-harness job installs the `test` extra and runs every test marked `slow` once, in parallel (#1300, #1301).
 - The cheap tests of `tests/test_benchmark.py` no longer carry the slow marker, so `make coverage-fast` reports 99% for `faircode/` (#1302).
 - The generated-files check's git calls have a 120 s timeout and name the command that stalled (#1305).
