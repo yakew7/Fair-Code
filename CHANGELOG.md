@@ -21,6 +21,7 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Added
 
+- `check_contributors.py --stub --area NAME` lists new people in a chosen Contributions by area row (#1294) and writes `closing issue #N` from `closingIssuesReferences` (#1308).
 - `check_contributors.py --pending` names a commit authored by someone other than the pull request author (#1316).
 - `tests/test_benchmark_outputs.py` covers writing, verifying and merging benchmark result sets on a toy audit, so `benchmark.py` is at 100% in the fast suite (#1318).
 - `contributors-drift` and `traction-live` also run on a push to `main` that updates the records (#1317).
@@ -29,6 +30,7 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Changed
 
+- The AUC gaps explainer's script takes about 7 s instead of about 20 s with identical output: placement values from binary searches and tie-aware bootstrap AUCs instead of `roc_auc_score` calls (#1169).
 - `scripts/check_contributors.py` is split into `contributors_entries.py`, `contributors_write.py` and `contributors_github.py` plus the command line (#1319).
 - The structural benchmark tests (intersectional rows, empty cell, `run_benchmark` discovery and seeding) run on cheap models in the fast suite (#1320, partly).
 - The profiler job runs `make coverage-fast`, the benchmark-harness job installs the `test` extra and runs every test marked `slow` once, in parallel (#1300, #1301).
