@@ -740,3 +740,44 @@ def test_the_checks_in_the_entries_module_take_the_exception_lists_as_arguments(
     assert any("bob: commit count not compared (unlinked)" in note for note in skipped) and problems == []
     assert entries_module.unmapped_authors(IDENTITY_DOC, [("Stranger", "s@x", 1)], {"stranger": "why"}) == []
     assert len(entries_module.unmapped_authors(IDENTITY_DOC, [("Stranger", "s@x", 1)], {})) == 1
+
+
+def test_area_names_lists_the_rows_of_the_area_table():
+    # #1294
+    assert script.area_names(STUB_DOC) == ["Audits", "Contributor tooling & docs"]
+    assert script.area_names(DOC) == []
+    real = script.area_names((script.ROOT / "CONTRIBUTORS.md").read_text(encoding="utf-8"))
+    assert script.DEFAULT_AREA in real and "Audits" in real and "Area" not in real and len(real) >= 8
+
+
+def test_stub_area_lists_the_new_person_in_the_chosen_row_only(tmp_path, capsys):
+    base = _stub_site(tmp_path)
+    assert script.main(base + ["--stub", "dave", "--area", "audits"]) == 0          # the match ignores case
+    text = (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+    rows = {line.split("|")[1].strip(" *"): line for line in text.splitlines() if line.startswith("| **")}
+    assert "[@dave](https://github.com/dave)" in rows["Audits"]
+    assert "[@dave]" not in rows["Contributor tooling & docs"]
+
+
+def test_stub_area_defaults_to_the_tooling_and_docs_row(tmp_path, capsys):
+    base = _stub_site(tmp_path)
+    assert script.main(base + ["--stub", "dave"]) == 0
+    text = (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+    tooling = next(line for line in text.splitlines() if line.startswith("| **Contributor tooling & docs**"))
+    assert "[@dave](https://github.com/dave)" in tooling
+
+
+def test_an_unknown_stub_area_is_an_error_naming_the_real_ones_and_writes_nothing(tmp_path, capsys):
+    base = _stub_site(tmp_path)
+    before = (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+    assert script.main(base + ["--stub", "dave", "--area", "Nope"]) == 1
+    out = capsys.readouterr().out
+    assert "unknown area 'Nope'" in out and "Audits; Contributor tooling & docs" in out
+    assert (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8") == before
+
+
+def test_one_area_applies_to_every_login_of_a_stub_run(tmp_path, capsys):
+    base = _two_newcomers(tmp_path)
+    assert script.main(base + ["--stub", "dave", "erin", "--area", "Audits"]) == 0
+    audits = next(line for line in (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8").splitlines() if line.startswith("| **Audits**"))
+    assert "[@dave]" in audits and "[@erin]" in audits

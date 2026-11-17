@@ -29,6 +29,7 @@ counts are listed as skipped, not failed.
     python3 scripts/check_contributors.py --identities   # every git commit author maps to an entry or an identity map row
     python3 scripts/check_contributors.py --pending       # who merged after the snapshot (exit 1 if anyone), for the weekly report
     python3 scripts/check_contributors.py --stub LOGIN [LOGIN ...]  # start an entry for a new contributor (then --fix --commits)
+    python3 scripts/check_contributors.py --stub LOGIN --area "Profiler - web"   # list them in another area row (default: Contributor tooling & docs)
     python3 scripts/check_contributors.py --stub LOGIN --commits   # the same, with the commit counts taken from GitHub too
     python3 scripts/check_contributors.py --fix --commits # also refresh commit counts and move the snapshot to the newest merged PR
     python3 scripts/check_contributors.py --fix            # refresh known counts/dates and sort entries in place
@@ -58,7 +59,8 @@ if __package__:                         # imported as scripts.<name> (tests, pyt
     from .contributors_github import (  # noqa: F401
         TRAILER, fetch_commit_authors, fetch_commit_data, fetch_prs, git_authors, snapshot_time)
     from .contributors_write import (  # noqa: F401
-        DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, fix_document, move_snapshot, stub_entry, summary_line)
+        DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, fix_document, move_snapshot, stub_entry,
+        summary_line)
 else:
     import os as _os
     import sys as _sys
@@ -71,7 +73,8 @@ else:
     from contributors_github import (  # noqa: F401
         TRAILER, fetch_commit_authors, fetch_commit_data, fetch_prs, git_authors, snapshot_time)
     from contributors_write import (  # noqa: F401
-        DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, fix_document, move_snapshot, stub_entry, summary_line)
+        DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, fix_document, move_snapshot, stub_entry,
+        summary_line)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -140,7 +143,7 @@ def run_stub(args, text: str, prs: list[dict]) -> int:
     stubbed = text
     try:
         for login in logins:
-            stubbed = add_stub(stubbed, login, prs)
+            stubbed = add_stub(stubbed, login, prs, area=args.area)
     except ValueError as error:
         print(f"error: {error}")
         return 1
@@ -265,6 +268,8 @@ def main(argv=None) -> int:
     parser.add_argument("--identities", action="store_true", help="check that every git commit author maps to an entry or an identity map row (needs the git history)")
     parser.add_argument("--pending", action="store_true", help="list authors who merged after the snapshot and exit 1 if there are any")
     parser.add_argument("--stub", metavar="LOGIN", nargs="+", help="add a starting entry for a new contributor (moves the snapshot, sorts, lists them in an area row)")
+    parser.add_argument("--area", default=DEFAULT_AREA, metavar="NAME",
+                        help=f"with --stub: the Contributions by area row to list the new people in (default: {DEFAULT_AREA!r})")
     parser.add_argument("--fix", action="store_true", help="rewrite known PR counts/dates and sort contributor entries")
     args = parser.parse_args(argv)
 

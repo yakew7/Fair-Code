@@ -130,12 +130,28 @@ def stub_entry(login: str, prs: list[dict]) -> str:
             f"TODO: describe the work in a sentence or two. Merged: {links}.\n\n")
 
 
+def area_names(text: str) -> list[str]:
+    """The row names of the "Contributions by area" table, without their bold markers (#1294)."""
+    start = text.find("## Contributions by area")
+    if start == -1:
+        return []
+    end = text.find("\n## ", start + 5)
+    section = text[start:end if end != -1 else len(text)]
+    return [m.group(1).strip() for m in re.finditer(r"^\| \*\*(.+?)\*\*(?: \([^|]*\))? \|", section, re.MULTILINE)
+            if m.group(1).strip() != "Area"]
+
+
 def add_stub(text: str, login: str, prs: list[dict], area: str = DEFAULT_AREA) -> str:
     """Move the snapshot to the newest merged PR, insert a stub entry for `login` and list them in the `area` row of the
     Contributions by area table; the caller then sorts and refreshes the counts with `fix_document`."""
     entries, _ = parse(text)
     if login.lower() in {e["handle"].lower() for e in entries}:
         raise ValueError(f"{login} already has an entry")
+    names = area_names(text)
+    match = next((name for name in names if name.lower() == area.lower()), None)
+    if names and match is None:
+        raise ValueError(f"unknown area {area!r}; the areas are: " + "; ".join(names))
+    area = match or area
     stub = stub_entry(login, prs)
     text = move_snapshot(text, prs, max(pr["number"] for pr in prs))
     at = text.find("## Contributions by area")
