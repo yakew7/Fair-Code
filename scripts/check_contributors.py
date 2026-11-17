@@ -261,6 +261,24 @@ def get_commit_data(args, entries: list[dict], since: str) -> dict | None:
     return _COMMIT_DATA[since]
 
 
+def fetch_commit_authors(numbers: list[int], repo: str = "yakew7/Fair-Code") -> dict[int, list[str]] | None:
+    """{PR number: logins of the authors of its commits} from gh, or None when any call fails (#1316)."""
+    if shutil.which("gh") is None:
+        return None
+
+    def one(number: int) -> list[str] | None:
+        done = run_gh(["gh", "pr", "view", str(number), "--repo", repo, "--json", "commits",
+                       "--jq", "[.commits[].authors[].login] | unique"])
+        try:
+            return json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else None
+        except json.JSONDecodeError:
+            return None
+
+    with concurrent.futures.ThreadPoolExecutor(8) as pool:
+        found = list(pool.map(one, numbers))
+    return None if any(authors is None for authors in found) else dict(zip(numbers, found))
+
+
 def snapshot_time(prs: list[dict], through: int | None) -> str | None:
     """One second after the snapshot PR was merged, so its own merge commit is not counted as 'after'."""
     from datetime import datetime, timedelta, timezone
@@ -276,6 +294,7 @@ def pending(entries: list[dict], prs: list[dict], through: int | None) -> list[s
     listed = {e["handle"].lower() for e in entries}
     later: dict[str, list[int]] = {}
     titles = {pr["number"]: pr.get("title") for pr in prs}
+    commit_authors = {pr["number"]: pr.get("commit_authors") or [] for pr in prs}
     for pr in prs:
         author = pr.get("author") or {}
         login = author.get("login") or ""
@@ -290,6 +309,14 @@ def pending(entries: list[dict], prs: list[dict], through: int | None) -> list[s
                      + ("count to update" if login.lower() in listed else "no entry yet"))
         # one indented line per PR with its title, so the entry can be written without looking each one up (#1258)
         lines += [f"    #{n} {titles[n]}" for n in sorted(later[login]) if titles.get(n)]
+        # a commit authored by someone other than the PR author: that person is credited by GitHub, not this account (#1316)
+        for n in sorted(later[login]):
+            for other in sorted(commit_authors.get(n, []), key=str.lower):
+                if other.lower() != login.lower() and other.lower() != MAINTAINER:
+                    state = ("has an entry" if other.lower() in listed
+                             else "has no entry: give them one, or add them to unlisted_authors in "
+                                  "scripts/contributors-exceptions.json")
+                    lines.append(f"    #{n} has a commit authored by {other}, not by {login}; {other} {state}")
     return lines
 
 
@@ -556,7 +583,15 @@ def run_fix(args, text: str, entries: list[dict], through: int | None, prs: list
     return fixed, parse(fixed)[1]
 
 
-def run_pending(entries: list[dict], prs: list[dict], through: int | None) -> int:
+def run_pending(entries: list[dict], prs: list[dict], through: int | None, fetch=None) -> int:
+    # the commit authors of the pending PRs, unless the saved data already carries them (--prs FILE with commit_authors)
+    wanted = [pr["number"] for pr in prs if through is not None and pr["number"] > through and "commit_authors" not in pr
+              and not (pr.get("author") or {}).get("is_bot") and not ((pr.get("author") or {}).get("login") or "app/").startswith("app/")]
+    if wanted and fetch is not None:
+        found = fetch(wanted)
+        for pr in prs:
+            if found and pr["number"] in found:
+                pr["commit_authors"] = found[pr["number"]]
     later = pending(entries, prs, through)
     for line in later:
         print(line)
@@ -645,7 +680,8 @@ def main(argv=None) -> int:
     if through is None:
         print("note: no 'covering everything merged through **PR #N**' snapshot line found; counting every merged PR")
     if args.pending:
-        return run_pending(entries, prs, through)
+        # saved data (--prs FILE) is used as it is; only data fetched from GitHub gets the commit authors looked up too
+        return run_pending(entries, prs, through, fetch=None if args.prs else fetch_commit_authors)
     return run_check(args, text, entries, prs, through)
 
 

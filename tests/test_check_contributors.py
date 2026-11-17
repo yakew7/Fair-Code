@@ -655,3 +655,66 @@ def test_the_stub_gets_summaries_from_the_pull_request_data_it_was_given(tmp_pat
     (tmp_path / "prs.json").write_text(json.dumps(prs), encoding="utf-8")
     assert script.main(base + ["--stub", "dave"]) == 0
     assert "fix: a (Fixes the thing)" in (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+
+
+def test_pending_names_a_commit_author_who_is_not_the_pr_author():
+    # #1316: PR #1311 was opened by ranjanasri6 but its commit is authored by PRIYANKA2272004
+    prs = [dict(pr(101, "bob", "2026-10-30"), title="fix", commit_authors=["bob", "stranger", "alice"]),
+           dict(pr(102, "newbie", "2026-10-31"), title="docs", commit_authors=["newbie"]),
+           dict(pr(103, "bob", "2026-10-31"), title="more")]
+    entries, _ = script.parse(DOC)
+    lines = script.pending(entries, prs, 100)
+    assert "    #101 has a commit authored by stranger, not by bob; stranger has no entry: give them one, or add them to " \
+           "unlisted_authors in scripts/contributors-exceptions.json" in lines
+    assert "    #101 has a commit authored by alice, not by bob; alice has an entry" in lines
+    assert not any("#102 has a commit" in line or "#103 has a commit" in line for line in lines)
+
+
+def test_the_maintainer_as_a_commit_author_is_not_reported():
+    prs = [dict(pr(101, "bob", "2026-10-30"), commit_authors=["bob", "yakew7"])]
+    assert not any("has a commit authored" in line for line in script.pending(script.parse(DOC)[0], prs, 100))
+
+
+def test_run_pending_looks_the_commit_authors_up_only_for_pending_prs_and_only_when_asked_to(capsys):
+    entries, _ = script.parse(DOC)
+    prs = [pr(5, "alice", "2026-10-01"), pr(101, "bob", "2026-10-30"), pr(102, "app/dependabot", "2026-10-31", bot=True),
+           dict(pr(103, "bob", "2026-10-31"), commit_authors=["bob"])]
+    asked = []
+
+    def fetch(numbers):
+        asked.append(numbers)
+        return {101: ["bob", "stranger"]}
+
+    assert script.run_pending(entries, prs, 100, fetch=fetch) == 1
+    assert asked == [[101]]                                  # not #5 (before the snapshot), the bot's PR or #103 (has the data)
+    assert "#101 has a commit authored by stranger" in capsys.readouterr().out
+    asked.clear()
+    script.run_pending(entries, prs, 100, fetch=None)
+    assert asked == []
+
+
+def test_main_does_not_call_gh_for_commit_authors_when_given_saved_pr_data(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(script, "fetch_commit_authors", lambda numbers: pytest.fail("gh must not be called for --prs data"))
+    code, out = run(tmp_path, capsys, prs=PRS + [pr(101, "bob", "2026-10-30")], extra=("--pending",))
+    assert code == 1 and "bob: 1 merged PR(s)" in out
+
+
+def test_fetch_commit_authors_asks_gh_per_pr_and_gives_up_when_one_call_fails(monkeypatch):
+    from types import SimpleNamespace
+    import subprocess as sp
+    calls = []
+
+    def fake(command, **kwargs):
+        calls.append(command)
+        number = int(command[3])
+        if number == 9:
+            return SimpleNamespace(returncode=1, stdout="")
+        return SimpleNamespace(returncode=0, stdout=json.dumps(["bob", f"user{number}"]))
+
+    monkeypatch.setattr(sp, "run", fake)
+    monkeypatch.setattr(script.shutil, "which", lambda name: "/usr/bin/gh")
+    assert script.fetch_commit_authors([7, 8]) == {7: ["bob", "user7"], 8: ["bob", "user8"]}
+    assert all(c[:3] == ["gh", "pr", "view"] and "commits" in c for c in calls)
+    assert script.fetch_commit_authors([7, 9]) is None
+    monkeypatch.setattr(script.shutil, "which", lambda name: None)
+    assert script.fetch_commit_authors([7]) is None
