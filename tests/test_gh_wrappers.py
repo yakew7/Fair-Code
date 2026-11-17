@@ -4,6 +4,7 @@ The other tests replace these functions with fakes; here a fake `subprocess.run`
 """
 import subprocess
 import importlib
+from pathlib import Path
 import json
 from types import SimpleNamespace
 
@@ -128,7 +129,10 @@ def test_fetch_closed_issues_lists_number_and_title(monkeypatch):
 @pytest.mark.parametrize("module", MODULES)
 def test_every_wrapper_module_calls_gh_through_the_timeout_helper(module):
     # #1266: no module may call subprocess.run for gh itself any more
-    source = open(module.__file__, encoding="utf-8").read()
+    # check_contributors.py keeps its gh calls in the contributors_github.py module next to it (#1319): read both
+    paths = [Path(module.__file__)] + ([Path(module.__file__).with_name("contributors_github.py")]
+                                       if module.__name__.endswith("check_contributors") else [])
+    source = "\n".join(path.read_text(encoding="utf-8") for path in paths)
     assert "run_gh" in source
     assert 'subprocess.run(["gh"' not in source
 

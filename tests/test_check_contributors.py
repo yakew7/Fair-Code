@@ -718,3 +718,25 @@ def test_fetch_commit_authors_asks_gh_per_pr_and_gives_up_when_one_call_fails(mo
     assert script.fetch_commit_authors([7, 9]) is None
     monkeypatch.setattr(script.shutil, "which", lambda name: None)
     assert script.fetch_commit_authors([7]) is None
+
+
+def test_the_script_is_split_into_modules_that_stay_small_and_the_old_names_still_work():
+    # #1319: parsing/checks, rewriting and the GitHub calls live in their own modules; the names used to live here
+    from pathlib import Path
+    folder = Path(script.__file__).parent
+    for name in ("check_contributors", "contributors_entries", "contributors_write", "contributors_github"):
+        lines = len((folder / f"{name}.py").read_text(encoding="utf-8").splitlines())
+        assert lines < 330, f"{name}.py has {lines} lines"
+    for name in ("parse", "check", "pending", "fix_document", "stub_entry", "add_stub", "summary_line", "move_snapshot",
+                 "fetch_prs", "fetch_commit_data", "fetch_commit_authors", "git_authors", "snapshot_time", "area_table_problems",
+                 "todo_problems", "commit_problems", "unmapped_authors", "identity_map", "merged_by_author"):
+        assert callable(getattr(script, name)), name
+
+
+def test_the_checks_in_the_entries_module_take_the_exception_lists_as_arguments():
+    entries_module = importlib.import_module("scripts.contributors_entries")
+    entries, _ = script.parse(DOC)
+    problems, skipped = entries_module.commit_problems(entries, {"alice": 5}, {}, {"bob": "unlinked", "carol": "unlinked"})
+    assert any("bob: commit count not compared (unlinked)" in note for note in skipped) and problems == []
+    assert entries_module.unmapped_authors(IDENTITY_DOC, [("Stranger", "s@x", 1)], {"stranger": "why"}) == []
+    assert len(entries_module.unmapped_authors(IDENTITY_DOC, [("Stranger", "s@x", 1)], {})) == 1

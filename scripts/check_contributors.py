@@ -40,25 +40,42 @@ that an error. `--fix` requires GitHub data or `--prs FILE` and preserves entry 
 from __future__ import annotations
 
 import argparse
-import concurrent.futures
 import json
-import re
-import shutil
-import subprocess
+import shutil  # noqa: F401 - tests patch shutil.which through this module
+import subprocess  # noqa: F401 - tests patch subprocess.run through this module
 import sys
 from pathlib import Path
 
+# The parsing and checks, the text rewriting and the GitHub calls live in the three modules below (#1319); the names are
+# imported here so `scripts.check_contributors.<name>` keeps working, and the wiring that tests patch (the exception
+# dictionaries, the fetchers, the commit-data cache and the run_* functions) stays in this file.
 if __package__:                         # imported as scripts.<name> (tests, python -m) or run as a script (scripts/ is sys.path[0])
-    from .ghcall import run_gh
+    from .contributors_entries import (  # noqa: F401
+        ENTRY, HANDLE, IDENTITY_ROW, MAINTAINER, SECTIONS, SNAPSHOT, area_table_problems, check, identity_map,
+        merged_by_author, parse, pending, todo_problems)
+    from .contributors_entries import commit_problems as _commit_problems
+    from .contributors_entries import unmapped_authors as _unmapped_authors
+    from .contributors_github import (  # noqa: F401
+        TRAILER, fetch_commit_authors, fetch_commit_data, fetch_prs, git_authors, snapshot_time)
+    from .contributors_write import (  # noqa: F401
+        DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, fix_document, move_snapshot, stub_entry, summary_line)
 else:
     import os as _os
     import sys as _sys
     _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
-    from ghcall import run_gh
+    from contributors_entries import (  # noqa: F401
+        ENTRY, HANDLE, IDENTITY_ROW, MAINTAINER, SECTIONS, SNAPSHOT, area_table_problems, check, identity_map,
+        merged_by_author, parse, pending, todo_problems)
+    from contributors_entries import commit_problems as _commit_problems
+    from contributors_entries import unmapped_authors as _unmapped_authors
+    from contributors_github import (  # noqa: F401
+        TRAILER, fetch_commit_authors, fetch_commit_data, fetch_prs, git_authors, snapshot_time)
+    from contributors_write import (  # noqa: F401
+        DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, fix_document, move_snapshot, stub_entry, summary_line)
 
 ROOT = Path(__file__).resolve().parent.parent
-MAINTAINER = "yakew7"
-SECTIONS = ("Core contributors", "Contributors")
+
+
 EXCEPTIONS_FILE = ROOT / "scripts" / "contributors-exceptions.json"
 
 
@@ -86,163 +103,17 @@ def load_exceptions(path: Path = EXCEPTIONS_FILE) -> tuple[dict[str, str], dict[
 
 COMMIT_EXCEPTIONS, UNLISTED_AUTHORS = load_exceptions()
 
-ENTRY = re.compile(
-    r"^### (?P<header>.+)\n\n\*\*(?P<merged>\d+) merged PRs? · (?P<commits>\d+) commits? · "
-    r"first merged (?P<first>\d{4}-\d{2}-\d{2})\*\*",
-    re.MULTILINE,
-)
-SNAPSHOT = re.compile(r"covering everything merged through \*\*PR #(\d+)\*\*")
-HANDLE = re.compile(r"\[@([^\]]+)\]\(https://github\.com/[^)]+\)|`([^`]+)`")
-
-
-def parse(text: str) -> tuple[list[dict], int | None]:
-    """([entry, ...], snapshot PR number). An entry has section, handle, merged, commits, first, deleted."""
-    snapshot = SNAPSHOT.search(text)
-    sections = [(m.start(), m.group(1)) for m in re.finditer(r"^## (.+)$", text, re.MULTILINE)]
-    entries = []
-    for match in ENTRY.finditer(text):
-        section = next((name for start, name in reversed(sections) if start < match.start()), "")
-        if section not in SECTIONS:
-            continue
-        header = match.group("header")
-        handle = HANDLE.search(header)
-        entries.append({
-            "section": section,
-            "handle": (handle.group(1) or handle.group(2)) if handle else header,
-            "merged": int(match.group("merged")),
-            "commits": int(match.group("commits")),
-            "first": match.group("first"),
-            "deleted": "account deleted" in header,
-        })
-    return entries, int(snapshot.group(1)) if snapshot else None
-
-
-def merged_by_author(prs: list[dict], through: int | None) -> dict[str, dict]:
-    """{login: {"count": N, "first": earliest merge date}} for the human authors of merged PRs up to `through`."""
-    authors: dict[str, dict] = {}
-    for pr in prs:
-        login = (pr.get("author") or {}).get("login") or ""
-        if (pr.get("author") or {}).get("is_bot") or login.startswith("app/") or login == "":
-            continue
-        if through is not None and pr["number"] > through:
-            continue
-        info = authors.setdefault(login, {"count": 0, "first": "9999-99-99"})
-        info["count"] += 1
-        info["first"] = min(info["first"], (pr.get("mergedAt") or "")[:10] or info["first"])
-    return authors
-
-
-def check(entries: list[dict], prs: list[dict], through: int | None) -> tuple[list[str], list[str]]:
-    """(problems, skipped notes)."""
-    problems: list[str] = []
-    skipped: list[str] = []
-    authors = merged_by_author(prs, through)
-    listed = set()
-    for entry in entries:
-        handle = entry["handle"]
-        listed.add(handle.lower())
-        if entry["deleted"]:
-            skipped.append(f"{handle}: account deleted, counts not comparable")
-            continue
-        actual = authors.get(next((k for k in authors if k.lower() == handle.lower()), ""), None)
-        if actual is None:
-            problems.append(f"{handle}: listed with {entry['merged']} merged PRs but GitHub shows none")
-            continue
-        if actual["count"] != entry["merged"]:
-            problems.append(f"{handle}: file says {entry['merged']} merged PRs, GitHub says {actual['count']}")
-        if actual["first"] != entry["first"]:
-            problems.append(f"{handle}: file says first merged {entry['first']}, GitHub says {actual['first']}")
-    for login in sorted(authors, key=str.lower):
-        if login.lower() not in listed and login.lower() != MAINTAINER:
-            problems.append(f"{login}: {authors[login]['count']} merged PRs on GitHub but no entry in the file")
-    for section in SECTIONS:
-        rows = [e for e in entries if e["section"] == section]
-        want = sorted(rows, key=lambda e: (-e["merged"], -e["commits"], e["first"]))
-        for position, (have, expected) in enumerate(zip(rows, want), 1):
-            if have is not expected:
-                problems.append(f"{section}: entry {position} is {have['handle']} "
-                                f"({have['merged']} PRs, {have['commits']} commits, {have['first']}) "
-                                f"but the rule puts {expected['handle']} "
-                                f"({expected['merged']} PRs, {expected['commits']} commits, {expected['first']}) there")
-                break
-    return problems, skipped
-
-
-def area_table_problems(text: str, entries: list[dict]) -> list[str]:
-    """Entries whose handle is in no row of the "Contributions by area" table (#1259); empty when the table is absent."""
-    start = text.find("## Contributions by area")
-    if start == -1:
-        return []
-    end = text.find("\n## ", start + 5)
-    table = text[start:end if end != -1 else len(text)].lower()
-    return [f"{e['handle']}: has an entry but is in no row of the Contributions by area table"
-            for e in entries if not e["deleted"] and f"@{e['handle'].lower()}]" not in table]
-
-
-def todo_problems(text: str) -> list[str]:
-    """Entries that still contain the `TODO:` sentence `--stub` writes (#1285), so a placeholder cannot reach the published
-    page. An entry is the text from its header to the next entry or section."""
-    starts = [m.start() for m in ENTRY.finditer(text)]
-    heads = [m.start() for m in re.finditer(r"^## ", text, re.MULTILINE)]
-    problems = []
-    for match in ENTRY.finditer(text):
-        end = min([p for p in starts + heads if p > match.start()] or [len(text)])
-        if "TODO:" in text[match.start():end]:
-            handle = HANDLE.search(match.group("header"))
-            name = (handle.group(1) or handle.group(2)) if handle else match.group("header")
-            problems.append(f"{name}: the entry still has a TODO placeholder sentence (written by --stub); describe their work")
-    return problems
-
 
 def commit_problems(entries: list[dict], live: dict[str, int], after: dict[str, int]) -> tuple[list[str], list[str]]:
-    """(problems, skipped notes): each entry's commit count against live contributors count minus commits after the snapshot."""
-    live = {login.lower(): n for login, n in live.items()}
-    after = {login.lower(): n for login, n in after.items()}
-    problems, skipped = [], []
-    for entry in entries:
-        handle = entry["handle"].lower()
-        if entry["deleted"]:
-            continue
-        if handle not in live:
-            if handle in COMMIT_EXCEPTIONS:
-                skipped.append(f"{entry['handle']}: commit count not compared ({COMMIT_EXCEPTIONS[handle]})")
-            else:
-                problems.append(f"{entry['handle']}: not in the contributors API and not in COMMIT_EXCEPTIONS, "
-                                f"so its {entry['commits']} commit(s) cannot be checked")
-            continue
-        expected = live[handle] - after.get(handle, 0)
-        if expected != entry["commits"]:
-            problems.append(f"{entry['handle']}: file says {entry['commits']} commits, GitHub says {expected} at the snapshot "
-                            f"({live[handle]} now, {after.get(handle, 0)} since)")
-    return problems, skipped
+    """Each entry's commit count against the live contributors count minus commits after the snapshot, excusing the
+    people in COMMIT_EXCEPTIONS (see contributors_entries.commit_problems)."""
+    return _commit_problems(entries, live, after, COMMIT_EXCEPTIONS)
 
 
-def fetch_commit_data(entries: list[dict], since: str, repo: str = "yakew7/Fair-Code") -> dict | None:
-    """{"live": {login: commits}, "after_snapshot": {login: commits since `since`}} from gh api, or None on failure."""
-    if shutil.which("gh") is None:
-        return None
-
-    def api(*args: str):
-        done = run_gh(["gh", "api", *args])
-        return json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else None
-
-    people = api("--paginate", "--slurp", f"repos/{repo}/contributors?per_page=100")
-    if people is None:
-        return None
-    live = {p["login"]: p["contributions"] for page in people for p in page if p.get("type") != "Bot"}
-    logins = [e["handle"] for e in entries if not e["deleted"] and e["handle"].lower() in {k.lower() for k in live}]
-
-    def since_count(login: str) -> int | None:
-        done = run_gh(["gh", "api", "--paginate", f"repos/{repo}/commits?author={login}&since={since}&per_page=100",
-                       "--jq", ".[].sha"])
-        return len(done.stdout.split()) if done.returncode == 0 else None
-
-    with concurrent.futures.ThreadPoolExecutor(8) as pool:
-        counts = list(pool.map(since_count, logins))
-    if any(count is None for count in counts):
-        return None
-    after = dict(zip(logins, counts))
-    return {"live": live, "after_snapshot": after}
+def unmapped_authors(text: str, authors: list[tuple[str, str, int]]) -> list[str]:
+    """The git authors that map to no entry or identity row, skipping UNLISTED_AUTHORS (see
+    contributors_entries.unmapped_authors)."""
+    return _unmapped_authors(text, authors, UNLISTED_AUTHORS)
 
 
 _COMMIT_DATA: dict[str, dict] = {}
@@ -259,258 +130,6 @@ def get_commit_data(args, entries: list[dict], since: str) -> dict | None:
         if getattr(args, "save_commits", None):
             Path(args.save_commits).write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return _COMMIT_DATA[since]
-
-
-def fetch_commit_authors(numbers: list[int], repo: str = "yakew7/Fair-Code") -> dict[int, list[str]] | None:
-    """{PR number: logins of the authors of its commits} from gh, or None when any call fails (#1316)."""
-    if shutil.which("gh") is None:
-        return None
-
-    def one(number: int) -> list[str] | None:
-        done = run_gh(["gh", "pr", "view", str(number), "--repo", repo, "--json", "commits",
-                       "--jq", "[.commits[].authors[].login] | unique"])
-        try:
-            return json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else None
-        except json.JSONDecodeError:
-            return None
-
-    with concurrent.futures.ThreadPoolExecutor(8) as pool:
-        found = list(pool.map(one, numbers))
-    return None if any(authors is None for authors in found) else dict(zip(numbers, found))
-
-
-def snapshot_time(prs: list[dict], through: int | None) -> str | None:
-    """One second after the snapshot PR was merged, so its own merge commit is not counted as 'after'."""
-    from datetime import datetime, timedelta, timezone
-    merged = next((pr.get("mergedAt") for pr in prs if pr["number"] == through), None)
-    if not merged:
-        return None
-    moment = datetime.strptime(merged, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc) + timedelta(seconds=1)
-    return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def pending(entries: list[dict], prs: list[dict], through: int | None) -> list[str]:
-    """One line per human author with merged PRs after the snapshot PR: who has no entry yet and whose count has grown."""
-    listed = {e["handle"].lower() for e in entries}
-    later: dict[str, list[int]] = {}
-    titles = {pr["number"]: pr.get("title") for pr in prs}
-    commit_authors = {pr["number"]: pr.get("commit_authors") or [] for pr in prs}
-    for pr in prs:
-        author = pr.get("author") or {}
-        login = author.get("login") or ""
-        if author.get("is_bot") or login.startswith("app/") or not login or login.lower() == MAINTAINER:
-            continue
-        if through is not None and pr["number"] > through:
-            later.setdefault(login, []).append(pr["number"])
-    lines = []
-    for login in sorted(later, key=str.lower):
-        numbers = ", ".join(f"#{n}" for n in sorted(later[login]))
-        lines.append(f"{login}: {len(later[login])} merged PR(s) after the snapshot ({numbers}); "
-                     + ("count to update" if login.lower() in listed else "no entry yet"))
-        # one indented line per PR with its title, so the entry can be written without looking each one up (#1258)
-        lines += [f"    #{n} {titles[n]}" for n in sorted(later[login]) if titles.get(n)]
-        # a commit authored by someone other than the PR author: that person is credited by GitHub, not this account (#1316)
-        for n in sorted(later[login]):
-            for other in sorted(commit_authors.get(n, []), key=str.lower):
-                if other.lower() != login.lower() and other.lower() != MAINTAINER:
-                    state = ("has an entry" if other.lower() in listed
-                             else "has no entry: give them one, or add them to unlisted_authors in "
-                                  "scripts/contributors-exceptions.json")
-                    lines.append(f"    #{n} has a commit authored by {other}, not by {login}; {other} {state}")
-    return lines
-
-
-SNAPSHOT_LINE = re.compile(r"\*\*Snapshot:\*\* \d{4}-\d{2}-\d{2}, covering everything merged through \*\*PR #\d+\*\*")
-
-
-def move_snapshot(text: str, prs: list[dict], new_through: int) -> str:
-    """Point the snapshot line at PR `new_through` and the day it was merged (#1235)."""
-    merged = next((pr.get("mergedAt") for pr in prs if pr["number"] == new_through), None)
-    if not merged:
-        raise ValueError(f"PR #{new_through} is not in the merged pull request data")
-    line = f"**Snapshot:** {merged[:10]}, covering everything merged through **PR #{new_through}**"
-    text, count = SNAPSHOT_LINE.subn(line, text, count=1)
-    if count != 1:
-        raise ValueError("could not find the '**Snapshot:** DATE, covering everything merged through **PR #N**' line")
-    return text
-
-
-TRAILER = re.compile(r"^(?P<name>.+?)\s*<(?P<email>[^<>]+)>\s*$")
-IDENTITY_ROW = re.compile(r"^\| \[@([^\]]+)\]\([^)]*\) \| (.+) \|$", re.MULTILINE)
-
-
-def identity_map(text: str) -> dict[str, set[str]]:
-    """{lower-case handle: {lower-case git author names}} from the Git identity map table."""
-    return {m.group(1).lower(): {n.lower() for n in re.findall(r"`([^`]+)`", m.group(2))}
-            for m in IDENTITY_ROW.finditer(text)}
-
-
-def unmapped_authors(text: str, authors: list[tuple[str, str, int]]) -> list[str]:
-    """Lines for the git authors (name, email, commits) that map to no entry: not in the identity map, not a handle,
-    not a noreply address of a handle, not a bot and not in UNLISTED_AUTHORS (#1236)."""
-    entries, _ = parse(text)
-    handles = {e["handle"].lower() for e in entries} | {MAINTAINER}
-    names = {name for row in identity_map(text).values() for name in row}
-    lines = []
-    for name, email, count in authors:
-        low, mail = name.lower(), email.lower()
-        if ("[bot]" in low or "[bot]" in mail or mail == "noreply@github.com" or low in UNLISTED_AUTHORS
-                or mail.endswith("@anthropic.com") or low.startswith("copilot")):
-            continue
-        local = mail.split("@")[0].split("+")[-1] if mail.endswith("@users.noreply.github.com") else None
-        if low in names or low in handles or (local and local in handles):
-            continue
-        lines.append(f"{name} <{email}>: {count} commit(s) map to no entry or Git identity map row")
-    return lines
-
-
-def git_authors(runner=None) -> list[tuple[str, str, int]]:
-    """Distinct (name, email, commits) over the whole history: every commit's author, plus each `Co-authored-by:` trailer
-    (#1269), so a person credited only through a trailer is checked like an author."""
-    run = runner or subprocess.run
-    counts: dict[tuple[str, str], int] = {}
-    done = run(["git", "log", "--format=%an|%ae"], cwd=ROOT, capture_output=True, text=True)
-    for line in done.stdout.splitlines():
-        name, _, email = line.partition("|")
-        counts[(name, email)] = counts.get((name, email), 0) + 1
-    trailers = run(["git", "log", "--format=%(trailers:key=Co-authored-by,valueonly)"], cwd=ROOT, capture_output=True, text=True)
-    for line in trailers.stdout.splitlines():
-        found = TRAILER.match(line.strip())
-        if found:
-            key = (found.group("name"), found.group("email"))
-            counts[key] = counts.get(key, 0) + 1
-    return sorted(((n, e, c) for (n, e), c in counts.items()), key=lambda item: (-item[2], item[0]))
-
-
-def fix_document(text: str, prs: list[dict], through: int | None, commits: dict[str, int] | None = None) -> str:
-    """Refresh known PR counts/dates (and, given `commits` {login: count at the snapshot}, commit counts) and order
-    entries without editing their prose."""
-    entries, _ = parse(text)
-    commits = {login.lower(): n for login, n in (commits or {}).items()}
-    authors = merged_by_author(prs, through)
-    by_login = {login.lower(): info for login, info in authors.items()}
-    refreshed_entries = []
-    for entry in entries:
-        refreshed = dict(entry)
-        actual = by_login.get(entry["handle"].lower())
-        if actual is not None and not entry["deleted"]:
-            refreshed["merged"] = actual["count"]
-            refreshed["first"] = actual["first"]
-        if entry["handle"].lower() in commits and not entry["deleted"]:
-            refreshed["commits"] = commits[entry["handle"].lower()]
-        refreshed_entries.append(refreshed)
-
-    section_heads = [(m.start(), m.group(1)) for m in re.finditer(r"^## (.+)$", text, re.MULTILINE)]
-    entry_matches = list(ENTRY.finditer(text))
-    replacements = []
-    stats_pattern = re.compile(r"\*\*\d+ merged PRs? · \d+ commits? · first merged \d{4}-\d{2}-\d{2}\*\*")
-    for section_index, (section_start, section) in enumerate(section_heads):
-        if section not in SECTIONS:
-            continue
-        section_end = section_heads[section_index + 1][0] if section_index + 1 < len(section_heads) else len(text)
-        matches = [m for m in entry_matches if section_start < m.start() < section_end]
-        if not matches:
-            continue
-        start = matches[0].start()
-        section_entries = [entry for entry in refreshed_entries if entry["section"] == section]
-        blocks = []
-        for index, match in enumerate(matches):
-            end = matches[index + 1].start() if index + 1 < len(matches) else section_end
-            block = text[match.start():end]
-            entry = section_entries[index]
-            stats = (f"**{entry['merged']} merged PR{'s' if entry['merged'] != 1 else ''} · "
-                     f"{entry['commits']} commit{'s' if entry['commits'] != 1 else ''} · "
-                     f"first merged {entry['first']}**")
-            block, count = stats_pattern.subn(stats, block, count=1)
-            if count != 1:
-                raise ValueError(f"could not locate statistics line for {entry['handle']}")
-            blocks.append((entry, block))
-        # the section's closing `---` rule (and whatever follows it) belongs to the section, not to the entry that happens
-        # to be last: split it off before sorting so it stays at the end instead of travelling with that entry
-        last_entry, last_block = blocks[-1]
-        rule = re.search(r"^---[ \t]*$", last_block, re.MULTILINE)
-        tail = ""
-        if rule:
-            tail = last_block[rule.start():]
-            blocks[-1] = (last_entry, last_block[:rule.start()])
-        blocks.sort(key=lambda item: (-item[0]["merged"], -item[0]["commits"], item[0]["first"]))
-        replacements.append((start, section_end, "".join(block for _, block in blocks) + tail))
-
-    for start, end, replacement in reversed(replacements):
-        text = text[:start] + replacement + text[end:]
-    return text
-
-
-def fetch_prs() -> list[dict] | None:
-    if shutil.which("gh") is None:
-        return None
-    done = run_gh(["gh", "pr", "list", "--state", "merged", "--limit", "5000",
-                   "--json", "number,author,mergedAt,title,body"])
-    return json.loads(done.stdout) if done.returncode == 0 else None
-
-
-DEFAULT_AREA = "Contributor tooling & docs"
-
-
-# "## Summary", "**Summary**" or a bare "Summary" line (the form the last pull requests used)
-SUMMARY_HEADING = re.compile(r"^[ \t]*(?:(?:#{1,6}[ \t]*|\*\*)Summary\b[^\n]*|Summary:?)[ \t]*$", re.IGNORECASE | re.MULTILINE)
-
-
-def summary_line(body: str | None) -> str | None:
-    """The first line or bullet under a `Summary` heading of a pull request body, without the bullet mark (#1307); None when
-    the body has no Summary section or a heading follows it before any text."""
-    found = SUMMARY_HEADING.search(body or "")
-    if not found:
-        return None
-    for line in (body or "")[found.end():].splitlines():
-        line = line.strip()
-        if line.startswith("#"):
-            return None
-        text = re.sub(r"^(?:[-*+]|\d+\.)\s+", "", line).strip()
-        if text:
-            return text
-    return None
-
-
-def stub_entry(login: str, prs: list[dict]) -> str:
-    """A starting entry for `login`: header, stats line from their merged PRs (the commit count is a placeholder that
-    `--fix --commits` replaces) and their PR numbers and titles as links, with a TODO sentence for the prose (#1249)."""
-    mine = sorted((pr for pr in prs if ((pr.get("author") or {}).get("login") or "").lower() == login.lower()),
-                  key=lambda pr: pr["number"])
-    if not mine:
-        raise ValueError(f"{login} has no merged pull requests in the data")
-    first = min((pr.get("mergedAt") or "")[:10] for pr in mine)
-    count = len(mine)
-    def link(pr: dict) -> str:
-        text = f"[#{pr['number']}](https://github.com/yakew7/Fair-Code/pull/{pr['number']})"
-        text += f" {pr['title']}" if pr.get("title") else ""
-        summary = summary_line(pr.get("body"))
-        return text + (f" ({summary})" if summary and summary.rstrip(".").lower() != (pr.get("title") or "").rstrip(".").lower() else "")
-
-    links = "; ".join(link(pr) for pr in mine)
-    return (f"### [@{login}](https://github.com/{login})\n\n"
-            f"**{count} merged PR{'s' if count != 1 else ''} · {count} commit{'s' if count != 1 else ''} · first merged {first}**\n\n"
-            f"TODO: describe the work in a sentence or two. Merged: {links}.\n\n")
-
-
-def add_stub(text: str, login: str, prs: list[dict], area: str = DEFAULT_AREA) -> str:
-    """Move the snapshot to the newest merged PR, insert a stub entry for `login` and list them in the `area` row of the
-    Contributions by area table; the caller then sorts and refreshes the counts with `fix_document`."""
-    entries, _ = parse(text)
-    if login.lower() in {e["handle"].lower() for e in entries}:
-        raise ValueError(f"{login} already has an entry")
-    stub = stub_entry(login, prs)
-    text = move_snapshot(text, prs, max(pr["number"] for pr in prs))
-    at = text.find("## Contributions by area")
-    if at == -1:
-        raise ValueError("no 'Contributions by area' section to insert before")
-    rule = text.rfind("\n---\n", 0, at)
-    cut = rule + 1 if rule != -1 else at
-    text = text[:cut] + stub + text[cut:]
-    row = re.search(r"^\| \*\*" + re.escape(area) + r"\*\* \|.*\|$", text, re.MULTILINE)
-    if row:
-        text = text.replace(row.group(0), row.group(0)[:-1].rstrip() + f", [@{login}](https://github.com/{login}) |", 1)
-    return text
 
 
 def run_stub(args, text: str, prs: list[dict]) -> int:
