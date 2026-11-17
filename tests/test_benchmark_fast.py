@@ -18,7 +18,7 @@ from sklearn.linear_model import LogisticRegression  # noqa: E402
 from faircode import benchmark, strategies  # noqa: E402
 from faircode.manifest import load_manifest  # noqa: E402
 
-LR_ONLY = {"logistic_regression": lambda random_state: LogisticRegression(max_iter=200, random_state=random_state)}
+LR_ONLY = {"logistic_regression": lambda random_state: LogisticRegression(max_iter=5000, random_state=random_state)}
 
 
 def _toy_frame(n=240, seed=3):
