@@ -10,6 +10,14 @@ on:
   schedule:
     - cron: "11 6 * * 1"      # Mondays, 06:11 UTC
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:        # a push that updates the records closes the report issue at once instead of on the next Monday (#1317)
+      - "CONTRIBUTORS.md"
+      - "METRICS.md"
+      - "README.md"
+      - "ROADMAP.md"
+      - "scripts/contributors-exceptions.json"
 
 permissions:
   contents: read

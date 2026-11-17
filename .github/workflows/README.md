@@ -14,12 +14,12 @@ or conditional; their presence alone does not make them merge requirements.
 | [CODEOWNERS Access](codeowners-access.yml) | Changes to `.github/CODEOWNERS`; weekly schedule; manual dispatch | Informational | `actions/github-script` checks declared owners' access |
 | [CodeQL](codeql.yml) | Push or pull request to `main`; weekly schedule | Informational | GitHub CodeQL actions |
 | [External links](external-links.yml) | Weekly schedule; manual dispatch | Informational | `scripts/check_external_links.py` |
-| [Contributors vs merged pull requests](contributors-drift.yml) | Weekly schedule; manual dispatch | Informational | `scripts/check_contributors.py --pending` |
+| [Contributors vs merged pull requests](contributors-drift.yml) | Weekly schedule; manual dispatch; push to `main` that changes the records | Informational | `scripts/check_contributors.py --pending` |
 | [Favicons](favicons.yml) | Changes to the logo or favicon generator | Informational | `scripts/generate_favicons.py` |
 | [First Interaction](first.interaction.yml) | New issue opened | Informational | `actions/github-script` sends the first-contributor greeting |
 | [lint](lint.yml) | Push; pull request | Informational | `make lint` and `scripts/check_issue_refs.py` |
 | [PR Review Ping](pr-review-ping.yml) | Pull request opened or reopened | Informational | `actions/github-script` notifies path owners |
-| [Traction vs GitHub](traction-live.yml) | Weekly schedule; manual dispatch | Informational | `scripts/check_traction.py --live` |
+| [Traction vs GitHub](traction-live.yml) | Weekly schedule; manual dispatch; push to `main` that changes the records | Informational | `scripts/check_traction.py --live` |
 | [Validate workflow YAML](validate-workflow.yml) | Push or pull request changing workflow files | Informational | PyYAML validates workflow YAML |
 
 The repository ruleset is the source of truth for required checks; update the
