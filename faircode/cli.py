@@ -938,7 +938,8 @@ def main(argv: list[str] | None = None) -> int:
         try:
             write_report(fairness_df, performance_df, args.out, make_plots=not args.no_plots,
                          provenance=collect_provenance(fairness_df["audit"].unique(), args.n_resamples, args.n_permutations,
-                                                       description="faircode benchmark"),
+                                                       description="faircode benchmark",
+                                                       timings=diagnostics),
                          merge=args.merge)
         except ValueError as exc:
             print(f"error: {exc}", file=sys.stderr)

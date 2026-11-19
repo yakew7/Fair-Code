@@ -1,9 +1,10 @@
-"""Convergence warnings of a benchmark run, counted per combination instead of printed (#1328).
+"""Per-combination timings and convergence warnings of a benchmark run (#1328, #1329).
 
 `run_audit(..., diagnostics=[])` records, for each strategy/model combination, the seconds the fit took and how many
 scikit-learn ConvergenceWarnings it raised; the CLI prints one summary line per audit and writes the seconds into the new run's
 PROVENANCE.json entry. None of it may change a result.
 """
+import json
 import warnings
 
 import pandas as pd
@@ -80,7 +81,29 @@ def test_convergence_summary_is_one_line_per_audit_naming_the_combinations():
         "see tests/test_benchmark_convergence.py"]
 
 
-def test_the_cli_prints_one_summary_line_instead_of_raw_warnings(tmp_path, monkeypatch, capsys):
+def test_timings_are_added_to_the_provenance_record_only_when_given():
+    assert "timings" not in benchmark.collect_provenance(["a"], 10, 10)
+    timings = [{"audit": "a", "strategy": "baseline", "model": "lr", "seconds": 1.5, "convergence_warnings": 3}]
+    record = benchmark.collect_provenance(["a"], 10, 10, timings=timings)
+    assert record["timings"] == [{"audit": "a", "strategy": "baseline", "model": "lr", "seconds": 1.5}]
+
+
+def test_a_result_set_with_timings_in_its_provenance_still_verifies_and_merges(tmp_path, monkeypatch):
+    _use(monkeypatch, LR_ONLY)
+    diagnostics = []
+    fairness, performance = benchmark.run_audit(_write_toy_audit(tmp_path), n_resamples=20, n_permutations=20, diagnostics=diagnostics)
+    fairness, performance = pd.DataFrame(fairness), pd.DataFrame(performance)
+    provenance = benchmark.collect_provenance(["toy"], 20, 20, timings=diagnostics)
+    out = tmp_path / "out"
+    benchmark.write_report(fairness, performance, out, make_plots=False, provenance=provenance)
+    record = json.loads((out / benchmark.PROVENANCE_FILE).read_text(encoding="utf-8"))
+    assert len(record["runs"][0]["timings"]) == len(benchmark.STRATEGIES) and "convergence_warnings" not in record["runs"][0]["timings"][0]
+    benchmark.write_report(fairness, performance, out, make_plots=False, provenance=provenance, merge=True)   # verifies the old record
+    merged = json.loads((out / benchmark.PROVENANCE_FILE).read_text(encoding="utf-8"))["runs"]
+    assert len(merged) == 2 and all("timings" in run for run in merged)                # a merge appends the new run's entry
+
+
+def test_the_cli_prints_the_summary_and_records_the_timings(tmp_path, monkeypatch, capsys):
     _use(monkeypatch, STOPS_EARLY)
     audit = tmp_path / "audit"
     audit.mkdir()
@@ -93,3 +116,6 @@ def test_the_cli_prints_one_summary_line_instead_of_raw_warnings(tmp_path, monke
     err = capsys.readouterr().err
     assert "warning: toy: 5 of 5 combinations had a fit stop at max_iter" in err
     assert "lbfgs failed to converge" not in err and "STOP: TOTAL NO. OF ITERATIONS" not in err
+    runs = json.loads((out / benchmark.PROVENANCE_FILE).read_text(encoding="utf-8"))["runs"]
+    assert [(t["strategy"], t["model"]) for t in runs[0]["timings"]] == [(s, "logistic_regression") for s in benchmark.STRATEGIES]
+    assert all(t["seconds"] >= 0 for t in runs[0]["timings"])

@@ -414,9 +414,11 @@ def _sha256(path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def collect_provenance(audits, n_resamples, n_permutations, description="full run") -> dict:
+def collect_provenance(audits, n_resamples, n_permutations, description="full run", timings=None) -> dict:
     """What produced a set of result files (#1129): the commit and whether the tree was dirty, the Python and library
-    versions, the hash of requirements-lock.txt, the resample and permutation counts and the audits included."""
+    versions, the hash of requirements-lock.txt, the resample and permutation counts and the audits included. `timings` (the
+    seconds each strategy/model combination took, from run_audit's diagnostics) is added as a `timings` list when given (#1329);
+    it is additive, so older records and the consistency checks are unaffected."""
     repo = Path(__file__).resolve().parent.parent
 
     def git(*args):
@@ -433,7 +435,7 @@ def collect_provenance(audits, n_resamples, n_permutations, description="full ru
             versions[name] = None
     lock = repo / "requirements-lock.txt"
     status = git("status", "--porcelain", "--untracked-files=no")
-    return {
+    record = {
         "description": description,
         "commit": git("rev-parse", "HEAD"),
         "dirty": None if status is None else bool(status),
@@ -444,6 +446,10 @@ def collect_provenance(audits, n_resamples, n_permutations, description="full ru
         "n_permutations": n_permutations,
         "audits": sorted(audits),
     }
+    if timings is not None:
+        record["timings"] = [{"audit": item["audit"], "strategy": item["strategy"], "model": item["model"],
+                              "seconds": item["seconds"]} for item in timings]
+    return record
 
 
 def write_provenance(out_dir, runs) -> Path:
