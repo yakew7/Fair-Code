@@ -49,18 +49,19 @@ def fetch_commit_data(entries: list[dict], since: str, repo: str = "yakew7/Fair-
     return {"live": live, "after_snapshot": after}
 
 
-PR_DETAIL_JQ = "{commit_authors: ([.commits[].authors[].login] | unique), closing_issues: [.closingIssuesReferences[].number]}"
+PR_DETAIL_JQ = ("{commit_authors: ([.commits[].authors[].login] | unique), closing_issues: [.closingIssuesReferences[].number], "
+                "files: [.files[].path]}")
 
 
 def fetch_pr_details(numbers: list[int], repo: str = "yakew7/Fair-Code") -> dict[int, dict] | None:
-    """{PR number: {"commit_authors": [logins], "closing_issues": [issue numbers]}} from ONE `gh pr view` call per pull request
-    (`--json commits,closingIssuesReferences`), or None when any call fails (#1332). Used by --pending (commit authors that
+    """{PR number: {"commit_authors": [logins], "closing_issues": [issue numbers], "files": [paths]}} from ONE `gh pr view` call per pull request
+    (`--json commits,closingIssuesReferences,files`), or None when any call fails (#1332). Used by --pending (commit authors that
     differ from the PR author) and --stub (the closing issue numbers), which used to make two calls per PR between them."""
     if shutil.which("gh") is None:
         return None
 
     def one(number: int) -> dict | None:
-        done = run_gh(["gh", "pr", "view", str(number), "--repo", repo, "--json", "commits,closingIssuesReferences",
+        done = run_gh(["gh", "pr", "view", str(number), "--repo", repo, "--json", "commits,closingIssuesReferences,files",
                        "--jq", PR_DETAIL_JQ])
         try:
             return json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else None

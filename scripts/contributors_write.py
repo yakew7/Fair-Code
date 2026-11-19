@@ -109,6 +109,53 @@ def summary_line(body: str | None) -> str | None:
     return None
 
 
+# (path prefix or suffix, Contributions by area row) in priority order: the first rule a path matches decides its area (#1333)
+AREA_RULES = [
+    ("assets/profiler-", "Profiler - web"), ("profiler.html", "Profiler - web"),
+    ("faircode/benchmark", "Benchmark harness & paper freeze"), ("faircode/strategies", "Benchmark harness & paper freeze"),
+    ("faircode/models", "Benchmark harness & paper freeze"), ("faircode/manifest", "Benchmark harness & paper freeze"),
+    ("paper/", "Benchmark harness & paper freeze"), ("results/", "Benchmark harness & paper freeze"),
+    (".github/", "CI & workflows"), ("tests/", "Tests"), ("explainers/", "Explainers"),
+    ("scripts/build_explainers", "Website & explainer build"), ("index.html", "Website & explainer build"),
+    ("assets/", "Website & explainer build"), ("faircode/", "Profiler - CLI & loaders"),
+    ("/unfair.py", "Audits"), ("/fair.py", "Audits"), ("/audit.yaml", "Audits"),
+    ("scripts/", "Contributor tooling & docs"), ("Makefile", "Contributor tooling & docs"),
+]
+
+
+def suggest_area(login: str, prs: list[dict], names: list[str]) -> tuple[str, int] | None:
+    """The Contributions by area row that holds most of the files `login`'s PRs changed, and how many files matched it, from the
+    `files` the PR data carries (#1333); None when the data has no files or nothing matches a row of the table. Ties go to the
+    row that comes first in AREA_RULES."""
+    counts: dict[str, int] = {}
+    for pr in prs:
+        if ((pr.get("author") or {}).get("login") or "").lower() != login.lower():
+            continue
+        for path in pr.get("files") or []:
+            area = next((area for pattern, area in AREA_RULES if path.startswith(pattern) or path.endswith(pattern)), None)
+            if area and area in names:
+                counts[area] = counts.get(area, 0) + 1
+    if not counts:
+        return None
+    first_rule = {}
+    for index, (_, area) in enumerate(AREA_RULES):
+        first_rule.setdefault(area, index)
+    best = min(counts, key=lambda area: (-counts[area], first_rule[area]))
+    return best, counts[best]
+
+
+def choose_areas(logins: list[str], prs: list[dict], text: str, explicit: str | None) -> tuple[dict[str, str], list[str]]:
+    """{login: area row} for a stub run and the notes saying where a suggestion came from (#1333): `explicit` (--area) for
+    everyone, else the row holding most of each person's changed files, else DEFAULT_AREA."""
+    areas, notes = {}, []
+    for login in logins:
+        found = None if explicit is not None else suggest_area(login, prs, area_names(text))
+        areas[login] = explicit if explicit is not None else (found[0] if found else DEFAULT_AREA)
+        if found:
+            notes.append(f"{login}: {found[0]} ({found[1]} changed file(s))")
+    return areas, notes
+
+
 def foreign_commit_authors(login: str, prs: list[dict]) -> dict[int, list[str]]:
     """{PR number: logins other than `login` (and the maintainer) that authored a commit of one of `login`'s PRs}, from the
     `commit_authors` the PR data carries (#1326); empty when the data has none."""

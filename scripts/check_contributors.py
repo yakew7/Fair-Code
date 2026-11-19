@@ -59,8 +59,9 @@ if __package__:                         # imported as scripts.<name> (tests, pyt
     from .contributors_github import (  # noqa: F401
         TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, snapshot_time)
     from .contributors_write import (  # noqa: F401
-        DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, exception_suggestions, fix_document, foreign_commit_authors,
+        DEFAULT_AREA, choose_areas, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, exception_suggestions, fix_document, foreign_commit_authors,
         move_snapshot, stub_entry,
+        suggest_area,
         summary_line)
 else:
     import os as _os
@@ -74,8 +75,9 @@ else:
     from contributors_github import (  # noqa: F401
         TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, snapshot_time)
     from contributors_write import (  # noqa: F401
-        DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, exception_suggestions, fix_document, foreign_commit_authors,
+        DEFAULT_AREA, choose_areas, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, exception_suggestions, fix_document, foreign_commit_authors,
         move_snapshot, stub_entry,
+        suggest_area,
         summary_line)
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -148,9 +150,10 @@ def run_stub(args, text: str, prs: list[dict], fetch_details=None) -> int:
     if wanted and fetch_details is not None:
         add_details(prs, fetch_details(wanted))
     stubbed = text
+    areas, areas_chosen = choose_areas(logins, prs, text, args.area)
     try:
         for login in logins:
-            stubbed = add_stub(stubbed, login, prs, area=args.area)
+            stubbed = add_stub(stubbed, login, prs, area=areas[login])
     except ValueError as error:
         print(f"error: {error}")
         return 1
@@ -176,6 +179,8 @@ def run_stub(args, text: str, prs: list[dict], fetch_details=None) -> int:
     args.file.write_text(fix_document(stubbed, prs, newest, commit_counts), encoding="utf-8")
     print(f"added {'a stub entry' if len(logins) == 1 else 'stub entries'} for {', '.join(logins)} and moved the snapshot to "
           f"PR #{newest}; replace the TODO sentence{'s' if len(logins) > 1 else ''}; {note}")
+    if areas_chosen:
+        print("area chosen from the changed files (use --area NAME to override): " + "; ".join(areas_chosen))
     suggestions = exception_suggestions(parse(stubbed)[0], prs, logins)
     if suggestions:
         print("a commit of these pull requests is authored by someone other than the PR author; add to "
@@ -278,8 +283,9 @@ def main(argv=None) -> int:
     parser.add_argument("--identities", action="store_true", help="check that every git commit author maps to an entry or an identity map row (needs the git history)")
     parser.add_argument("--pending", action="store_true", help="list authors who merged after the snapshot and exit 1 if there are any")
     parser.add_argument("--stub", metavar="LOGIN", nargs="+", help="add a starting entry for a new contributor (moves the snapshot, sorts, lists them in an area row)")
-    parser.add_argument("--area", default=DEFAULT_AREA, metavar="NAME",
-                        help=f"with --stub: the Contributions by area row to list the new people in (default: {DEFAULT_AREA!r})")
+    parser.add_argument("--area", default=None, metavar="NAME",
+                        help="with --stub: the Contributions by area row to list the new people in (default: the row that holds "
+                             f"most of the files their PRs changed, else {DEFAULT_AREA!r})")
     parser.add_argument("--fix", action="store_true", help="rewrite known PR counts/dates and sort contributor entries")
     args = parser.parse_args(argv)
 

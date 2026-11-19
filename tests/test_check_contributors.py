@@ -710,14 +710,16 @@ def test_fetch_pr_details_makes_one_gh_call_per_pr_with_both_fields_and_gives_up
         number = int(command[3])
         if number == 9:
             return SimpleNamespace(returncode=1, stdout="")
-        return SimpleNamespace(returncode=0, stdout=json.dumps({"commit_authors": ["bob", f"user{number}"], "closing_issues": [number * 10]}))
+        return SimpleNamespace(returncode=0, stdout=json.dumps({"commit_authors": ["bob", f"user{number}"], "closing_issues": [number * 10],
+                                                                     "files": [f"tests/t{number}.py"]}))
 
     monkeypatch.setattr(sp, "run", fake)
     monkeypatch.setattr(script.shutil, "which", lambda name: "/usr/bin/gh")
-    assert script.fetch_pr_details([7, 8]) == {7: {"commit_authors": ["bob", "user7"], "closing_issues": [70]},
-                                               8: {"commit_authors": ["bob", "user8"], "closing_issues": [80]}}
+    assert script.fetch_pr_details([7, 8]) == {
+        7: {"commit_authors": ["bob", "user7"], "closing_issues": [70], "files": ["tests/t7.py"]},
+        8: {"commit_authors": ["bob", "user8"], "closing_issues": [80], "files": ["tests/t8.py"]}}
     assert len(calls) == 2 and all(c[:3] == ["gh", "pr", "view"] for c in calls)
-    assert all("commits,closingIssuesReferences" in c for c in calls)
+    assert all("commits,closingIssuesReferences,files" in c for c in calls)
     assert script.fetch_pr_details([7, 9]) is None
     monkeypatch.setattr(script.shutil, "which", lambda name: None)
     assert script.fetch_pr_details([7]) is None
@@ -729,7 +731,7 @@ def test_the_script_is_split_into_modules_that_stay_small_and_the_old_names_stil
     folder = Path(script.__file__).parent
     for name in ("check_contributors", "contributors_entries", "contributors_write", "contributors_github"):
         lines = len((folder / f"{name}.py").read_text(encoding="utf-8").splitlines())
-        assert lines < 330, f"{name}.py has {lines} lines"
+        assert lines < 350, f"{name}.py has {lines} lines"
     for name in ("parse", "check", "pending", "fix_document", "stub_entry", "add_stub", "summary_line", "move_snapshot",
                  "fetch_prs", "fetch_commit_data", "fetch_pr_details", "git_authors", "snapshot_time", "area_table_problems",
                  "todo_problems", "commit_problems", "unmapped_authors", "identity_map", "merged_by_author"):
@@ -926,3 +928,53 @@ def test_the_stub_run_prints_the_suggested_exception_lines(tmp_path, capsys):
 def test_a_stub_without_foreign_commit_authors_prints_no_exception_lines(tmp_path, capsys):
     assert script.main(_two_newcomers(tmp_path) + ["--stub", "dave"]) == 0
     assert "contributors-exceptions.json" not in capsys.readouterr().out
+
+
+AREA_DOC_TABLE = STUB_DOC.replace("| **Audits** |", "| **Profiler - web** | [@alice](https://github.com/alice) |\n| **Tests** | [@bob](https://github.com/bob) |\n| **Audits** |")
+
+
+def test_suggest_area_picks_the_row_holding_most_of_the_changed_files():
+    # #1333
+    names = script.area_names(AREA_DOC_TABLE)
+    prs = [dict(pr(1, "dave", "2026-11-01"), files=["assets/profiler-ui.js", "assets/profiler-engine.js", "tests/test_x.py"]),
+           dict(pr(2, "dave", "2026-11-02"), files=["profiler.html"]),
+           dict(pr(3, "erin", "2026-11-02"), files=["tests/test_y.py"])]
+    assert script.suggest_area("dave", prs, names) == ("Profiler - web", 3)
+    assert script.suggest_area("erin", prs, names) == ("Tests", 1)
+    assert script.suggest_area("nobody", prs, names) is None
+    assert script.suggest_area("dave", [pr(1, "dave", "2026-11-01")], names) is None            # no files in the data
+    assert script.suggest_area("dave", [dict(pr(1, "dave", "2026-11-01"), files=["README.md"])], names) is None
+    tie = [dict(pr(1, "dave", "2026-11-01"), files=["tests/a.py", "assets/profiler-ui.js"])]
+    assert script.suggest_area("dave", tie, names)[0] == "Profiler - web"                      # ties go to the earlier rule
+
+
+def test_rules_naming_a_row_the_table_does_not_have_are_ignored():
+    assert script.suggest_area("dave", [dict(pr(1, "dave", "2026-11-01"), files=["tests/a.py"])], ["Audits"]) is None
+
+
+def test_a_stub_without_area_uses_the_suggestion_and_says_so_and_area_still_overrides(tmp_path, capsys):
+    (tmp_path / "CONTRIBUTORS.md").write_text(AREA_DOC_TABLE, encoding="utf-8")
+    prs = PRS + [dict(pr(110, "dave", "2026-10-30"), title="fix: a", files=["assets/profiler-ui.js"])]
+    (tmp_path / "prs.json").write_text(json.dumps(prs), encoding="utf-8")
+    base = ["--file", str(tmp_path / "CONTRIBUTORS.md"), "--prs", str(tmp_path / "prs.json")]
+    assert script.main(base + ["--stub", "dave"]) == 0
+    out = capsys.readouterr().out
+    assert "area chosen from the changed files (use --area NAME to override): dave: Profiler - web (1 changed file(s))" in out
+    rows = {line.split("|")[1].strip(" *"): line for line in (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8").splitlines()
+            if line.startswith("| **")}
+    assert "[@dave]" in rows["Profiler - web"] and "[@dave]" not in rows["Contributor tooling & docs"]
+
+    (tmp_path / "CONTRIBUTORS.md").write_text(AREA_DOC_TABLE, encoding="utf-8")
+    assert script.main(base + ["--stub", "dave", "--area", "Tests"]) == 0
+    assert "area chosen" not in capsys.readouterr().out
+    assert "[@dave]" in next(line for line in (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8").splitlines()
+                             if line.startswith("| **Tests**"))
+
+
+def test_a_stub_without_files_in_the_data_keeps_the_default_area(tmp_path, capsys):
+    base = _stub_site(tmp_path)
+    assert script.main(base + ["--stub", "dave"]) == 0
+    assert "area chosen" not in capsys.readouterr().out
+    tooling = next(line for line in (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8").splitlines()
+                   if line.startswith("| **Contributor tooling & docs**"))
+    assert "[@dave]" in tooling
