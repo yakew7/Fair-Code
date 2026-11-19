@@ -11,6 +11,7 @@ count has its own checker, scripts/check_explainer_count.py.
 
     python3 scripts/check_traction.py
     python3 scripts/check_traction.py --live              # compare live figures, including Issues Closed for the latest ISO week
+    python3 scripts/check_traction.py --live --skip-figure issues_closed   # leave Issues Closed out (the push-triggered run)
     python3 scripts/check_traction.py --live-data FILE    # same, from saved GitHub figures including issues_closed
 
 Exit code: 0 = everything agrees, 1 = at least one disagreement or a figure that could not be found.
@@ -240,10 +241,14 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--live", action="store_true", help="also compare live figures, including Issues Closed for the latest METRICS week (needs gh)")
     parser.add_argument("--live-data", metavar="FILE", help="GitHub's figures, including issues_closed, as JSON instead of asking gh (implies --live)")
+    parser.add_argument("--skip-figure", action="append", default=[], choices=sorted(LIVE_FIGURES), metavar="NAME",
+                        help="leave a figure out of the live comparison (repeatable): issues_closed on a push run, where the "
+                             "issues the pushed commits close have not been closed yet")
     args = parser.parse_args(argv or [])
     problems = check()
     if args.live or args.live_data:
         observations, _, texts = collect()
+        observations = [o for o in observations if o[0] not in args.skip_figure]       # also skips the issue search (#1324)
         week_bounds = None
         week = latest_metrics_week(texts["METRICS.md"])
         if week is not None:

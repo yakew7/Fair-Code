@@ -334,3 +334,36 @@ def test_live_without_gh_is_an_error_not_a_pass(monkeypatch, capsys):
     monkeypatch.setattr(check, "fetch_live", lambda repo=check.REPO, week_bounds=None: None)
     assert check.main(["--live"]) == 2
     assert "could not fetch GitHub figures" in capsys.readouterr().err
+
+
+def test_skip_figure_leaves_issues_closed_out_of_the_live_comparison(tmp_path, monkeypatch, capsys):
+    # #1324: on a push the row counts issues the pushed commits close, which GitHub closes a moment later
+    import json
+    _site(tmp_path)
+    original_check, original_collect = check.check, check.collect
+    monkeypatch.setattr(check, "check", lambda root=tmp_path: original_check(root))
+    monkeypatch.setattr(check, "collect", lambda root=tmp_path: original_collect(root))
+    live = tmp_path / "live.json"
+
+    live.write_text(json.dumps({**LIVE, "issues_closed": 2}), encoding="utf-8")        # the row says 28, GitHub still says 2
+    assert check.main(["--live-data", str(live)]) == 1
+    assert "issues_closed" in capsys.readouterr().err
+    assert check.main(["--live-data", str(live), "--skip-figure", "issues_closed"]) == 0
+
+    live.write_text(json.dumps({**LIVE, "stars": 52}), encoding="utf-8")               # no issues_closed needed when skipped
+    assert check.main(["--live-data", str(live), "--skip-figure", "issues_closed"]) == 1
+    assert "stars: README.md (GitHub Stars) says 51, GitHub says 52" in capsys.readouterr().err
+
+
+def test_skip_figure_takes_only_known_figures(capsys):
+    import pytest
+    with pytest.raises(SystemExit):
+        check.main(["--skip-figure", "social"])
+    capsys.readouterr()
+
+
+def test_the_traction_workflow_skips_issues_closed_on_a_push_only():
+    from pathlib import Path
+    text = (Path(check.__file__).resolve().parent.parent / ".github" / "workflows" / "traction-live.yml").read_text(encoding="utf-8")
+    assert 'if [ "$GITHUB_EVENT_NAME" = "push" ]; then args="--live --skip-figure issues_closed"; fi' in text
+    assert 'args="--live"' in text and "check_traction.py $args" in text

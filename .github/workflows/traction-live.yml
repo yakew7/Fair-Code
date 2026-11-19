@@ -43,7 +43,11 @@ jobs:
       - name: Compare the figures with GitHub
         run: |
           set +e
-          python3 scripts/check_traction.py --live > "$RUNNER_TEMP/out.txt" 2> "$RUNNER_TEMP/err.txt"
+          # On a push the METRICS row already counts the issues the pushed commits close, and GitHub closes them a moment
+          # after the push, so the Issues Closed comparison would race: leave it to the schedule and manual runs (#1324).
+          args="--live"
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then args="--live --skip-figure issues_closed"; fi
+          python3 scripts/check_traction.py $args > "$RUNNER_TEMP/out.txt" 2> "$RUNNER_TEMP/err.txt"
           echo "$?" > "$RUNNER_TEMP/status"
           cat "$RUNNER_TEMP/out.txt" "$RUNNER_TEMP/err.txt"
           exit 0
