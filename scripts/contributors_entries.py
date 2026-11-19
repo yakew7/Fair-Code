@@ -155,6 +155,7 @@ def pending(entries: list[dict], prs: list[dict], through: int | None) -> list[s
     later: dict[str, list[int]] = {}
     titles = {pr["number"]: pr.get("title") for pr in prs}
     commit_authors = {pr["number"]: pr.get("commit_authors") or [] for pr in prs}
+    closing = {pr["number"]: pr.get("closing_issues") or [] for pr in prs}      # shown after each title (#1331)
     for pr in prs:
         author = pr.get("author") or {}
         login = author.get("login") or ""
@@ -168,7 +169,8 @@ def pending(entries: list[dict], prs: list[dict], through: int | None) -> list[s
         lines.append(f"{login}: {len(later[login])} merged PR(s) after the snapshot ({numbers}); "
                      + ("count to update" if login.lower() in listed else "no entry yet"))
         # one indented line per PR with its title, so the entry can be written without looking each one up (#1258)
-        lines += [f"    #{n} {titles[n]}" for n in sorted(later[login]) if titles.get(n)]
+        lines += [f"    #{n} {titles[n]}" + (f" (closes {', '.join('#' + str(i) for i in closing[n])})" if closing.get(n) else "")
+                  for n in sorted(later[login]) if titles.get(n)]
         # a commit authored by someone other than the PR author: that person is credited by GitHub, not this account (#1316)
         for n in sorted(later[login]):
             for other in sorted(commit_authors.get(n, []), key=str.lower):

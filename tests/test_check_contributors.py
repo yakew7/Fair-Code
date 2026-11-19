@@ -856,3 +856,31 @@ def test_one_stub_run_asks_for_each_pr_once_and_a_pending_run_too(tmp_path, caps
     calls.clear()
     script.run_pending(entries, [dict(p) for p in prs], 100, fetch=script.fetch_pr_details)
     assert calls == [[110, 120]]
+
+
+def test_pending_shows_which_issues_each_pull_request_closes():
+    # #1331: the person updating an entry no longer looks the issue up by hand
+    prs = [dict(pr(101, "bob", "2026-10-30"), title="fix: a", closing_issues=[1304]),
+           dict(pr(102, "bob", "2026-10-31"), title="docs: b", closing_issues=[7, 9]),
+           dict(pr(103, "bob", "2026-11-01"), title="chore: c", closing_issues=[]),
+           dict(pr(104, "bob", "2026-11-02"), title="no data")]
+    lines = script.pending(script.parse(DOC)[0], prs, 100)
+    assert "    #101 fix: a (closes #1304)" in lines
+    assert "    #102 docs: b (closes #7, #9)" in lines
+    assert "    #103 chore: c" in lines and "    #104 no data" in lines
+
+
+def test_the_weekly_issue_body_carries_the_closing_issues_too():
+    from scripts import update_weekly_issue as weekly
+    body = weekly.contributors_issue_body(
+        "bob: 1 merged PR(s) after the snapshot (#101); count to update\n    #101 fix: a (closes #1304)\n"
+        "1 author(s) merged after the snapshot (PR #100).\n")
+    assert "  - #101 fix: a (closes #1304)" in body
+
+
+def test_run_pending_prints_the_closing_issues_fetched_from_github(capsys):
+    entries, _ = script.parse(DOC)
+    prs = [pr(101, "bob", "2026-10-30")]
+    prs[0]["title"] = "fix: a"
+    script.run_pending(entries, prs, 100, fetch=lambda numbers: {101: {"commit_authors": ["bob"], "closing_issues": [1304]}})
+    assert "#101 fix: a (closes #1304)" in capsys.readouterr().out
