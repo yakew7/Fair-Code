@@ -21,6 +21,10 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Added
 
+- `faircode benchmark` prints one convergence warning line per audit instead of scikit-learn's raw text (#1328) and writes the seconds each strategy/model combination took into the run's `PROVENANCE.json` entry (#1329); `run_audit` and `run_benchmark` take an optional `diagnostics` list.
+- `check_contributors.py --stub` names a foreign commit author in the entry and prints the exception lines to add (#1326), suggests the area from the changed files (#1333); `--pending` shows `closes #N` (#1331).
+- `check_traction.py --skip-figure NAME` (#1324); the weekly external-links issue lists the unverified 403 links (#1330).
+- `tests/benchmark_helpers.py` (#1325) and `tests/contributors_helpers.py` (#1327).
 - `check_contributors.py --stub --area NAME` lists new people in a chosen Contributions by area row (#1294) and writes `closing issue #N` from `closingIssuesReferences` (#1308).
 - `check_contributors.py --pending` names a commit authored by someone other than the pull request author (#1316).
 - `tests/test_benchmark_outputs.py` covers writing, verifying and merging benchmark result sets on a toy audit, so `benchmark.py` is at 100% in the fast suite (#1318).
@@ -30,6 +34,8 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Changed
 
+- `check_contributors.py` fetches each pull request's commit authors, closing issues and files with one `gh pr view` call (#1332).
+- The contributors tests are split into four files of under 300 lines (#1327); `traction-live` skips the Issues Closed comparison on a push run (#1324).
 - The AUC gaps explainer's script takes about 7 s instead of about 20 s with identical output: placement values from binary searches and tie-aware bootstrap AUCs instead of `roc_auc_score` calls (#1169).
 - `scripts/check_contributors.py` is split into `contributors_entries.py`, `contributors_write.py` and `contributors_github.py` plus the command line (#1319).
 - The structural benchmark tests (intersectional rows, empty cell, `run_benchmark` discovery and seeding) run on cheap models in the fast suite (#1320, partly).
