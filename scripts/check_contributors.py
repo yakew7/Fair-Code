@@ -57,9 +57,10 @@ if __package__:                         # imported as scripts.<name> (tests, pyt
     from .contributors_entries import commit_problems as _commit_problems
     from .contributors_entries import unmapped_authors as _unmapped_authors
     from .contributors_github import (  # noqa: F401
-        TRAILER, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, snapshot_time)
+        TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, snapshot_time)
     from .contributors_write import (  # noqa: F401
-        DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, fix_document, move_snapshot, stub_entry,
+        DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, exception_suggestions, fix_document, foreign_commit_authors,
+        move_snapshot, stub_entry,
         summary_line)
 else:
     import os as _os
@@ -71,9 +72,10 @@ else:
     from contributors_entries import commit_problems as _commit_problems
     from contributors_entries import unmapped_authors as _unmapped_authors
     from contributors_github import (  # noqa: F401
-        TRAILER, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, snapshot_time)
+        TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, snapshot_time)
     from contributors_write import (  # noqa: F401
-        DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, fix_document, move_snapshot, stub_entry,
+        DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, exception_suggestions, fix_document, foreign_commit_authors,
+        move_snapshot, stub_entry,
         summary_line)
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -135,14 +137,6 @@ def get_commit_data(args, entries: list[dict], since: str) -> dict | None:
     return _COMMIT_DATA[since]
 
 
-def add_details(prs: list[dict], details: dict | None) -> None:
-    """Put the fetched per-PR details (`commit_authors`, `closing_issues`) on the PR dicts, without overwriting what saved data
-    already carries."""
-    for pr in prs:
-        for key, value in ((details or {}).get(pr["number"]) or {}).items():
-            pr.setdefault(key, value)
-
-
 def run_stub(args, text: str, prs: list[dict], fetch_details=None) -> int:
     """Start an entry for each login of `args.stub`: all of them are validated first (an existing entry or an author with no
     merged PRs stops the run before anything is written), added, then sorted and written once, and with `--commits` the commit
@@ -182,6 +176,12 @@ def run_stub(args, text: str, prs: list[dict], fetch_details=None) -> int:
     args.file.write_text(fix_document(stubbed, prs, newest, commit_counts), encoding="utf-8")
     print(f"added {'a stub entry' if len(logins) == 1 else 'stub entries'} for {', '.join(logins)} and moved the snapshot to "
           f"PR #{newest}; replace the TODO sentence{'s' if len(logins) > 1 else ''}; {note}")
+    suggestions = exception_suggestions(parse(stubbed)[0], prs, logins)
+    if suggestions:
+        print("a commit of these pull requests is authored by someone other than the PR author; add to "
+              "scripts/contributors-exceptions.json if that is right:")
+        for line in suggestions:
+            print(f"  {line}")
     return 0
 
 

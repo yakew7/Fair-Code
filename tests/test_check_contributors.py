@@ -884,3 +884,45 @@ def test_run_pending_prints_the_closing_issues_fetched_from_github(capsys):
     prs[0]["title"] = "fix: a"
     script.run_pending(entries, prs, 100, fetch=lambda numbers: {101: {"commit_authors": ["bob"], "closing_issues": [1304]}})
     assert "#101 fix: a (closes #1304)" in capsys.readouterr().out
+
+
+def test_a_stub_says_when_a_commit_is_authored_by_someone_else():
+    # #1326: PR #1311 was opened by ranjanasri6 but the commit is authored by PRIYANKA2272004
+    prs = [dict(pr(1311, "ranjanasri6", "2026-11-09"), title="Handle empty groups", commit_authors=["PRIYANKA2272004"]),
+           dict(pr(1312, "ranjanasri6", "2026-11-09"), title="Own commit", commit_authors=["ranjanasri6", "yakew7"])]
+    stub = script.stub_entry("ranjanasri6", prs)
+    assert ("The commit of #1311 ([@PRIYANKA2272004](https://github.com/PRIYANKA2272004)) is authored by someone else, "
+            "so GitHub counts it for that account, not this one.") in stub
+    assert script.foreign_commit_authors("ranjanasri6", prs) == {1311: ["PRIYANKA2272004"]}
+    assert "authored by someone else" not in script.stub_entry("ranjanasri6", prs[1:])        # the maintainer's merge commit is ignored
+    assert "authored by someone else" not in script.stub_entry("ranjanasri6", [dict(p, commit_authors=None) for p in prs])
+
+
+def test_the_exception_lines_to_add_are_suggested_for_an_unlisted_author_and_a_fully_foreign_pr():
+    entries, _ = script.parse(DOC)
+    prs = [dict(pr(1311, "dave", "2026-11-09"), commit_authors=["priyanka"])]
+    lines = script.exception_suggestions(entries, prs, ["dave"])
+    assert 'unlisted_authors: "priyanka": "authored the commit of PR #1311, which dave opened; no merged pull request of their own"' in lines
+    assert any(line.startswith('commit_exceptions: "dave": "the commit of #1311 is authored by priyanka') for line in lines)
+    # a foreign author who already has an entry needs no unlisted line, and a person with one own commit needs no exception
+    mixed = [dict(pr(1311, "dave", "2026-11-09"), commit_authors=["dave", "alice"])]
+    assert script.exception_suggestions(entries, mixed, ["dave"]) == []
+
+
+def test_the_stub_run_prints_the_suggested_exception_lines(tmp_path, capsys):
+    base = _two_newcomers(tmp_path)
+    prs = json.loads((tmp_path / "prs.json").read_text(encoding="utf-8"))
+    for item in prs:
+        if item["number"] == 110:
+            item["commit_authors"] = ["someone-else"]
+    (tmp_path / "prs.json").write_text(json.dumps(prs), encoding="utf-8")
+    assert script.main(base + ["--stub", "dave"]) == 0
+    out = capsys.readouterr().out
+    assert "add to scripts/contributors-exceptions.json" in out
+    assert '  unlisted_authors: "someone-else"' in out and '  commit_exceptions: "dave"' in out
+    assert "authored by someone else" in (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+
+
+def test_a_stub_without_foreign_commit_authors_prints_no_exception_lines(tmp_path, capsys):
+    assert script.main(_two_newcomers(tmp_path) + ["--stub", "dave"]) == 0
+    assert "contributors-exceptions.json" not in capsys.readouterr().out

@@ -109,6 +109,19 @@ def summary_line(body: str | None) -> str | None:
     return None
 
 
+def foreign_commit_authors(login: str, prs: list[dict]) -> dict[int, list[str]]:
+    """{PR number: logins other than `login` (and the maintainer) that authored a commit of one of `login`'s PRs}, from the
+    `commit_authors` the PR data carries (#1326); empty when the data has none."""
+    found: dict[int, list[str]] = {}
+    for pr in prs:
+        if ((pr.get("author") or {}).get("login") or "").lower() != login.lower():
+            continue
+        others = sorted({a for a in pr.get("commit_authors") or [] if a.lower() not in (login.lower(), "yakew7")}, key=str.lower)
+        if others:
+            found[pr["number"]] = others
+    return found
+
+
 def stub_entry(login: str, prs: list[dict]) -> str:
     """A starting entry for `login`: header, stats line from their merged PRs (the commit count is a placeholder that
     `--fix --commits` replaces) and their PR numbers and titles as links, with a TODO sentence for the prose (#1249)."""
@@ -131,9 +144,48 @@ def stub_entry(login: str, prs: list[dict]) -> str:
         return text + (f" ({', '.join(notes)})" if notes else "")
 
     links = "; ".join(link(pr) for pr in mine)
+    foreign = foreign_commit_authors(login, prs)
+    note = ""
+    if foreign:                                  # GitHub credits a commit to its author, not to whoever opened the PR (#1326)
+        parts = [f"{', '.join('#' + str(n) for n in sorted(group))} "
+                 f"({' and '.join('[@' + a + '](https://github.com/' + a + ')' for a in authors)})"
+                 for authors, group in _group_by_authors(foreign)]
+        note = (" The commit" + ("s" if sum(len(v) for v in foreign.values()) > 1 else "") + " of " + "; ".join(parts)
+                + " " + ("are" if sum(len(v) for v in foreign.values()) > 1 else "is")
+                + " authored by someone else, so GitHub counts it for that account, not this one.")
     return (f"### [@{login}](https://github.com/{login})\n\n"
             f"**{count} merged PR{'s' if count != 1 else ''} · {count} commit{'s' if count != 1 else ''} · first merged {first}**\n\n"
-            f"TODO: describe the work in a sentence or two. Merged: {links}.\n\n")
+            f"TODO: describe the work in a sentence or two. Merged: {links}.{note}\n\n")
+
+
+def exception_suggestions(entries: list[dict], prs: list[dict], logins: list[str]) -> list[str]:
+    """The lines to add to scripts/contributors-exceptions.json after stubbing `logins` (#1326): an `unlisted_authors` line for a
+    foreign commit author with no entry, and a `commit_exceptions` line for a stubbed person none of whose commits is
+    their own (no API counts those for their account)."""
+    listed = {e["handle"].lower() for e in entries}
+    lines = []
+    for login in logins:
+        foreign = foreign_commit_authors(login, prs)
+        for number, authors in sorted(foreign.items()):
+            for author in authors:
+                if author.lower() not in listed:
+                    lines.append(f'unlisted_authors: "{author.lower()}": "authored the commit of PR #{number}, which {login} '
+                                 f'opened; no merged pull request of their own"')
+        mine = [pr for pr in prs if ((pr.get("author") or {}).get("login") or "").lower() == login.lower()]
+        if mine and all("commit_authors" in pr and login.lower() not in {a.lower() for a in pr["commit_authors"]} for pr in mine):
+            numbers = ", ".join("#" + str(pr["number"]) for pr in mine)
+            lines.append(f'commit_exceptions: "{login.lower()}": "the commit of {numbers} is authored by '
+                         f'{", ".join(sorted({a for n in foreign.values() for a in n}, key=str.lower)) or "someone else"}, '
+                         f'so no API counts it for this account"')
+    return lines
+
+
+def _group_by_authors(foreign: dict[int, list[str]]) -> list[tuple[list[str], list[int]]]:
+    """[(authors, [PR numbers])] with the PRs that share the same foreign authors together."""
+    groups: dict[tuple[str, ...], list[int]] = {}
+    for number, authors in sorted(foreign.items()):
+        groups.setdefault(tuple(authors), []).append(number)
+    return [(list(authors), numbers) for authors, numbers in groups.items()]
 
 
 def area_names(text: str) -> list[str]:

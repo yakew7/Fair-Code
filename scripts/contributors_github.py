@@ -72,6 +72,14 @@ def fetch_pr_details(numbers: list[int], repo: str = "yakew7/Fair-Code") -> dict
     return None if any(details is None for details in found) else dict(zip(numbers, found))
 
 
+def add_details(prs: list[dict], details: dict | None) -> None:
+    """Put the fetched per-PR details (`commit_authors`, `closing_issues`) on the PR dicts, without overwriting what saved data
+    already carries."""
+    for pr in prs:
+        for key, value in ((details or {}).get(pr["number"]) or {}).items():
+            pr.setdefault(key, value)
+
+
 def snapshot_time(prs: list[dict], through: int | None) -> str | None:
     """One second after the snapshot PR was merged, so its own merge commit is not counted as 'after'."""
     from datetime import datetime, timedelta, timezone
