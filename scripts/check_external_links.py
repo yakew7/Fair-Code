@@ -324,6 +324,10 @@ def render_issue_body(report: dict) -> str:
              f"It also found {stale_count} stale ignore-list {stale_label} with no matching document.", ""]
     for item in report["broken"]:
         lines.append(f"- `{item['detail']}` {item['url']} (in {', '.join('`' + path + '`' for path in item['files'][:5])})")
+    unverified = [item for item in report["unknown"] if "no archive copy" in item["detail"]]
+    if unverified:        # never counted as broken and never keeps the issue open, but listed so nobody has to rerun the script (#1330)
+        lines += ["", "Unverified by hand (they answer scripts with 403 and the Internet Archive has no copy; not counted as broken):", ""]
+        lines += [f"- {item['url']} (in {', '.join('`' + path + '`' for path in item['files'][:5])})" for item in unverified]
     lines += ["", "Fix any reported broken links and remove stale ignore-list entries, then run `make build-explainers`. "
               "This issue closes itself on the next weekly run once both are clear. "
               "Reproduce locally with `python3 scripts/check_external_links.py`."]

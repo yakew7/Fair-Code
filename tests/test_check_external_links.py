@@ -515,3 +515,28 @@ def test_run_passes_the_retry_delay_to_each_check(monkeypatch):
     monkeypatch.setattr(script, "check_url", lambda url, timeout, retry_delay=None: seen.append(retry_delay) or ("ok", "200"))
     script.run({"https://a.example.org/x": ["a.md"], "https://b.example.org/y": ["a.md"]}, retry_delay=4.5)
     assert seen == [4.5, 4.5]
+
+
+def _issue_report(unknown):
+    return {"checked": 5, "ok": [], "moved": [], "broken": [], "unknown": unknown, "ignored": [], "stale_ignored": []}
+
+
+def test_the_issue_body_lists_each_unverified_403_link_with_its_files():
+    # #1330: the text report had the section, the weekly issue only a count
+    report = _issue_report([
+        {"url": "https://a.example/x", "detail": "403 (no archive copy)", "files": ["explainers/a.md", "README.md"]},
+        {"url": "https://b.example/y", "detail": "403 (archived copy exists)", "files": ["b.md"]},
+        {"url": "https://c.example/z", "detail": "503", "files": ["c.md"]},
+        {"url": "https://d.example/w", "detail": "403 (no archive copy)", "files": ["d.md"]}])
+    body = script.render_issue_body(report)
+    assert "Unverified by hand" in body
+    assert "- https://a.example/x (in `explainers/a.md`, `README.md`)" in body and "- https://d.example/w (in `d.md`)" in body
+    assert "https://b.example/y" not in body and "https://c.example/z" not in body          # archived and other unknowns stay out
+    assert "2 of those answered 403 and have no Internet Archive copy" in body
+
+
+def test_the_issue_body_has_no_unverified_section_when_there_are_none_and_they_never_keep_the_issue_open():
+    body = script.render_issue_body(_issue_report([{"url": "https://c.example/z", "detail": "503", "files": ["c.md"]}]))
+    assert "Unverified by hand" not in body
+    only_unverified = _issue_report([{"url": "https://a.example/x", "detail": "403 (no archive copy)", "files": ["a.md"]}])
+    assert script.report_needs_issue(only_unverified) is False                      # listed, not counted as broken
