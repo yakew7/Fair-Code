@@ -57,7 +57,7 @@ if __package__:                         # imported as scripts.<name> (tests, pyt
     from .contributors_entries import commit_problems as _commit_problems
     from .contributors_entries import unmapped_authors as _unmapped_authors
     from .contributors_github import (  # noqa: F401
-        TRAILER, fetch_closing_issues, fetch_commit_authors, fetch_commit_data, fetch_prs, git_authors, snapshot_time)
+        TRAILER, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, snapshot_time)
     from .contributors_write import (  # noqa: F401
         DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, fix_document, move_snapshot, stub_entry,
         summary_line)
@@ -71,7 +71,7 @@ else:
     from contributors_entries import commit_problems as _commit_problems
     from contributors_entries import unmapped_authors as _unmapped_authors
     from contributors_github import (  # noqa: F401
-        TRAILER, fetch_closing_issues, fetch_commit_authors, fetch_commit_data, fetch_prs, git_authors, snapshot_time)
+        TRAILER, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, snapshot_time)
     from contributors_write import (  # noqa: F401
         DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, fix_document, move_snapshot, stub_entry,
         summary_line)
@@ -135,19 +135,24 @@ def get_commit_data(args, entries: list[dict], since: str) -> dict | None:
     return _COMMIT_DATA[since]
 
 
-def run_stub(args, text: str, prs: list[dict], fetch_closing=None) -> int:
+def add_details(prs: list[dict], details: dict | None) -> None:
+    """Put the fetched per-PR details (`commit_authors`, `closing_issues`) on the PR dicts, without overwriting what saved data
+    already carries."""
+    for pr in prs:
+        for key, value in ((details or {}).get(pr["number"]) or {}).items():
+            pr.setdefault(key, value)
+
+
+def run_stub(args, text: str, prs: list[dict], fetch_details=None) -> int:
     """Start an entry for each login of `args.stub`: all of them are validated first (an existing entry or an author with no
     merged PRs stops the run before anything is written), added, then sorted and written once, and with `--commits` the commit
     data is fetched once for everyone (#1299, #1271)."""
     logins = list(dict.fromkeys(args.stub))
-    # the issues each stubbed person's PRs close, unless the saved data already carries them (#1308)
+    # the details (closing issues) of each stubbed person's PRs, unless the saved data already carries them (#1308, #1332)
     wanted = [pr["number"] for pr in prs if ((pr.get("author") or {}).get("login") or "").lower() in {name.lower() for name in logins}
               and "closing_issues" not in pr]
-    if wanted and fetch_closing is not None:
-        found = fetch_closing(wanted) or {}
-        for pr in prs:
-            if pr["number"] in found:
-                pr["closing_issues"] = found[pr["number"]]
+    if wanted and fetch_details is not None:
+        add_details(prs, fetch_details(wanted))
     stubbed = text
     try:
         for login in logins:
@@ -214,14 +219,11 @@ def run_fix(args, text: str, entries: list[dict], through: int | None, prs: list
 
 
 def run_pending(entries: list[dict], prs: list[dict], through: int | None, fetch=None) -> int:
-    # the commit authors of the pending PRs, unless the saved data already carries them (--prs FILE with commit_authors)
+    # the details of the pending PRs, unless the saved data already carries them (--prs FILE with commit_authors)
     wanted = [pr["number"] for pr in prs if through is not None and pr["number"] > through and "commit_authors" not in pr
               and not (pr.get("author") or {}).get("is_bot") and not ((pr.get("author") or {}).get("login") or "app/").startswith("app/")]
     if wanted and fetch is not None:
-        found = fetch(wanted)
-        for pr in prs:
-            if found and pr["number"] in found:
-                pr["commit_authors"] = found[pr["number"]]
+        add_details(prs, fetch(wanted))
     later = pending(entries, prs, through)
     for line in later:
         print(line)
@@ -302,8 +304,8 @@ def main(argv=None) -> int:
               "skipping the contributors check")
         return 1 if args.require else 0
     if args.stub:
-        # saved data (--prs FILE) is used as it is; only data fetched from GitHub gets the closing issues looked up too
-        return run_stub(args, text, prs, fetch_closing=None if args.prs else fetch_closing_issues)
+        # saved data (--prs FILE) is used as it is; only data fetched from GitHub gets the details looked up too
+        return run_stub(args, text, prs, fetch_details=None if args.prs else fetch_pr_details)
     if args.fix:
         fixed = run_fix(args, text, entries, through, prs)
         if isinstance(fixed, int):
@@ -314,7 +316,7 @@ def main(argv=None) -> int:
         print("note: no 'covering everything merged through **PR #N**' snapshot line found; counting every merged PR")
     if args.pending:
         # saved data (--prs FILE) is used as it is; only data fetched from GitHub gets the commit authors looked up too
-        return run_pending(entries, prs, through, fetch=None if args.prs else fetch_commit_authors)
+        return run_pending(entries, prs, through, fetch=None if args.prs else fetch_pr_details)
     return run_check(args, text, entries, prs, through)
 
 

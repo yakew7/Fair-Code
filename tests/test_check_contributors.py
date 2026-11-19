@@ -683,7 +683,7 @@ def test_run_pending_looks_the_commit_authors_up_only_for_pending_prs_and_only_w
 
     def fetch(numbers):
         asked.append(numbers)
-        return {101: ["bob", "stranger"]}
+        return {101: {"commit_authors": ["bob", "stranger"], "closing_issues": []}}
 
     assert script.run_pending(entries, prs, 100, fetch=fetch) == 1
     assert asked == [[101]]                                  # not #5 (before the snapshot), the bot's PR or #103 (has the data)
@@ -694,12 +694,13 @@ def test_run_pending_looks_the_commit_authors_up_only_for_pending_prs_and_only_w
 
 
 def test_main_does_not_call_gh_for_commit_authors_when_given_saved_pr_data(tmp_path, capsys, monkeypatch):
-    monkeypatch.setattr(script, "fetch_commit_authors", lambda numbers: pytest.fail("gh must not be called for --prs data"))
+    monkeypatch.setattr(script, "fetch_pr_details", lambda numbers: pytest.fail("gh must not be called for --prs data"))
     code, out = run(tmp_path, capsys, prs=PRS + [pr(101, "bob", "2026-10-30")], extra=("--pending",))
     assert code == 1 and "bob: 1 merged PR(s)" in out
 
 
-def test_fetch_commit_authors_asks_gh_per_pr_and_gives_up_when_one_call_fails(monkeypatch):
+def test_fetch_pr_details_makes_one_gh_call_per_pr_with_both_fields_and_gives_up_when_one_fails(monkeypatch):
+    # #1332: --pending and --stub used to make two gh pr view calls per PR between them
     from types import SimpleNamespace
     import subprocess as sp
     calls = []
@@ -709,15 +710,17 @@ def test_fetch_commit_authors_asks_gh_per_pr_and_gives_up_when_one_call_fails(mo
         number = int(command[3])
         if number == 9:
             return SimpleNamespace(returncode=1, stdout="")
-        return SimpleNamespace(returncode=0, stdout=json.dumps(["bob", f"user{number}"]))
+        return SimpleNamespace(returncode=0, stdout=json.dumps({"commit_authors": ["bob", f"user{number}"], "closing_issues": [number * 10]}))
 
     monkeypatch.setattr(sp, "run", fake)
     monkeypatch.setattr(script.shutil, "which", lambda name: "/usr/bin/gh")
-    assert script.fetch_commit_authors([7, 8]) == {7: ["bob", "user7"], 8: ["bob", "user8"]}
-    assert all(c[:3] == ["gh", "pr", "view"] and "commits" in c for c in calls)
-    assert script.fetch_commit_authors([7, 9]) is None
+    assert script.fetch_pr_details([7, 8]) == {7: {"commit_authors": ["bob", "user7"], "closing_issues": [70]},
+                                               8: {"commit_authors": ["bob", "user8"], "closing_issues": [80]}}
+    assert len(calls) == 2 and all(c[:3] == ["gh", "pr", "view"] for c in calls)
+    assert all("commits,closingIssuesReferences" in c for c in calls)
+    assert script.fetch_pr_details([7, 9]) is None
     monkeypatch.setattr(script.shutil, "which", lambda name: None)
-    assert script.fetch_commit_authors([7]) is None
+    assert script.fetch_pr_details([7]) is None
 
 
 def test_the_script_is_split_into_modules_that_stay_small_and_the_old_names_still_work():
@@ -728,7 +731,7 @@ def test_the_script_is_split_into_modules_that_stay_small_and_the_old_names_stil
         lines = len((folder / f"{name}.py").read_text(encoding="utf-8").splitlines())
         assert lines < 330, f"{name}.py has {lines} lines"
     for name in ("parse", "check", "pending", "fix_document", "stub_entry", "add_stub", "summary_line", "move_snapshot",
-                 "fetch_prs", "fetch_commit_data", "fetch_commit_authors", "git_authors", "snapshot_time", "area_table_problems",
+                 "fetch_prs", "fetch_commit_data", "fetch_pr_details", "git_authors", "snapshot_time", "area_table_problems",
                  "todo_problems", "commit_problems", "unmapped_authors", "identity_map", "merged_by_author"):
         assert callable(getattr(script, name)), name
 
@@ -801,19 +804,20 @@ def test_run_stub_looks_up_closing_issues_only_for_the_stubbed_peoples_prs_and_o
 
     def fetch(numbers):
         asked.append(sorted(numbers))
-        return {110: [1304], 120: [], 121: [55]}
+        return {110: {"commit_authors": ["dave"], "closing_issues": [1304]}, 120: {"commit_authors": ["erin"], "closing_issues": []},
+                121: {"commit_authors": ["erin"], "closing_issues": [55]}}
 
     prs = json.loads((tmp_path / "prs.json").read_text(encoding="utf-8"))
     args = script.argparse.Namespace(stub=["dave", "erin"], commits=False, area=script.DEFAULT_AREA, save_commits=None,
                                      file=tmp_path / "CONTRIBUTORS.md")
-    assert script.run_stub(args, (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8"), prs, fetch_closing=fetch) == 0
+    assert script.run_stub(args, (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8"), prs, fetch_details=fetch) == 0
     assert asked == [[110, 120, 121]]                       # not alice's, bob's or carol's PRs
     text = (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
     assert "(closing issue #1304)" in text and "(closing issue #55)" in text
 
 
 def test_main_does_not_call_gh_for_closing_issues_when_given_saved_pr_data(tmp_path, capsys, monkeypatch):
-    monkeypatch.setattr(script, "fetch_closing_issues", lambda numbers: pytest.fail("gh must not be called for --prs data"))
+    monkeypatch.setattr(script, "fetch_pr_details", lambda numbers: pytest.fail("gh must not be called for --prs data"))
     base = _two_newcomers(tmp_path)
     assert script.main(base + ["--stub", "dave"]) == 0
 
@@ -829,22 +833,26 @@ def test_saved_data_may_carry_the_closing_issues_itself(tmp_path, capsys):
     assert "(closing issue #42)" in (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
 
 
-def test_fetch_closing_issues_asks_gh_per_pr_and_gives_up_when_one_call_fails(monkeypatch):
-    from types import SimpleNamespace
-    import subprocess as sp
+def test_add_details_fills_the_pr_dicts_without_overwriting_saved_data():
+    prs = [dict(pr(1, "a", "2026-11-01"), closing_issues=[9]), pr(2, "b", "2026-11-02")]
+    script.add_details(prs, {1: {"commit_authors": ["a"], "closing_issues": [1]}, 2: {"commit_authors": ["c"], "closing_issues": [2]}})
+    assert prs[0]["closing_issues"] == [9] and prs[0]["commit_authors"] == ["a"]
+    assert prs[1]["closing_issues"] == [2] and prs[1]["commit_authors"] == ["c"]
+    script.add_details(prs, None)                              # a failed fetch changes nothing
+    assert prs[1]["commit_authors"] == ["c"]
+
+
+def test_one_stub_run_asks_for_each_pr_once_and_a_pending_run_too(tmp_path, capsys, monkeypatch):
     calls = []
-
-    def fake(command, **kwargs):
-        calls.append(command)
-        number = int(command[3])
-        if number == 9:
-            return SimpleNamespace(returncode=1, stdout="")
-        return SimpleNamespace(returncode=0, stdout=json.dumps([number * 10]))
-
-    monkeypatch.setattr(sp, "run", fake)
-    monkeypatch.setattr(script.shutil, "which", lambda name: "/usr/bin/gh")
-    assert script.fetch_closing_issues([7, 8]) == {7: [70], 8: [80]}
-    assert all(c[:3] == ["gh", "pr", "view"] and "closingIssuesReferences" in c for c in calls)
-    assert script.fetch_closing_issues([7, 9]) is None
-    monkeypatch.setattr(script.shutil, "which", lambda name: None)
-    assert script.fetch_closing_issues([7]) is None
+    monkeypatch.setattr(script, "fetch_pr_details", lambda numbers: calls.append(sorted(numbers)) or {
+        n: {"commit_authors": ["x"], "closing_issues": []} for n in numbers})
+    prs = PRS + [dict(pr(110, "dave", "2026-10-30"), title="fix: a"), dict(pr(120, "erin", "2026-10-31"), title="docs: b")]
+    (tmp_path / "CONTRIBUTORS.md").write_text(STUB_DOC, encoding="utf-8")
+    entries, _ = script.parse(STUB_DOC)
+    args = script.argparse.Namespace(stub=["dave", "erin"], commits=False, area=script.DEFAULT_AREA, save_commits=None,
+                                     file=tmp_path / "CONTRIBUTORS.md")
+    script.run_stub(args, STUB_DOC, [dict(p) for p in prs], fetch_details=script.fetch_pr_details)
+    assert calls == [[110, 120]]                                # one fetch for both people, one call per PR inside it
+    calls.clear()
+    script.run_pending(entries, [dict(p) for p in prs], 100, fetch=script.fetch_pr_details)
+    assert calls == [[110, 120]]

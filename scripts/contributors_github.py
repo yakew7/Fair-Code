@@ -49,14 +49,19 @@ def fetch_commit_data(entries: list[dict], since: str, repo: str = "yakew7/Fair-
     return {"live": live, "after_snapshot": after}
 
 
-def fetch_commit_authors(numbers: list[int], repo: str = "yakew7/Fair-Code") -> dict[int, list[str]] | None:
-    """{PR number: logins of the authors of its commits} from gh, or None when any call fails (#1316)."""
+PR_DETAIL_JQ = "{commit_authors: ([.commits[].authors[].login] | unique), closing_issues: [.closingIssuesReferences[].number]}"
+
+
+def fetch_pr_details(numbers: list[int], repo: str = "yakew7/Fair-Code") -> dict[int, dict] | None:
+    """{PR number: {"commit_authors": [logins], "closing_issues": [issue numbers]}} from ONE `gh pr view` call per pull request
+    (`--json commits,closingIssuesReferences`), or None when any call fails (#1332). Used by --pending (commit authors that
+    differ from the PR author) and --stub (the closing issue numbers), which used to make two calls per PR between them."""
     if shutil.which("gh") is None:
         return None
 
-    def one(number: int) -> list[str] | None:
-        done = run_gh(["gh", "pr", "view", str(number), "--repo", repo, "--json", "commits",
-                       "--jq", "[.commits[].authors[].login] | unique"])
+    def one(number: int) -> dict | None:
+        done = run_gh(["gh", "pr", "view", str(number), "--repo", repo, "--json", "commits,closingIssuesReferences",
+                       "--jq", PR_DETAIL_JQ])
         try:
             return json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else None
         except json.JSONDecodeError:
@@ -64,25 +69,7 @@ def fetch_commit_authors(numbers: list[int], repo: str = "yakew7/Fair-Code") -> 
 
     with concurrent.futures.ThreadPoolExecutor(8) as pool:
         found = list(pool.map(one, numbers))
-    return None if any(authors is None for authors in found) else dict(zip(numbers, found))
-
-
-def fetch_closing_issues(numbers: list[int], repo: str = "yakew7/Fair-Code") -> dict[int, list[int]] | None:
-    """{PR number: the issue numbers it closes} from gh (`closingIssuesReferences`), or None when any call fails (#1308)."""
-    if shutil.which("gh") is None:
-        return None
-
-    def one(number: int) -> list[int] | None:
-        done = run_gh(["gh", "pr", "view", str(number), "--repo", repo, "--json", "closingIssuesReferences",
-                       "--jq", "[.closingIssuesReferences[].number]"])
-        try:
-            return json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else None
-        except json.JSONDecodeError:
-            return None
-
-    with concurrent.futures.ThreadPoolExecutor(8) as pool:
-        found = list(pool.map(one, numbers))
-    return None if any(issues is None for issues in found) else dict(zip(numbers, found))
+    return None if any(details is None for details in found) else dict(zip(numbers, found))
 
 
 def snapshot_time(prs: list[dict], through: int | None) -> str | None:
