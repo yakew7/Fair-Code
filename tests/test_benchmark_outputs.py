@@ -13,7 +13,7 @@ pytest.importorskip("sklearn", reason="the benchmark harness needs the optional 
 pytest.importorskip("fairlearn", reason="the benchmark harness needs the optional benchmark extra")
 pytest.importorskip("yaml", reason="the benchmark harness needs the optional benchmark extra")
 
-from test_benchmark_fast import LR_ONLY, _toy_frame, _write_toy_audit  # noqa: E402
+from benchmark_helpers import LR_ONLY, _toy_frame, _write_toy_audit  # noqa: E402
 
 from faircode import benchmark  # noqa: E402
 from faircode.manifest import RowFilter, load_manifest  # noqa: E402

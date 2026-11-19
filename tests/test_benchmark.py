@@ -32,7 +32,7 @@ from faircode.benchmark import GLOBAL_SEED, run_audit, run_benchmark, write_repo
 from faircode.manifest import load_manifest
 from faircode.metrics import METRICS, PERFORMANCE_METRICS
 from faircode.strategies import STRATEGIES
-from test_benchmark_fast import LR_ONLY, _write_toy_audit
+from benchmark_helpers import LR_ONLY, _write_toy_audit
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SMALL_AUDIT = REPO_ROOT / "German Credit Lending" / "audit.yaml"

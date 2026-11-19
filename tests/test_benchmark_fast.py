@@ -15,37 +15,8 @@ yaml = pytest.importorskip("yaml", reason="the benchmark harness needs the optio
 
 from sklearn.linear_model import LogisticRegression  # noqa: E402
 
+from benchmark_helpers import LR_ONLY, _toy_frame, _write_toy_audit  # noqa: E402
 from faircode import benchmark, strategies  # noqa: E402
-from faircode.manifest import load_manifest  # noqa: E402
-
-LR_ONLY = {"logistic_regression": lambda random_state: LogisticRegression(max_iter=5000, random_state=random_state)}
-
-
-def _toy_frame(n=240, seed=3):
-    rng = np.random.default_rng(seed)
-    x = rng.normal(size=n)
-    group_a = rng.choice(["disadv", "ok"], n, p=[0.4, 0.6])
-    group_b = rng.choice(["disadv", "ok"], n, p=[0.3, 0.7])
-    noise = rng.normal(scale=0.7, size=n)
-    label = ((x + noise - 0.4 * (group_a == "disadv")) > 0).astype(int)
-    return pd.DataFrame({"label": label, "x": x, "z": rng.normal(size=n), "attr_a": group_a, "attr_b": group_b})
-
-
-def _write_toy_audit(directory, protected=("attr_a", "attr_b")):
-    frame = _toy_frame()
-    frame.to_csv(directory / "toy.csv", index=False)
-    manifest = {
-        "name": "toy",
-        "dataset": {"path": "toy.csv"},
-        "target": {"column": "label", "method": "binary"},
-        "protected_attributes": [
-            {"name": name, "type": "categorical", "column": name, "disadvantaged_values": ["disadv"], "advantaged_values": ["ok"]}
-            for name in protected],
-        "core_features": ["x", "z"],
-    }
-    (directory / "audit.yaml").write_text(yaml.dump(manifest))
-    return load_manifest(directory / "audit.yaml")
-
 
 def test_the_audit_grid_covers_every_strategy_and_the_intersectional_rows(tmp_path, monkeypatch):
     monkeypatch.setattr(benchmark, "MODEL_FAMILIES", LR_ONLY)
