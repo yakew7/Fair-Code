@@ -893,7 +893,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "benchmark":
         try:
-            from .benchmark import collect_provenance, run_benchmark, write_report
+            from .benchmark import collect_provenance, convergence_summary, run_benchmark, write_report
         except ImportError as exc:
             print(f"error: the benchmark command needs scikit-learn and pyyaml "
                   f"(pip install faircode[benchmark]): {exc}", file=sys.stderr)
@@ -918,11 +918,13 @@ def main(argv: list[str] | None = None) -> int:
         def report_progress(audit, strategy, model):
             print(f"completed {audit} / {strategy} / {model}", file=sys.stderr, flush=True)
 
+        diagnostics = []
         try:
             fairness_df, performance_df = run_benchmark(
                 root=args.root, audits=args.manifests or None,
                 n_resamples=args.n_resamples, n_permutations=args.n_permutations,
                 progress_callback=None if args.quiet else report_progress,
+                diagnostics=diagnostics,
             )
         except ValueError as exc:
             print(f"error: {exc}", file=sys.stderr)
@@ -930,6 +932,8 @@ def main(argv: list[str] | None = None) -> int:
         if fairness_df.empty:
             print(f"error: no audit.yaml manifests found under {args.root}", file=sys.stderr)
             return 2
+        for line in convergence_summary(diagnostics):          # one line per audit instead of raw scikit-learn warnings
+            print(f"warning: {line}", file=sys.stderr)
 
         try:
             write_report(fairness_df, performance_df, args.out, make_plots=not args.no_plots,

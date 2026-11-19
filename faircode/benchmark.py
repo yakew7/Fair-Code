@@ -38,6 +38,8 @@ import platform
 import shutil
 import subprocess
 import tempfile
+import time
+import warnings
 from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path
@@ -45,6 +47,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import yaml
+from sklearn.exceptions import ConvergenceWarning
 from sklearn.model_selection import train_test_split
 
 from .manifest import discover_manifests, load_manifest
@@ -235,8 +238,42 @@ def load_audit(folder, strategy=None, random_state=None) -> AuditData:
     return prepare_audit(manifest, strategy, random_state)
 
 
+def _timed_strategy_run(*args, **kwargs):
+    """`_run_strategy`, timed, with scikit-learn's ConvergenceWarnings counted instead of printed (#1328, #1329).
+
+    Returns (the usual result, seconds, number of ConvergenceWarnings). Every other warning is re-issued unchanged, and nothing
+    about the fit changes: the warnings are only recorded while it runs."""
+    start = time.perf_counter()
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = _run_strategy(*args, **kwargs)
+    seconds = time.perf_counter() - start
+    stopped = 0
+    for item in caught:
+        if issubclass(item.category, ConvergenceWarning):
+            stopped += 1
+        else:
+            warnings.warn_explicit(item.message, item.category, item.filename, item.lineno)
+    return result, seconds, stopped
+
+
+def convergence_summary(diagnostics: list[dict]) -> list[str]:
+    """One line per audit naming the (strategy, model) combinations in which a fit stopped at max_iter, from the `diagnostics`
+    `run_audit` collected; empty when every fit converged (#1328)."""
+    lines = []
+    for audit in dict.fromkeys(item["audit"] for item in diagnostics):
+        mine = [item for item in diagnostics if item["audit"] == audit]
+        stopped = [item for item in mine if item["convergence_warnings"]]
+        if stopped:
+            fits = sum(item["convergence_warnings"] for item in stopped)
+            names = ", ".join(f"{item['strategy']}/{item['model']}" for item in stopped)
+            lines.append(f"{audit}: {len(stopped)} of {len(mine)} combinations had a fit stop at max_iter "
+                         f"({fits} fit(s) in all): {names}; see tests/test_benchmark_convergence.py")
+    return lines
+
+
 def run_audit(
-    manifest, n_resamples=2000, n_permutations=2000, random_state=None, progress_callback=None
+    manifest, n_resamples=2000, n_permutations=2000, random_state=None, progress_callback=None, diagnostics=None
 ):
     """Run the full strategy x model x metric grid for one manifest.
 
@@ -245,7 +282,9 @@ def run_audit(
     model, attribute pair) for the intersectional gap when two or more
     protected attributes are declared. performance_rows has one dict per
     (strategy, model, performance metric). If provided, progress_callback is
-    called with the audit, strategy and model after each combination completes.
+    called with the audit, strategy and model after each combination completes. If `diagnostics` is a list, one dict per
+    combination is appended to it: the audit, strategy, model, the seconds the fit took and how many scikit-learn
+    ConvergenceWarnings it raised (which are then not printed); results are unaffected either way.
     """
     data = prepare_audit(manifest, random_state=random_state)
     rs, X_all, y, protected_masks = data.random_state, data.X_all, data.y, data.masks
@@ -255,8 +294,14 @@ def run_audit(
     performance_rows = []
     for strategy in STRATEGIES:
         for model_name in MODEL_FAMILIES:
-            y_test, y_pred, y_proba = _run_strategy(
-                strategy, model_name, manifest, X_all, y, protected_masks, idx_train, idx_test)
+            if diagnostics is None:
+                y_test, y_pred, y_proba = _run_strategy(
+                    strategy, model_name, manifest, X_all, y, protected_masks, idx_train, idx_test)
+            else:
+                (y_test, y_pred, y_proba), seconds, stopped = _timed_strategy_run(
+                    strategy, model_name, manifest, X_all, y, protected_masks, idx_train, idx_test)
+                diagnostics.append({"audit": manifest.name, "strategy": strategy, "model": model_name,
+                                    "seconds": round(seconds, 3), "convergence_warnings": stopped})
 
             perf = compute_performance_metrics(y_test, y_pred, y_proba, n_resamples, random_state=rs)
             for metric_name in PERFORMANCE_METRICS:
@@ -309,11 +354,11 @@ def run_audit(
 
 
 def run_benchmark(
-    root=".", audits=None, n_resamples=2000, n_permutations=2000, progress_callback=None
+    root=".", audits=None, n_resamples=2000, n_permutations=2000, progress_callback=None, diagnostics=None
 ):
     """Discover every audit.yaml under root (or use explicit manifest paths)
     and run them all. Returns (fairness_df, performance_df) across every audit.
-    If provided, progress_callback is passed to each audit run."""
+    If provided, progress_callback and diagnostics are passed to each audit run."""
     np.random.seed(GLOBAL_SEED)  # defense-in-depth; see module docstring
     paths = [Path(a) for a in audits] if audits else discover_manifests(root)
     all_fairness = []
@@ -321,12 +366,13 @@ def run_benchmark(
     for path in paths:
         try:
             manifest = load_manifest(path)
+            extra = {} if diagnostics is None else {"diagnostics": diagnostics}
             if progress_callback is None:
-                fairness_rows, performance_rows = run_audit(manifest, n_resamples, n_permutations)
+                fairness_rows, performance_rows = run_audit(manifest, n_resamples, n_permutations, **extra)
             else:
                 fairness_rows, performance_rows = run_audit(
                     manifest, n_resamples, n_permutations,
-                    progress_callback=progress_callback,
+                    progress_callback=progress_callback, **extra,
                 )
         except (yaml.YAMLError, KeyError, ValueError, FileNotFoundError) as exc:
             # A malformed manifest (bad YAML syntax, a missing required key)

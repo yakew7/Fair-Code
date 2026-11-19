@@ -57,7 +57,7 @@ def test_cli_benchmark_progress_uses_stderr_and_quiet_suppresses_it(
     monkeypatch.setattr(benchmark, "discover_manifests", lambda root: [Path("audit.yaml")])
     monkeypatch.setattr(benchmark, "load_manifest", lambda path: manifest)
 
-    def run_audit(manifest, n_resamples, n_permutations, progress_callback=None):
+    def run_audit(manifest, n_resamples, n_permutations, progress_callback=None, diagnostics=None):
         if progress_callback is not None:
             progress_callback(manifest.name, "baseline", "logistic_regression")
         rows = [{"audit": manifest.name}]
