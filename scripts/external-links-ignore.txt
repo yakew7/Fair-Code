@@ -1,4 +1,5 @@
 # Links scripts/check_external_links.py does not request: each is correct but cannot pass an anonymous check.
+# `checked:YYYY-MM-DD URL reason` marks a link a maintainer opened in a browser: it is still requested every week, and for 90 days a 403 with no archive copy is counted as checked by hand instead of listed as unverified.
 # One URL per line, then the reason. `host:example.com` skips every URL on that host. They are still counted ("N ignored") in the report and the weekly issue.
 https://github.com/yakew7/Fair-Code/security/code-scanning needs a GitHub login, so an anonymous request gets a 404
 https://github.com/TanishGoyal-Dev deleted account that CONTRIBUTORS.md names on purpose

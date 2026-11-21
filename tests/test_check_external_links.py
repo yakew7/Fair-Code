@@ -171,7 +171,7 @@ def test_main_reports_without_failing_unless_asked(server, tmp_path, capsys):
     assert script.main([str(doc), "--timeout", "5", "--json", "--limit", "2", "--check-local"]) == 0
     report = json.loads(capsys.readouterr().out)
     assert report["checked"] == 2 and set(report) == {
-        "checked", "ok", "moved", "broken", "unknown", "ignored", "stale_ignored"
+        "checked", "ok", "moved", "broken", "unknown", "ignored", "stale_ignored", "checked_by_hand"
     }
 
 
@@ -540,3 +540,76 @@ def test_the_issue_body_has_no_unverified_section_when_there_are_none_and_they_n
     assert "Unverified by hand" not in body
     only_unverified = _issue_report([{"url": "https://a.example/x", "detail": "403 (no archive copy)", "files": ["a.md"]}])
     assert script.report_needs_issue(only_unverified) is False                      # listed, not counted as broken
+
+
+TODAY = script.datetime.date(2026, 11, 19)
+UNVERIFIED = ("unknown", "403 (no archive copy)")
+
+
+def _run_with(monkeypatch, answers, checked, ignore=None):
+    monkeypatch.setattr(script, "check_url", lambda url, timeout, **kw: answers[url])
+    urls = {url: ["a.md"] for url in answers}
+    return script.run(urls, checked=checked, today=TODAY, ignore=ignore)
+
+
+def test_a_link_checked_by_hand_within_90_days_leaves_the_unverified_list(monkeypatch):
+    # #1337: the only way to stop listing a 403 link used to be a permanent ignore entry that stopped any later check
+    day = script.datetime.date.fromisoformat
+    report = _run_with(monkeypatch, {"https://fresh.example/a": UNVERIFIED, "https://stale.example/b": UNVERIFIED,
+                                     "https://never.example/c": UNVERIFIED},
+                       {"https://fresh.example/a": (day("2026-11-18"), "opens in a browser"),
+                        "https://stale.example/b": (day("2026-08-01"), "opened in August")})
+    assert [i["url"] for i in report["checked_by_hand"]] == ["https://fresh.example/a"]
+    assert report["checked_by_hand"][0]["checked"] == "2026-11-18" and report["checked_by_hand"][0]["reason"] == "opens in a browser"
+    assert sorted(i["url"] for i in report["unknown"]) == ["https://never.example/c", "https://stale.example/b"]   # 110 days: listed again
+
+
+def test_the_90_day_boundary_is_inclusive_and_a_checked_link_that_breaks_is_still_reported(monkeypatch):
+    day = script.datetime.date
+    on_the_edge = day(2026, 11, 19) - script.datetime.timedelta(days=90)
+    report = _run_with(monkeypatch, {"https://edge.example/a": UNVERIFIED, "https://gone.example/b": ("broken", "404")},
+                       {"https://edge.example/a": (on_the_edge, "x"), "https://gone.example/b": (day(2026, 11, 18), "x")})
+    assert [i["url"] for i in report["checked_by_hand"]] == ["https://edge.example/a"]
+    assert [i["url"] for i in report["broken"]] == ["https://gone.example/b"]              # checking by hand never hides a dead link
+
+
+def test_only_a_403_with_no_archive_copy_is_moved_and_a_checked_url_nobody_cites_is_stale(monkeypatch):
+    day = script.datetime.date(2026, 11, 18)
+    report = _run_with(monkeypatch, {"https://other.example/a": ("unknown", "503")},
+                       {"https://other.example/a": (day, "x"), "https://uncited.example/z": (day, "was cited once")})
+    assert report["checked_by_hand"] == [] and [i["url"] for i in report["unknown"]] == ["https://other.example/a"]
+    assert report["stale_ignored"] == [{"url": "checked:https://uncited.example/z", "reason": "was cited once"}]
+
+
+def test_the_text_report_and_the_issue_body_count_them_without_listing_them_as_unverified(monkeypatch):
+    day = script.datetime.date.fromisoformat
+    report = _run_with(monkeypatch, {"https://fresh.example/a": UNVERIFIED, "https://never.example/c": UNVERIFIED},
+                       {"https://fresh.example/a": (day("2026-11-18"), "opens in a browser")})
+    text = script.render(report)
+    assert "1 checked by hand." in text and "2026-11-18  https://fresh.example/a  (opens in a browser)" in text
+    body = script.render_issue_body(report)
+    assert "1 more 403 link(s) with no archive copy were checked by hand within the last 90 days" in body
+    assert "- https://never.example/c" in body and "- https://fresh.example/a" not in body
+    assert script.report_needs_issue(report) is False
+
+
+def test_load_checked_list_parses_dated_lines_and_rejects_malformed_ones(tmp_path):
+    path = tmp_path / "ignore.txt"
+    path.write_text("# comment\nhttps://ignored.example/a needs a login\n"
+                    "checked:2026-11-18 https://checked.example/b opens in a browser\n", encoding="utf-8")
+    assert script.load_checked_list(path) == {"https://checked.example/b": (script.datetime.date(2026, 11, 18), "opens in a browser")}
+    assert script.load_ignore_list(path) == {"https://ignored.example/a": "needs a login"}     # the two readers ignore each other's lines
+    for bad in ("checked:yesterday https://x.example/a why", "checked:2026-11-18 not-a-url why", "checked:2026-11-18 https://x.example/a"):
+        path.write_text(bad + "\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="checked:YYYY-MM-DD URL reason"):
+            script.load_checked_list(path)
+    assert script.load_checked_list(tmp_path / "missing.txt") == {}
+
+
+def test_main_reads_the_checked_lines_from_the_ignore_file(server, tmp_path, capsys):
+    doc = tmp_path / "doc.md"
+    doc.write_text(f"[gone]({server}/gone)\n", encoding="utf-8")
+    ignore = tmp_path / "ignore.txt"
+    ignore.write_text(f"checked:{script.datetime.date.today().isoformat()} {server}/gone opened in a browser\n", encoding="utf-8")
+    assert script.main([str(doc), "--timeout", "5", "--check-local", "--ignore-file", str(ignore)]) == 0
+    assert "1 broken" in capsys.readouterr().out            # a 404 is not hidden by a checked line

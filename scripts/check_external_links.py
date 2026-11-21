@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import datetime
 import json
 import re
 import socket
@@ -82,13 +83,39 @@ def load_ignore_list(path: Path | None = IGNORE_FILE) -> dict[str, str]:
     ignored: dict[str, str] = {}
     for number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
         line = line.strip()
-        if not line or line.startswith("#"):
+        if not line or line.startswith("#") or line.startswith("checked:"):     # `checked:` lines are load_checked_list's
             continue
         url, _, reason = line.partition(" ")
         if not (re.match(r"https?://\S+$", url) or re.match(r"host:[^\s/:]+$", url)) or not reason.strip():
             raise ValueError(f"{path}:{number}: expected `URL reason` or `host:name reason`, got {line!r}")
         ignored[url.rstrip(".,;") if url.startswith("http") else url.lower()] = reason.strip()
     return ignored
+
+
+CHECKED_DAYS = 90      # how long a link opened by hand stays out of the unverified list (#1337)
+
+
+def load_checked_list(path: Path | None = IGNORE_FILE) -> dict[str, tuple[datetime.date, str]]:
+    """{url: (date, reason)} from the `checked:YYYY-MM-DD URL reason` lines of the ignore file (#1337): a link a maintainer opened
+    in a browser. It is still requested every week (unlike an ignored one), but while the date is under CHECKED_DAYS old a 403
+    with no archive copy counts as `checked by hand` instead of unverified. A malformed line is an error."""
+    if path is None or not Path(path).exists():
+        return {}
+    checked: dict[str, tuple[datetime.date, str]] = {}
+    for number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
+        line = line.strip()
+        if not line.startswith("checked:"):
+            continue
+        stamp, _, rest = line[len("checked:"):].partition(" ")
+        url, _, reason = rest.strip().partition(" ")
+        try:
+            day = datetime.date.fromisoformat(stamp)
+        except ValueError:
+            day = None
+        if day is None or not re.match(r"https?://\S+$", url) or not reason.strip():
+            raise ValueError(f"{path}:{number}: expected `checked:YYYY-MM-DD URL reason`, got {line!r}")
+        checked[url.rstrip(".,;")] = (day, reason.strip())
+    return checked
 
 
 def default_paths():
@@ -255,8 +282,11 @@ def _check_doi(doi: str, timeout: float) -> tuple[str, str]:
 
 
 def run(urls: dict[str, list[str]], limit: int | None = None, workers: int = 8, timeout: float = 15.0,
-        ignore: dict[str, str] | None = None, per_host: int | None = None, retry_delay: float | None = None) -> dict:
+        ignore: dict[str, str] | None = None, per_host: int | None = None, retry_delay: float | None = None,
+        checked: dict[str, tuple[datetime.date, str]] | None = None, today: datetime.date | None = None) -> dict:
     ignore = ignore or {}
+    checked = checked or {}
+    today = today or datetime.date.today()
     per_host = PER_HOST_REQUESTS if per_host is None else per_host
 
     def ignore_key(url: str) -> str | None:
@@ -264,13 +294,14 @@ def run(urls: dict[str, list[str]], limit: int | None = None, workers: int = 8, 
         host = "host:" + (urllib.parse.urlsplit(url).hostname or "").lower()
         return url if url in ignore else host if host in ignore else None
 
+    urls_all = set(urls)
     ignored = [{"url": url, "reason": ignore[ignore_key(url)], "files": urls[url]}
                for url in sorted(urls) if ignore_key(url)]
     used = {ignore_key(url) for url in urls}
     stale_ignored = [{"url": key, "reason": reason} for key, reason in sorted(ignore.items()) if key not in used]
     urls = {url: files for url, files in urls.items() if not ignore_key(url)}
     items = sorted(urls)[:limit] if limit else sorted(urls)
-    results = {"ok": [], "moved": [], "broken": [], "unknown": []}
+    results = {"ok": [], "moved": [], "broken": [], "unknown": [], "checked_by_hand": []}
     host_slots: dict[str, threading.Semaphore] = {}
     for url in items:
         host_slots.setdefault(urllib.parse.urlsplit(url).netloc.lower(), threading.Semaphore(per_host))
@@ -281,7 +312,13 @@ def run(urls: dict[str, list[str]], limit: int | None = None, workers: int = 8, 
 
     with concurrent.futures.ThreadPoolExecutor(workers) as pool:
         for url, (kind, detail) in zip(items, pool.map(check_with_host_limit, items)):
-            results[kind].append({"url": url, "detail": detail, "files": urls[url]})
+            item = {"url": url, "detail": detail, "files": urls[url]}
+            if kind == "unknown" and "no archive copy" in detail and url in checked \
+                    and (today - checked[url][0]).days <= CHECKED_DAYS:
+                results["checked_by_hand"].append({**item, "checked": checked[url][0].isoformat(), "reason": checked[url][1]})
+                continue                    # opened by hand recently: not listed as unverified (#1337)
+            results[kind].append(item)
+    stale_ignored += [{"url": "checked:" + url, "reason": reason} for url, (_, reason) in sorted(checked.items()) if url not in urls_all]
     return {"checked": len(items), **{kind: results[kind] for kind in results},
             "ignored": ignored, "stale_ignored": stale_ignored}
 
@@ -291,7 +328,8 @@ def render(report: dict) -> str:
     lines = [f"Checked {report['checked']} external links: {len(report['ok'])} ok, "
              f"{len(report['broken'])} broken, {len(report['unknown'])} unknown."
              + (f" {len(report['moved'])} moved." if report.get("moved") else "")
-             + (f" {len(report['ignored'])} ignored." if report.get("ignored") else "")]
+             + (f" {len(report['ignored'])} ignored." if report.get("ignored") else "")
+             + (f" {len(report['checked_by_hand'])} checked by hand." if report.get("checked_by_hand") else "")]
     unverified = [item for item in report["unknown"] if "no archive copy" in item["detail"]]
     sections = (("Broken (404, 410 or a name that does not resolve)", report["broken"]),
                 ("Unknown (blocked, rate limited or unreachable; not counted as broken)",
@@ -301,6 +339,9 @@ def render(report: dict) -> str:
         if items:
             lines += ["", title + ":"]
             lines += [f"  {item['detail']:>26}  {item['url']}  ({', '.join(item['files'][:3])})" for item in items]
+    if report.get("checked_by_hand"):
+        lines += ["", f"Checked by hand (a maintainer opened them within {CHECKED_DAYS} days; not listed as unverified):"]
+        lines += [f"  {item['checked']}  {item['url']}  ({item['reason']})" for item in report["checked_by_hand"]]
     if report.get("moved"):
         lines += ["", "Moved (permanent 301 or 308 redirect; update the link, not counted as broken):"]
         lines += [f"  {item['url']}  ->  {item['detail']}  ({', '.join(item['files'][:3])})" for item in report["moved"]]
@@ -324,6 +365,9 @@ def render_issue_body(report: dict) -> str:
              f"It also found {stale_count} stale ignore-list {stale_label} with no matching document.", ""]
     for item in report["broken"]:
         lines.append(f"- `{item['detail']}` {item['url']} (in {', '.join('`' + path + '`' for path in item['files'][:5])})")
+    if report.get("checked_by_hand"):
+        lines += ["", f"{len(report['checked_by_hand'])} more 403 link(s) with no archive copy were checked by hand within the last "
+                      f"{CHECKED_DAYS} days (`checked:` lines in `scripts/external-links-ignore.txt`) and are not listed below."]
     unverified = [item for item in report["unknown"] if "no archive copy" in item["detail"]]
     if unverified:        # never counted as broken and never keeps the issue open, but listed so nobody has to rerun the script (#1330)
         lines += ["", "Unverified by hand (they answer scripts with 403 and the Internet Archive has no copy; not counted as broken):", ""]
@@ -428,7 +472,7 @@ def main(argv=None) -> int:
         parser.error("--rebuild only makes sense with --fix-moved")
     report = run(collect_urls(args.paths or default_paths(), () if args.check_local else SKIP_HOSTS), args.limit,
                  timeout=args.timeout, ignore=load_ignore_list(args.ignore_file), per_host=args.per_host,
-                 retry_delay=args.retry_delay)
+                 retry_delay=args.retry_delay, checked=load_checked_list(args.ignore_file))
     print(json.dumps(report, indent=2) if args.json else render(report))
     if args.fix_moved:
         count, files = fix_moved(report)
