@@ -613,3 +613,68 @@ def test_main_reads_the_checked_lines_from_the_ignore_file(server, tmp_path, cap
     ignore.write_text(f"checked:{script.datetime.date.today().isoformat()} {server}/gone opened in a browser\n", encoding="utf-8")
     assert script.main([str(doc), "--timeout", "5", "--check-local", "--ignore-file", str(ignore)]) == 0
     assert "1 broken" in capsys.readouterr().out            # a 404 is not hidden by a checked line
+
+
+def test_mark_checked_appends_a_valid_line_and_keeps_the_existing_entries(tmp_path):
+    ignore = tmp_path / "ignore.txt"
+    ignore.write_text("# header\nhttps://ignored.example/a needs a login\n", encoding="utf-8")
+    urls = {"https://checked.example/b": ["doc.md"]}
+    day = script.datetime.date(2026, 11, 18)
+
+    changed, message = script.mark_checked("https://checked.example/b", "opened in a browser", day, ignore, urls)
+
+    assert changed and "Added" in message and "https://checked.example/b" in message
+    assert ignore.read_text(encoding="utf-8") == (
+        "# header\nhttps://ignored.example/a needs a login\n"
+        "checked:2026-11-18 https://checked.example/b opened in a browser\n"
+    )
+    assert script.load_checked_list(ignore) == {"https://checked.example/b": (day, "opened in a browser")}
+    assert script.load_ignore_list(ignore) == {"https://ignored.example/a": "needs a login"}
+
+
+def test_mark_checked_replaces_an_earlier_line_for_the_same_url(tmp_path):
+    ignore = tmp_path / "ignore.txt"
+    ignore.write_text("checked:2026-01-01 https://checked.example/b first look\n"
+                      "checked:2026-02-02 https://other.example/c still valid\n", encoding="utf-8")
+    urls = {"https://checked.example/b": ["doc.md"]}
+    day = script.datetime.date(2026, 11, 18)
+
+    changed, message = script.mark_checked("https://checked.example/b", "opened again", day, ignore, urls)
+
+    assert changed and "Updated" in message
+    text = ignore.read_text(encoding="utf-8")
+    assert text.count("https://checked.example/b") == 1
+    assert "checked:2026-11-18 https://checked.example/b opened again\n" in text
+    assert "checked:2026-02-02 https://other.example/c still valid\n" in text
+    assert script.load_checked_list(ignore) == {
+        "https://checked.example/b": (day, "opened again"),
+        "https://other.example/c": (script.datetime.date(2026, 2, 2), "still valid"),
+    }
+
+
+def test_mark_checked_refuses_an_uncited_url_or_an_empty_reason(tmp_path):
+    ignore = tmp_path / "ignore.txt"
+    ignore.write_text("# header\n", encoding="utf-8")
+    urls = {"https://cited.example/a": ["doc.md"]}
+
+    changed, message = script.mark_checked("https://typo.example/z", "why", script.datetime.date(2026, 11, 18), ignore, urls)
+    assert not changed and "no tracked file cites" in message
+    changed, message = script.mark_checked("https://cited.example/a", "   ", script.datetime.date(2026, 11, 18), ignore, urls)
+    assert not changed and "reason is required" in message
+    assert ignore.read_text(encoding="utf-8") == "# header\n"       # neither refusal writes anything
+
+
+def test_main_mark_checked_records_a_link_and_refuses_an_uncited_one(tmp_path, capsys):
+    doc = tmp_path / "doc.md"
+    doc.write_text("[a](https://cited.example/a)\n", encoding="utf-8")
+    ignore = tmp_path / "ignore.txt"
+
+    assert script.main([str(doc), "--ignore-file", str(ignore), "--mark-checked", "https://cited.example/a",
+                        "--reason", "opened in a browser", "--date", "2026-11-18"]) == 0
+    assert "Added checked entry" in capsys.readouterr().out
+    assert script.load_checked_list(ignore) == {
+        "https://cited.example/a": (script.datetime.date(2026, 11, 18), "opened in a browser")
+    }
+    assert script.main([str(doc), "--ignore-file", str(ignore), "--mark-checked", "https://uncited.example/z",
+                        "--reason", "why"]) == 1
+    assert "no tracked file cites" in capsys.readouterr().out
