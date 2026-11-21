@@ -1298,6 +1298,7 @@ paths. `--no-plots` skips the `figures/*.png` files; `results_fairness.csv`, `re
 and `summary.csv` are still written.
 By default, progress is written to stderr after each audit/strategy/model combination completes.
 `--quiet` suppresses those progress lines; the existing final summary and warnings remain on stderr.
+When a fit stops at its iteration limit the run prints one `warning:` line per audit instead of scikit-learn's own text, and `--quiet` does not hide it (see [Convergence warnings](#convergence-warnings)).
 `--merge` replaces rows only for the audits passed to that run, preserves other audits and prior run records,
 and refreshes the provenance hashes. It requires a complete existing output with valid `PROVENANCE.json`;
 legacy or inconsistent output is left untouched and rejected.
@@ -1307,6 +1308,16 @@ Writes `results_fairness.csv`, `results_performance.csv`, `summary.csv`, and one
 the CSVs, so re-plotting a different metric never requires re-running a model). One code path, same
 seed, same splits, same metric definitions, for every domain - that uniformity is what makes "we
 measured every audit identically" a true statement rather than an assertion.
+
+#### Convergence warnings
+
+The benchmark's logistic regression runs for at most 1,000 iterations on unscaled, label-encoded features. When a fit reaches that
+limit scikit-learn raises a `ConvergenceWarning`: the coefficients, and the numbers built on them, then depend on where the solver
+stopped. `faircode benchmark` counts those warnings per strategy/model combination instead of printing each one and ends with one
+line per audit, for example `German Credit Lending: 5 of 15 combinations had a fit stop at max_iter (...)`. Nothing is changed or
+hidden in the results: the line says which rows rest on a fit that did not converge. The combinations known to stop early today
+are German Credit Lending, Healthcare Readmission and the baseline and unawareness sets of Benefits Denial; the test that pins them
+is `tests/test_benchmark_convergence.py`, which fails if a new combination starts warning and says when one of them is fixed.
 
 **Layer 3 - the dashboard (`benchmark.html`).** An interactive, client-side explorer for
 `results_fairness.csv`/`results_performance.csv` - filter by audit, strategy, model, protected

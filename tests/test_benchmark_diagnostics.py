@@ -78,7 +78,7 @@ def test_convergence_summary_is_one_line_per_audit_naming_the_combinations():
         {"audit": "b", "strategy": "baseline", "model": "lr", "seconds": 1.0, "convergence_warnings": 0}]
     assert benchmark.convergence_summary(diagnostics) == [
         "a: 2 of 3 combinations had a fit stop at max_iter (42 fit(s) in all): baseline/lr, in_processing/lr; "
-        "see tests/test_benchmark_convergence.py"]
+        "see https://github.com/yakew7/Fair-Code#convergence-warnings"]
 
 
 def test_timings_are_added_to_the_provenance_record_only_when_given():
@@ -119,3 +119,16 @@ def test_the_cli_prints_the_summary_and_records_the_timings(tmp_path, monkeypatc
     runs = json.loads((out / benchmark.PROVENANCE_FILE).read_text(encoding="utf-8"))["runs"]
     assert [(t["strategy"], t["model"]) for t in runs[0]["timings"]] == [(s, "logistic_regression") for s in benchmark.STRATEGIES]
     assert all(t["seconds"] >= 0 for t in runs[0]["timings"])
+
+
+def test_the_summary_points_at_a_readme_section_that_exists_not_at_a_test_path():
+    # #1340: a pip install has no tests/ directory
+    from pathlib import Path
+    line = benchmark.convergence_summary([{"audit": "a", "strategy": "baseline", "model": "lr", "seconds": 1.0,
+                                           "convergence_warnings": 1}])[0]
+    assert "tests/" not in line and line.endswith(benchmark.CONVERGENCE_DOC)
+    anchor = benchmark.CONVERGENCE_DOC.rsplit("#", 1)[1]
+    readme = (Path(benchmark.__file__).resolve().parent.parent / "README.md").read_text(encoding="utf-8")
+    headings = [h.lstrip("#").strip().lower().replace(" ", "-") for h in readme.splitlines() if h.startswith("#")]
+    assert anchor in headings
+    assert "(#convergence-warnings)" in readme                                  # the benchmark section links to it too

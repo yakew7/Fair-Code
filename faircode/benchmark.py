@@ -257,6 +257,10 @@ def _timed_strategy_run(*args, **kwargs):
     return result, seconds, stopped
 
 
+# where the README explains what a stopped fit means (a URL, so it works for an installed package too, #1340)
+CONVERGENCE_DOC = "https://github.com/yakew7/Fair-Code#convergence-warnings"
+
+
 def convergence_summary(diagnostics: list[dict]) -> list[str]:
     """One line per audit naming the (strategy, model) combinations in which a fit stopped at max_iter, from the `diagnostics`
     `run_audit` collected; empty when every fit converged (#1328)."""
@@ -268,7 +272,7 @@ def convergence_summary(diagnostics: list[dict]) -> list[str]:
             fits = sum(item["convergence_warnings"] for item in stopped)
             names = ", ".join(f"{item['strategy']}/{item['model']}" for item in stopped)
             lines.append(f"{audit}: {len(stopped)} of {len(mine)} combinations had a fit stop at max_iter "
-                         f"({fits} fit(s) in all): {names}; see tests/test_benchmark_convergence.py")
+                         f"({fits} fit(s) in all): {names}; see {CONVERGENCE_DOC}")
     return lines
 
 
