@@ -157,3 +157,48 @@ def test_the_plain_check_validates_the_rules_only_for_the_repositorys_own_file(t
     monkeypatch.setattr(contributors_write, "AREA_RULES", [("x/", "No such row")])
     code, out = run(tmp_path, capsys, doc=STUB_DOC)
     assert "contributors-areas.json" not in out
+
+
+def _tracked_files():
+    import subprocess
+    done = subprocess.run(["git", "ls-files"], cwd=script.ROOT, capture_output=True, text=True)
+    return done.stdout.splitlines() if done.returncode == 0 else []
+
+
+def test_every_tracked_file_matches_an_area_rule_or_is_listed_as_using_the_default():
+    # #1336: a new top-level directory with no rule used to fall back to the tooling row silently
+    files = _tracked_files()
+    if not files:
+        pytest.skip("no git checkout")
+    rules, default_ok = script.load_area_rules(), set(script.load_default_ok())
+    unmapped = sorted({f.split("/")[0] for f in files
+                       if not any(f.startswith(match) or f.endswith(match) for match, _ in rules) and f.split("/")[0] not in default_ok})
+    assert unmapped == [], f"add an area rule or a default_ok entry in scripts/contributors-areas.json for: {unmapped}"
+
+
+def test_the_default_ok_entries_exist_and_never_also_have_a_rule():
+    files = _tracked_files()
+    if not files:
+        pytest.skip("no git checkout")
+    top = {f.split("/")[0] for f in files}
+    default_ok = script.load_default_ok()
+    assert set(default_ok) <= top, "a default_ok entry names a file that is no longer tracked"
+    for name in default_ok:
+        assert not any(name.startswith(match) or name.endswith(match) for match, _ in script.load_area_rules()), name
+
+
+def test_the_audit_folders_notebooks_and_site_pages_now_have_their_own_rows():
+    names = script.area_names((script.ROOT / "CONTRIBUTORS.md").read_text(encoding="utf-8"))
+    pick = lambda path: script.suggest_area("x", [dict(pr(1, "x", "2026-11-01"), files=[path])], names)[0]
+    assert pick("COMPAS/compas-scores-raw.csv") == "Audits" and pick("notebooks/01_compas.ipynb") == "Audits"
+    assert pick("benchmark.html") == "Benchmark harness & paper freeze"
+    assert pick("llms-full.txt") == "Website & explainer build" and pick("brag-output/frame1.png") == "Website & explainer build"
+    assert pick("explainers/x.md") == "Explainers" and pick("scripts/check_traction.py") == "Contributor tooling & docs"
+
+
+def test_load_default_ok_validates_its_list(tmp_path):
+    assert script.load_default_ok(tmp_path / "missing.json") == []
+    path = tmp_path / "areas.json"
+    path.write_text(json.dumps({"default_ok": "README.md"}))
+    with pytest.raises(ValueError, match="default_ok must be a list"):
+        script.load_default_ok(path)

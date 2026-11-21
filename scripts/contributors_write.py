@@ -114,6 +114,16 @@ def summary_line(body: str | None) -> str | None:
 AREAS_FILE = Path(__file__).resolve().parent / "contributors-areas.json"
 
 
+def load_default_ok(path: Path = AREAS_FILE) -> list[str]:
+    """The top-level paths that deliberately use the default area row (`default_ok` in the JSON file, #1336)."""
+    if not Path(path).is_file():
+        return []
+    listed = json.loads(Path(path).read_text(encoding="utf-8")).get("default_ok", [])
+    if not isinstance(listed, list) or not all(isinstance(item, str) for item in listed):
+        raise ValueError(f"{path}: default_ok must be a list of paths")
+    return listed
+
+
 def load_area_rules(path: Path = AREAS_FILE) -> list[tuple[str, str]]:
     """[(match, Contributions by area row)] in priority order from the JSON data file (#1335): the first rule whose `match` a
     changed path starts or ends with decides its area. A missing file is no rules; an entry without a non-empty `match` and

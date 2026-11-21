@@ -74,7 +74,7 @@ if __package__:                         # imported as scripts.<name> (tests, pyt
         TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, snapshot_time)
     from .contributors_write import (  # noqa: F401
         AREA_RULES, DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, area_rule_problems,
-        choose_areas, exception_suggestions, fix_document, foreign_commit_authors, load_area_rules,
+        choose_areas, exception_suggestions, fix_document, foreign_commit_authors, load_area_rules, load_default_ok,
         move_snapshot, stub_entry,
         suggest_area,
         summary_line)
@@ -91,7 +91,7 @@ else:
         TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, snapshot_time)
     from contributors_write import (  # noqa: F401
         AREA_RULES, DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, area_rule_problems,
-        choose_areas, exception_suggestions, fix_document, foreign_commit_authors, load_area_rules,
+        choose_areas, exception_suggestions, fix_document, foreign_commit_authors, load_area_rules, load_default_ok,
         move_snapshot, stub_entry,
         suggest_area,
         summary_line)

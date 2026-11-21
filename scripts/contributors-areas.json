@@ -1,5 +1,5 @@
 {
-  "_comment": "Which Contributions by area row a changed path belongs to, for check_contributors.py --stub (#1333, #1335). The first rule whose `match` the path starts or ends with decides; every `area` must be a row of CONTRIBUTORS.md's Contributions by area table (the plain check reports one that is not).",
+  "_comment": "Which Contributions by area row a changed path belongs to, for check_contributors.py --stub (#1333, #1335). The first rule whose `match` the path starts or ends with decides; every `area` must be a row of CONTRIBUTORS.md's Contributions by area table (the plain check reports one that is not). `default_ok` lists the top-level files that deliberately use the default row (Contributor tooling & docs): a tracked file that matches no rule and is not under one of them fails the test (#1336).",
   "rules": [
     {
       "match": "assets/profiler-",
@@ -74,6 +74,66 @@
       "area": "Audits"
     },
     {
+      "match": "notebooks/",
+      "area": "Audits"
+    },
+    {
+      "match": "AI Fair Recruitment/",
+      "area": "Audits"
+    },
+    {
+      "match": "Benefits Denial/",
+      "area": "Audits"
+    },
+    {
+      "match": "COMPAS/",
+      "area": "Audits"
+    },
+    {
+      "match": "German Credit Lending/",
+      "area": "Audits"
+    },
+    {
+      "match": "Healthcare Readmission/",
+      "area": "Audits"
+    },
+    {
+      "match": "Insurance Denial/",
+      "area": "Audits"
+    },
+    {
+      "match": "Tenant Screening/",
+      "area": "Audits"
+    },
+    {
+      "match": "benchmark.html",
+      "area": "Benchmark harness & paper freeze"
+    },
+    {
+      "match": "explainer.html",
+      "area": "Website & explainer build"
+    },
+    {
+      "match": "llms.txt",
+      "area": "Website & explainer build"
+    },
+    {
+      "match": "llms-full.txt",
+      "area": "Website & explainer build"
+    },
+    {
+      "match": "sitemap.xml",
+      "area": "Website & explainer build"
+    },
+    {
+      "match": "robots.txt",
+      "area": "Website & explainer build"
+    },
+    {
+      "match": "brag-output/",
+      "area": "Website & explainer build"
+    },
+    {
       "match": "scripts/",
       "area": "Contributor tooling & docs"
     },
@@ -81,5 +141,23 @@
       "match": "Makefile",
       "area": "Contributor tooling & docs"
     }
+  ],
+  "default_ok": [
+    ".gitignore",
+    ".pre-commit-config.yaml",
+    "CHANGELOG.md",
+    "CITATION.cff",
+    "CLAUDE.md",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
+    "CONTRIBUTORS.md",
+    "LICENSE",
+    "METRICS.md",
+    "README.md",
+    "ROADMAP.md",
+    "SECURITY.md",
+    "pyproject.toml",
+    "requirements-lock.txt",
+    "requirements.txt"
   ]
 }
