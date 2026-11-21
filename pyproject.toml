@@ -23,7 +23,7 @@ parquet = ["pyarrow>=10.0"]
 proxy = ["scipy>=1.10"]
 benchmark = ["scikit-learn>=1.8.0", "pyyaml>=6.0", "fairlearn>=0.14.0", "matplotlib>=3.10"]
 mcp = ["mcp>=2.0"]
-test = ["pytest>=8.0", "pytest-cov>=5.0", "pytest-xdist>=3.5", "certifi>=2023.1.1", "pyyaml>=6.0"]   # pytest-xdist: parallel make test-fast and make coverage; certifi: scripts/check_external_links.py trust store fallback; pyyaml: workflow safeguard tests
+test = ["pytest>=8.0", "pytest-cov>=5.0", "pytest-xdist>=3.5", "pytest-timeout>=2.3", "certifi>=2023.1.1", "pyyaml>=6.0"]   # pytest-xdist: parallel make test-fast and make coverage; pytest-timeout: fails a hung test instead of stalling the job (#1342); certifi: scripts/check_external_links.py trust store fallback; pyyaml: workflow safeguard tests
 browser = ["playwright>=1.40"]   # tests/browser; also run `python -m playwright install chromium`
 
 [project.urls]
@@ -48,6 +48,10 @@ faircode = [
 # The repo root (for `import scripts.*`) and tests/ (for the shared js_helpers module) work in every
 # import mode, including --import-mode=importlib (#945).
 pythonpath = [".", "tests"]
+# A hung test (a socket that never answers, a subprocess that never exits) fails after 300 s instead of holding the job until the
+# runner's own limit; tests/conftest.py gives the `slow` and `browser` tests 900 s, and a test can set its own with
+# @pytest.mark.timeout(seconds) (#1342). Needs pytest-timeout from the `test` extra; without it pytest warns about the unknown option.
+timeout = 300
 markers = [
     "slow: trains models (tests/test_benchmark.py); skip locally with -m \"not slow\", CI runs everything",
     "browser: opens the real pages in Chromium through Playwright (tests/browser); skipped when Playwright is missing",
