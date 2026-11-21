@@ -27,17 +27,20 @@ def _toy_frame(n=240, seed=3):
     return pd.DataFrame({"label": label, "x": x, "z": rng.normal(size=n), "attr_a": group_a, "attr_b": group_b})
 
 
-def _write_toy_audit(directory, protected=("attr_a", "attr_b")):
-    frame = _toy_frame()
+def _write_toy_audit(directory, protected=("attr_a", "attr_b"), frame=None, name="toy", features=("x", "z")):
+    """Write toy.csv and audit.yaml into `directory` and load the manifest. `frame` replaces the generated rows (it needs a
+    `label` column, the protected columns with `disadv`/`ok` values and the feature columns), `name` is the audit name and
+    `features` the core features (#1338)."""
+    frame = _toy_frame() if frame is None else frame
     frame.to_csv(directory / "toy.csv", index=False)
     manifest = {
-        "name": "toy",
+        "name": name,
         "dataset": {"path": "toy.csv"},
         "target": {"column": "label", "method": "binary"},
         "protected_attributes": [
             {"name": name, "type": "categorical", "column": name, "disadvantaged_values": ["disadv"], "advantaged_values": ["ok"]}
             for name in protected],
-        "core_features": ["x", "z"],
+        "core_features": list(features),
     }
     (directory / "audit.yaml").write_text(yaml.dump(manifest))
     return load_manifest(directory / "audit.yaml")

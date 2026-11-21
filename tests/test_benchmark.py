@@ -245,24 +245,7 @@ def empty_cell_result(tmp_path_factory):
         "x": list(range(n)),
     })
     assert not ((df["attr_a"] == "disadv") & (df["attr_b"] == "disadv")).any()
-    dataset_path = audit_dir / "toy.csv"
-    df.to_csv(dataset_path, index=False)
-
-    manifest_dict = {
-        "name": EMPTY_CELL_AUDIT_NAME,
-        "dataset": {"path": "toy.csv"},
-        "target": {"column": "label", "method": "binary"},
-        "protected_attributes": [
-            {"name": "attr_a", "type": "categorical", "column": "attr_a",
-             "disadvantaged_values": ["disadv"], "advantaged_values": ["ok"]},
-            {"name": "attr_b", "type": "categorical", "column": "attr_b",
-             "disadvantaged_values": ["disadv"], "advantaged_values": ["ok"]},
-        ],
-        "core_features": ["x"],
-    }
-    manifest_path = audit_dir / "audit.yaml"
-    manifest_path.write_text(yaml.dump(manifest_dict))
-    manifest = load_manifest(manifest_path)
+    manifest = _write_toy_audit(audit_dir, frame=df, name=EMPTY_CELL_AUDIT_NAME, features=("x",))
     return _run_lr_only(manifest)
 
 
