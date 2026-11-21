@@ -1,0 +1,85 @@
+{
+  "_comment": "Which Contributions by area row a changed path belongs to, for check_contributors.py --stub (#1333, #1335). The first rule whose `match` the path starts or ends with decides; every `area` must be a row of CONTRIBUTORS.md's Contributions by area table (the plain check reports one that is not).",
+  "rules": [
+    {
+      "match": "assets/profiler-",
+      "area": "Profiler - web"
+    },
+    {
+      "match": "profiler.html",
+      "area": "Profiler - web"
+    },
+    {
+      "match": "faircode/benchmark",
+      "area": "Benchmark harness & paper freeze"
+    },
+    {
+      "match": "faircode/strategies",
+      "area": "Benchmark harness & paper freeze"
+    },
+    {
+      "match": "faircode/models",
+      "area": "Benchmark harness & paper freeze"
+    },
+    {
+      "match": "faircode/manifest",
+      "area": "Benchmark harness & paper freeze"
+    },
+    {
+      "match": "paper/",
+      "area": "Benchmark harness & paper freeze"
+    },
+    {
+      "match": "results/",
+      "area": "Benchmark harness & paper freeze"
+    },
+    {
+      "match": ".github/",
+      "area": "CI & workflows"
+    },
+    {
+      "match": "tests/",
+      "area": "Tests"
+    },
+    {
+      "match": "explainers/",
+      "area": "Explainers"
+    },
+    {
+      "match": "scripts/build_explainers",
+      "area": "Website & explainer build"
+    },
+    {
+      "match": "index.html",
+      "area": "Website & explainer build"
+    },
+    {
+      "match": "assets/",
+      "area": "Website & explainer build"
+    },
+    {
+      "match": "faircode/",
+      "area": "Profiler - CLI & loaders"
+    },
+    {
+      "match": "/unfair.py",
+      "area": "Audits"
+    },
+    {
+      "match": "/fair.py",
+      "area": "Audits"
+    },
+    {
+      "match": "/audit.yaml",
+      "area": "Audits"
+    },
+    {
+      "match": "scripts/",
+      "area": "Contributor tooling & docs"
+    },
+    {
+      "match": "Makefile",
+      "area": "Contributor tooling & docs"
+    }
+  ]
+}

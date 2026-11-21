@@ -279,7 +279,7 @@ def test_the_contributors_test_files_stay_under_300_lines():
     # #1327: one 980-line file for four modules became four files and a helper module
     from pathlib import Path
     folder = Path(__file__).parent
-    names = ["contributors_helpers", "test_contributors_entries", "test_contributors_fix", "test_contributors_stub",
+    names = ["contributors_helpers", "test_contributors_entries", "test_contributors_fix", "test_contributors_stub", "test_contributors_areas",
              "test_contributors_cli"]
     for name in names:
         lines = len((folder / f"{name}.py").read_text(encoding="utf-8").splitlines())

@@ -73,7 +73,8 @@ if __package__:                         # imported as scripts.<name> (tests, pyt
     from .contributors_github import (  # noqa: F401
         TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, snapshot_time)
     from .contributors_write import (  # noqa: F401
-        DEFAULT_AREA, choose_areas, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, exception_suggestions, fix_document, foreign_commit_authors,
+        AREA_RULES, DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, area_rule_problems,
+        choose_areas, exception_suggestions, fix_document, foreign_commit_authors, load_area_rules,
         move_snapshot, stub_entry,
         suggest_area,
         summary_line)
@@ -89,7 +90,8 @@ else:
     from contributors_github import (  # noqa: F401
         TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, snapshot_time)
     from contributors_write import (  # noqa: F401
-        DEFAULT_AREA, choose_areas, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, exception_suggestions, fix_document, foreign_commit_authors,
+        AREA_RULES, DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, area_rule_problems,
+        choose_areas, exception_suggestions, fix_document, foreign_commit_authors, load_area_rules,
         move_snapshot, stub_entry,
         suggest_area,
         summary_line)
@@ -256,6 +258,8 @@ def run_check(args, text: str, entries: list[dict], prs: list[dict], through: in
     problems, skipped = check(entries, prs, through)
     problems += area_table_problems(text, entries)
     problems += todo_problems(text)
+    if args.file.resolve() == (ROOT / "CONTRIBUTORS.md").resolve():      # the rules describe this repository's own table (#1335)
+        problems += area_rule_problems(text)
     with_commits = bool(args.commits or args.commits_data)
     if with_commits:
         since = snapshot_time(prs, through)

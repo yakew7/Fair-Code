@@ -4,7 +4,9 @@ Split out of scripts/check_contributors.py. These functions take text and PR dat
 """
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 
 if __package__:                         # imported as scripts.<name> or run as a script (see ghcall's import for why)
     from .contributors_entries import ENTRY, SECTIONS, merged_by_author, parse
@@ -109,36 +111,55 @@ def summary_line(body: str | None) -> str | None:
     return None
 
 
-# (path prefix or suffix, Contributions by area row) in priority order: the first rule a path matches decides its area (#1333)
-AREA_RULES = [
-    ("assets/profiler-", "Profiler - web"), ("profiler.html", "Profiler - web"),
-    ("faircode/benchmark", "Benchmark harness & paper freeze"), ("faircode/strategies", "Benchmark harness & paper freeze"),
-    ("faircode/models", "Benchmark harness & paper freeze"), ("faircode/manifest", "Benchmark harness & paper freeze"),
-    ("paper/", "Benchmark harness & paper freeze"), ("results/", "Benchmark harness & paper freeze"),
-    (".github/", "CI & workflows"), ("tests/", "Tests"), ("explainers/", "Explainers"),
-    ("scripts/build_explainers", "Website & explainer build"), ("index.html", "Website & explainer build"),
-    ("assets/", "Website & explainer build"), ("faircode/", "Profiler - CLI & loaders"),
-    ("/unfair.py", "Audits"), ("/fair.py", "Audits"), ("/audit.yaml", "Audits"),
-    ("scripts/", "Contributor tooling & docs"), ("Makefile", "Contributor tooling & docs"),
-]
+AREAS_FILE = Path(__file__).resolve().parent / "contributors-areas.json"
 
 
-def suggest_area(login: str, prs: list[dict], names: list[str]) -> tuple[str, int] | None:
+def load_area_rules(path: Path = AREAS_FILE) -> list[tuple[str, str]]:
+    """[(match, Contributions by area row)] in priority order from the JSON data file (#1335): the first rule whose `match` a
+    changed path starts or ends with decides its area. A missing file is no rules; an entry without a non-empty `match` and
+    `area` is an error."""
+    if not Path(path).is_file():
+        return []
+    rules = json.loads(Path(path).read_text(encoding="utf-8")).get("rules")
+    if not isinstance(rules, list):
+        raise ValueError(f"{path}: rules must be a list of {{match, area}} objects")
+    out = []
+    for number, rule in enumerate(rules, 1):
+        if not isinstance(rule, dict) or not all(isinstance(rule.get(key), str) and rule[key].strip() for key in ("match", "area")):
+            raise ValueError(f"{path}: rule {number} needs a non-empty match and area")
+        out.append((rule["match"], rule["area"].strip()))
+    return out
+
+
+AREA_RULES = load_area_rules()
+
+
+def area_rule_problems(text: str, rules: list[tuple[str, str]] | None = None) -> list[str]:
+    """The rules that name an area row the Contributions by area table does not have (#1335); empty when the table is absent."""
+    names = {name.lower() for name in area_names(text)}
+    if not names:
+        return []
+    return [f"contributors-areas.json: the rule for {match!r} names the area {area!r}, which is not a row of the Contributions by area table"
+            for match, area in (AREA_RULES if rules is None else rules) if area.lower() not in names]
+
+
+def suggest_area(login: str, prs: list[dict], names: list[str], rules: list[tuple[str, str]] | None = None) -> tuple[str, int] | None:
     """The Contributions by area row that holds most of the files `login`'s PRs changed, and how many files matched it, from the
     `files` the PR data carries (#1333); None when the data has no files or nothing matches a row of the table. Ties go to the
-    row that comes first in AREA_RULES."""
+    row that comes first in the rules (contributors-areas.json; `rules` overrides them)."""
+    rules = AREA_RULES if rules is None else rules
     counts: dict[str, int] = {}
     for pr in prs:
         if ((pr.get("author") or {}).get("login") or "").lower() != login.lower():
             continue
         for path in pr.get("files") or []:
-            area = next((area for pattern, area in AREA_RULES if path.startswith(pattern) or path.endswith(pattern)), None)
+            area = next((area for pattern, area in rules if path.startswith(pattern) or path.endswith(pattern)), None)
             if area and area in names:
                 counts[area] = counts.get(area, 0) + 1
     if not counts:
         return None
     first_rule = {}
-    for index, (_, area) in enumerate(AREA_RULES):
+    for index, (_, area) in enumerate(rules):
         first_rule.setdefault(area, index)
     best = min(counts, key=lambda area: (-counts[area], first_rule[area]))
     return best, counts[best]
