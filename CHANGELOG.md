@@ -21,6 +21,9 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Added
 
+- `diff_results.py` reports how the per-combination timings (#1334) and the fits that stopped at `max_iter` (#1341) changed between two result sets; `make traction-live ARGS=...` passes options through (#1343).
+- `check_external_links.py` reads `checked:YYYY-MM-DD URL reason` lines from the ignore file and keeps a 403 link out of the unverified list for 90 days (#1337).
+- `pytest-timeout` in the `test` extra: a hung test fails after 300 s, 900 s for the `slow` and `browser` tests through `tests/conftest.py` (#1342).
 - `faircode benchmark` prints one convergence warning line per audit instead of scikit-learn's raw text (#1328) and writes the seconds each strategy/model combination took into the run's `PROVENANCE.json` entry (#1329); `run_audit` and `run_benchmark` take an optional `diagnostics` list.
 - `check_contributors.py --stub` names a foreign commit author in the entry and prints the exception lines to add (#1326), suggests the area from the changed files (#1333); `--pending` shows `closes #N` (#1331).
 - `check_traction.py --skip-figure NAME` (#1324); the weekly external-links issue lists the unverified 403 links (#1330).
@@ -34,6 +37,7 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Changed
 
+- The `--stub` area rules are in `scripts/contributors-areas.json` and every top-level path has a rule or an explicit default (#1335, #1336); the saved `--prs` JSON's optional keys are documented (#1339); the convergence message points at the README (#1340); the empty-cell benchmark test uses the shared toy-audit helper (#1338).
 - `check_contributors.py` fetches each pull request's commit authors, closing issues and files with one `gh pr view` call (#1332).
 - The contributors tests are split into four files of under 300 lines (#1327); `traction-live` skips the Issues Closed comparison on a push run (#1324).
 - The AUC gaps explainer's script takes about 7 s instead of about 20 s with identical output: placement values from binary searches and tie-aware bootstrap AUCs instead of `roc_auc_score` calls (#1169).
