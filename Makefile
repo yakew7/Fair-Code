@@ -63,8 +63,8 @@ fix-explainer-count:  ## Correct stale "N explainers" mentions in README/CONTRIB
 external-links:  ## Report dead external links in the docs and explainers (a report, never a gate; the weekly workflow runs the same script)
 	$(PY) scripts/check_external_links.py
 
-traction-live:  ## Compare the traction figures with GitHub (needs gh; opt-in, the weekly traction-live workflow runs the same check)
-	$(PY) scripts/check_traction.py --live
+traction-live:  ## Compare the traction figures with GitHub (needs gh; opt-in, the traction-live workflow runs the same check; ARGS=--skip-figure issues_closed reproduces its push run)
+	$(PY) scripts/check_traction.py --live $(ARGS)
 
 contributors-commits:  ## Compare CONTRIBUTORS.md PR and commit counts with GitHub at the snapshot (needs gh, about a minute)
 	$(PY) scripts/check_contributors.py --commits

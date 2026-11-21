@@ -96,3 +96,9 @@ def test_coverage_runs_the_whole_suite_in_parallel_when_xdist_is_there_and_cover
     assert '-m "not slow"' in fast and "-n auto" in fast and "--cov=faircode" in fast
     serial = dry_run("coverage", "XDIST=")
     assert "-n auto" not in serial and "OMP_NUM_THREADS" not in serial
+
+
+def test_traction_live_passes_extra_arguments_on_to_the_script():
+    # #1343: the push-triggered workflow runs it with --skip-figure issues_closed; a contributor can now reproduce that locally
+    assert dry_run("traction-live").strip().endswith("check_traction.py --live")
+    assert dry_run("traction-live", "ARGS=--skip-figure issues_closed").strip().endswith("--live --skip-figure issues_closed")
