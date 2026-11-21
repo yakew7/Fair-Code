@@ -278,3 +278,29 @@ def test_the_provenance_report_says_when_convergence_was_not_recorded(tmp_path):
     assert "convergence: not recorded on the current side" in dr.provenance_report(without, with_counts)
     assert "convergence: not recorded on both sides" in dr.provenance_report(no_timings, without)
     assert "combinations that stopped at max_iter 0 -> 0" in dr.provenance_report(with_counts, with_counts)
+
+
+def test_the_provenance_report_shows_the_total_and_the_largest_timing_changes(tmp_path):
+    # #1334: a slowdown after a dependency bump can be located without reading two JSON files
+    ref = _provenance_dir(tmp_path / "ref", [_timing("baseline", 10.0), _timing("in_processing", 98.0), _timing("post_processing", 5.0)])
+    cur = _provenance_dir(tmp_path / "cur", [_timing("baseline", 11.0), _timing("in_processing", 130.0), _timing("post_processing", 5.0)])
+    line = next(l for l in dr.provenance_report(cur, ref).splitlines() if l.startswith("timings:"))
+    assert line == ("timings: total 113.0 s -> 146.0 s (+33.0 s); largest changes: a/in_processing/lr 98.0 -> 130.0 s (+32.0), "
+                    "a/baseline/lr 10.0 -> 11.0 s (+1.0), a/post_processing/lr 5.0 -> 5.0 s (+0.0)")
+
+
+def test_only_the_five_largest_timing_changes_are_listed_and_unmatched_combinations_are_left_out(tmp_path):
+    ref = _provenance_dir(tmp_path / "ref", [_timing(f"s{i}", 1.0) for i in range(8)] + [_timing("only_ref", 4.0)])
+    cur = _provenance_dir(tmp_path / "cur", [_timing(f"s{i}", 1.0 + i) for i in range(8)] + [_timing("only_cur", 9.0)])
+    line = next(l for l in dr.provenance_report(cur, ref).splitlines() if l.startswith("timings:"))
+    assert line.count(" -> ") == 1 + 5                                              # the total and five combinations
+    assert "s7" in line and "s6" in line and "s3" in line and "s2" not in line
+    assert "only_ref" not in line.split("largest changes:")[1] and "only_cur" not in line.split("largest changes:")[1]
+
+
+def test_the_provenance_report_says_when_timings_were_not_recorded(tmp_path):
+    with_timings = _provenance_dir(tmp_path / "new", [_timing("baseline", 1.0)])
+    without = _provenance_dir(tmp_path / "old", None)
+    assert "timings: not recorded on the reference side" in dr.provenance_report(with_timings, without)
+    assert "timings: not recorded on the current side" in dr.provenance_report(without, with_timings)
+    assert "timings: not recorded on both sides" in dr.provenance_report(without, without)

@@ -204,6 +204,24 @@ def describe_provenance(label, info) -> str:
     return f"{label}: commit {commit}, Python {info['python']}{runs}; {libs or 'no library versions'}"
 
 
+def timing_lines(cur, ref, top: int = 5) -> list[str]:
+    """How long the fits took on each side (#1334): the totals and the `top` combinations whose seconds changed most, from the
+    `timings` of the two runs' provenance entries; says so when a side recorded none (an older run or the frozen snapshot)."""
+    def seconds(info):
+        return {f"{t['audit']}/{t['strategy']}/{t['model']}": t["seconds"] for t in (info or {}).get("timings") or []}
+
+    now, before = seconds(cur), seconds(ref)
+    if not now or not before:
+        return ["timings: not recorded on " + ("both sides" if not now and not before
+                                               else "the reference side" if not before else "the current side")]
+    total_before, total_now = sum(before.values()), sum(now.values())
+    line = f"timings: total {total_before:.1f} s -> {total_now:.1f} s ({total_now - total_before:+.1f} s)"
+    changes = sorted(((now[k] - before[k], k) for k in now.keys() & before.keys()), key=lambda item: (-abs(item[0]), item[1]))[:top]
+    if changes:
+        line += "; largest changes: " + ", ".join(f"{k} {before[k]:.1f} -> {now[k]:.1f} s ({delta:+.1f})" for delta, k in changes)
+    return [line]
+
+
 def _stopped(info) -> set[str] | None:
     """The `audit/strategy/model` combinations whose fits stopped at max_iter, or None when this side did not record it."""
     entries = [t for t in (info or {}).get("timings") or [] if "convergence_warnings" in t]
@@ -238,6 +256,7 @@ def provenance_report(current_dir, reference_dir) -> str:
         if cur["python"] != ref["python"]:
             differ.insert(0, f"python {ref['python']} -> {cur['python']}")
         lines.append("versions that differ: " + (", ".join(differ) if differ else "none"))
+        lines += timing_lines(cur, ref)
         lines += convergence_lines(cur, ref)
     return "\n".join(lines) + "\n\n"
 
