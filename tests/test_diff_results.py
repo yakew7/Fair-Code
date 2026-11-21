@@ -244,3 +244,37 @@ def test_unknown_audit_suggests_valid_name(capsys):
     assert "unknown audit(s)" in output
     assert "german_credit_lending" in output
     assert "Did you mean" in output
+
+def _provenance_dir(path, timings):
+    path.mkdir(parents=True, exist_ok=True)
+    run = {"description": "run", "commit": "abc1234", "dirty": False, "python": "3.13", "libraries": {}, "audits": ["a"]}
+    if timings is not None:
+        run["timings"] = timings
+    (path / "PROVENANCE.json").write_text(json.dumps({"schema": 1, "files": {}, "runs": [run]}), encoding="utf-8")
+    return path
+
+
+def _timing(strategy, seconds, stopped=None, model="lr"):
+    item = {"audit": "a", "strategy": strategy, "model": model, "seconds": seconds}
+    if stopped is not None:
+        item["convergence_warnings"] = stopped
+    return item
+
+
+def test_the_provenance_report_says_how_the_convergence_changed_between_two_sides(tmp_path):
+    # #1341
+    ref = _provenance_dir(tmp_path / "ref", [_timing("baseline", 1.0, 3), _timing("in_processing", 2.0, 0)])
+    cur = _provenance_dir(tmp_path / "cur", [_timing("baseline", 1.0, 0), _timing("in_processing", 2.0, 5)])
+    report = dr.provenance_report(cur, ref)
+    assert ("convergence: combinations that stopped at max_iter 1 -> 1; newly stopping: a/in_processing/lr; "
+            "no longer stopping: a/baseline/lr") in report
+
+
+def test_the_provenance_report_says_when_convergence_was_not_recorded(tmp_path):
+    with_counts = _provenance_dir(tmp_path / "new", [_timing("baseline", 1.0, 0)])
+    without = _provenance_dir(tmp_path / "old", [_timing("baseline", 1.0)])
+    no_timings = _provenance_dir(tmp_path / "none", None)
+    assert "convergence: not recorded on the reference side" in dr.provenance_report(with_counts, without)
+    assert "convergence: not recorded on the current side" in dr.provenance_report(without, with_counts)
+    assert "convergence: not recorded on both sides" in dr.provenance_report(no_timings, without)
+    assert "combinations that stopped at max_iter 0 -> 0" in dr.provenance_report(with_counts, with_counts)

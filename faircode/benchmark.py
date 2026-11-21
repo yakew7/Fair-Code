@@ -421,8 +421,9 @@ def _sha256(path) -> str:
 def collect_provenance(audits, n_resamples, n_permutations, description="full run", timings=None) -> dict:
     """What produced a set of result files (#1129): the commit and whether the tree was dirty, the Python and library
     versions, the hash of requirements-lock.txt, the resample and permutation counts and the audits included. `timings` (the
-    seconds each strategy/model combination took, from run_audit's diagnostics) is added as a `timings` list when given (#1329);
-    it is additive, so older records and the consistency checks are unaffected."""
+    seconds each strategy/model combination took and how many ConvergenceWarnings its fits raised, from run_audit's diagnostics)
+    is added as a `timings` list when given (#1329, #1341); it is additive, so older records and the consistency checks are
+    unaffected."""
     repo = Path(__file__).resolve().parent.parent
 
     def git(*args):
@@ -452,7 +453,8 @@ def collect_provenance(audits, n_resamples, n_permutations, description="full ru
     }
     if timings is not None:
         record["timings"] = [{"audit": item["audit"], "strategy": item["strategy"], "model": item["model"],
-                              "seconds": item["seconds"]} for item in timings]
+                              "seconds": item["seconds"], "convergence_warnings": item.get("convergence_warnings", 0)}
+                             for item in timings]
     return record
 
 

@@ -184,14 +184,14 @@ def read_provenance(directory) -> dict | None:
         last = runs[-1]
         return {"source": "PROVENANCE.json", "commit": last.get("commit"), "dirty": last.get("dirty"), "python": last.get("python"),
                 "libraries": {k.lower(): v for k, v in (last.get("libraries") or {}).items() if v}, "runs": len(runs),
-                "description": last.get("description")}
+                "description": last.get("description"), "timings": last.get("timings") or []}
     manifest = directory / "MANIFEST.md"
     if manifest.is_file():
         text = manifest.read_text(encoding="utf-8")
         field = lambda name: (re.search(rf"\*\*{re.escape(name)}:\*\*\s*`?([^`\n]+)`?", text) or [None, None])[1]
         libraries = {n: field(n) for n in ("scikit-learn", "fairlearn", "pandas", "numpy") if field(n)}
         return {"source": "MANIFEST.md", "commit": field("Git commit"), "dirty": None, "python": field("Python"),
-                "libraries": libraries, "runs": 1, "description": "frozen snapshot"}
+                "libraries": libraries, "runs": 1, "description": "frozen snapshot", "timings": []}
     return None
 
 
@@ -204,6 +204,30 @@ def describe_provenance(label, info) -> str:
     return f"{label}: commit {commit}, Python {info['python']}{runs}; {libs or 'no library versions'}"
 
 
+def _stopped(info) -> set[str] | None:
+    """The `audit/strategy/model` combinations whose fits stopped at max_iter, or None when this side did not record it."""
+    entries = [t for t in (info or {}).get("timings") or [] if "convergence_warnings" in t]
+    if not entries:
+        return None
+    return {f"{t['audit']}/{t['strategy']}/{t['model']}" for t in entries if t["convergence_warnings"]}
+
+
+def convergence_lines(cur, ref) -> list[str]:
+    """How the fits that stopped at max_iter changed between the two sides (#1341): the counts and the combinations that
+    started or stopped stopping; says so when a side recorded nothing (an older run, or the frozen snapshot)."""
+    now, before = _stopped(cur), _stopped(ref)
+    if now is None or before is None:
+        return ["convergence: not recorded on " + ("both sides" if now is None and before is None
+                                                   else "the reference side" if before is None else "the current side")]
+    started, fixed = sorted(now - before), sorted(before - now)
+    line = f"convergence: combinations that stopped at max_iter {len(before)} -> {len(now)}"
+    if started:
+        line += "; newly stopping: " + ", ".join(started)
+    if fixed:
+        line += "; no longer stopping: " + ", ".join(fixed)
+    return [line]
+
+
 def provenance_report(current_dir, reference_dir) -> str:
     """Both sides' provenance and the library versions that differ, so a moved row can be told apart from a library bump."""
     cur, ref = read_provenance(current_dir), read_provenance(reference_dir)
@@ -214,6 +238,7 @@ def provenance_report(current_dir, reference_dir) -> str:
         if cur["python"] != ref["python"]:
             differ.insert(0, f"python {ref['python']} -> {cur['python']}")
         lines.append("versions that differ: " + (", ".join(differ) if differ else "none"))
+        lines += convergence_lines(cur, ref)
     return "\n".join(lines) + "\n\n"
 
 

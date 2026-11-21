@@ -85,7 +85,9 @@ def test_timings_are_added_to_the_provenance_record_only_when_given():
     assert "timings" not in benchmark.collect_provenance(["a"], 10, 10)
     timings = [{"audit": "a", "strategy": "baseline", "model": "lr", "seconds": 1.5, "convergence_warnings": 3}]
     record = benchmark.collect_provenance(["a"], 10, 10, timings=timings)
-    assert record["timings"] == [{"audit": "a", "strategy": "baseline", "model": "lr", "seconds": 1.5}]
+    assert record["timings"] == [{"audit": "a", "strategy": "baseline", "model": "lr", "seconds": 1.5, "convergence_warnings": 3}]
+    older = [{"audit": "a", "strategy": "baseline", "model": "lr", "seconds": 1.5}]            # diagnostics without the count
+    assert benchmark.collect_provenance(["a"], 10, 10, timings=older)["timings"][0]["convergence_warnings"] == 0
 
 
 def test_a_result_set_with_timings_in_its_provenance_still_verifies_and_merges(tmp_path, monkeypatch):
@@ -97,7 +99,7 @@ def test_a_result_set_with_timings_in_its_provenance_still_verifies_and_merges(t
     out = tmp_path / "out"
     benchmark.write_report(fairness, performance, out, make_plots=False, provenance=provenance)
     record = json.loads((out / benchmark.PROVENANCE_FILE).read_text(encoding="utf-8"))
-    assert len(record["runs"][0]["timings"]) == len(benchmark.STRATEGIES) and "convergence_warnings" not in record["runs"][0]["timings"][0]
+    assert len(record["runs"][0]["timings"]) == len(benchmark.STRATEGIES) and "convergence_warnings" in record["runs"][0]["timings"][0]
     benchmark.write_report(fairness, performance, out, make_plots=False, provenance=provenance, merge=True)   # verifies the old record
     merged = json.loads((out / benchmark.PROVENANCE_FILE).read_text(encoding="utf-8"))["runs"]
     assert len(merged) == 2 and all("timings" in run for run in merged)                # a merge appends the new run's entry
@@ -132,3 +134,17 @@ def test_the_summary_points_at_a_readme_section_that_exists_not_at_a_test_path()
     headings = [h.lstrip("#").strip().lower().replace(" ", "-") for h in readme.splitlines() if h.startswith("#")]
     assert anchor in headings
     assert "(#convergence-warnings)" in readme                                  # the benchmark section links to it too
+
+
+def test_provenance_records_the_convergence_counts_of_a_model_that_warns(tmp_path, monkeypatch):
+    # #1341: a script or CI step can read which combinations stopped at max_iter without parsing stderr
+    _use(monkeypatch, STOPS_EARLY)
+    diagnostics = []
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        fairness, performance = benchmark.run_audit(_write_toy_audit(tmp_path), n_resamples=20, n_permutations=20, diagnostics=diagnostics)
+    out = tmp_path / "out"
+    benchmark.write_report(pd.DataFrame(fairness), pd.DataFrame(performance), out, make_plots=False,
+                           provenance=benchmark.collect_provenance(["toy"], 20, 20, timings=diagnostics))
+    timings = json.loads((out / benchmark.PROVENANCE_FILE).read_text(encoding="utf-8"))["runs"][0]["timings"]
+    assert len(timings) == len(benchmark.STRATEGIES) and all(t["convergence_warnings"] >= 1 for t in timings)
