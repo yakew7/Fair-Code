@@ -34,6 +34,20 @@ counts are listed as skipped, not failed.
     python3 scripts/check_contributors.py --fix --commits # also refresh commit counts and move the snapshot to the newest merged PR
     python3 scripts/check_contributors.py --fix            # refresh known counts/dates and sort entries in place
 
+The pull request data (`--prs FILE`, or what `gh pr list` returns when it is fetched) is a JSON list with, per merged PR:
+
+  number, author {login, is_bot}, mergedAt, title, body   what `gh pr list --state merged --json ...` returns
+  commit_authors  [login, ...]   optional: who authored its commits; --pending lists the ones that are not the PR author (#1316)
+  closing_issues  [number, ...]  optional: the issues it closes; --pending and --stub print them as "closes #N" (#1331, #1308)
+  files           [path, ...]    optional: the paths it changed; --stub suggests the area row from them (#1333)
+
+The optional keys are filled from one `gh pr view` call per PR when the data comes from GitHub, and are used as given when a
+file carries them (offline runs and tests). An example:
+
+    [{"number": 1311, "author": {"login": "ranjanasri6", "is_bot": false}, "mergedAt": "2026-11-09T10:00:00Z",
+      "title": "Handle empty groups", "body": "## Summary\\n- Handles empty groups",
+      "commit_authors": ["PRIYANKA2272004"], "closing_issues": [1303], "files": ["faircode/significance.py"]}]
+
 Without `gh` (or a network) it prints a note and exits 0, so `make lint` works offline; pass `--require` to make
 that an error. `--fix` requires GitHub data or `--prs FILE` and preserves entry prose and commit counts. Exit code:
 0 = consistent (or skipped), 1 = a stale count, date, order or missing entry.

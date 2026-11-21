@@ -258,3 +258,34 @@ def test_the_stub_run_prints_the_suggested_exception_lines(tmp_path, capsys):
     assert "add to scripts/contributors-exceptions.json" in out
     assert '  unlisted_authors: "someone-else"' in out and '  commit_exceptions: "dave"' in out
     assert "authored by someone else" in (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+
+
+def _documented_example():
+    """The JSON example in the script's docstring (#1339)."""
+    text = script.__doc__.split("An example:", 1)[1]
+    return json.loads(text[text.index("["):text.rindex("]") + 1])
+
+
+def test_the_documented_example_is_valid_json_with_every_documented_key():
+    (item,) = _documented_example()
+    assert {"number", "author", "mergedAt", "title", "body", "commit_authors", "closing_issues", "files"} <= set(item)
+    for key in ("commit_authors", "closing_issues", "files"):
+        assert key in script.__doc__
+
+
+def test_the_documented_example_runs_through_pending_and_stub_without_calling_gh(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(script, "fetch_pr_details", lambda numbers: pytest.fail("the file carries the details already"))
+    item = dict(_documented_example()[0], number=110, author={"login": "dave", "is_bot": False})
+    prs = PRS + [item]
+    (tmp_path / "prs.json").write_text(json.dumps(prs), encoding="utf-8")
+    (tmp_path / "CONTRIBUTORS.md").write_text(STUB_DOC, encoding="utf-8")
+    base = ["--file", str(tmp_path / "CONTRIBUTORS.md"), "--prs", str(tmp_path / "prs.json")]
+
+    assert script.main(base + ["--pending"]) == 1
+    out = capsys.readouterr().out
+    assert "dave: 1 merged PR(s)" in out and "(closes #1303)" in out
+    assert "has a commit authored by PRIYANKA2272004, not by dave" in out
+
+    assert script.main(base + ["--stub", "dave"]) == 0
+    text = (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8")
+    assert "closing issue #1303" in text and "Handles empty groups" in text and "authored by someone else" in text
