@@ -14,6 +14,7 @@ keeps one issue up to date, and nothing in `make lint` or a pull request depends
     python3 scripts/check_external_links.py --fix-moved       # rewrite permanently moved links in the files that cite them
     python3 scripts/check_external_links.py --fail-on-broken # exit 1 when something is broken (off by default)
     python3 scripts/check_external_links.py --ignore-file F  # use another ignore list (default: the one below)
+    python3 scripts/check_external_links.py --mark-checked URL --reason TEXT [--date YYYY-MM-DD]  # write a valid `checked:` line (today by default), replacing any earlier one for that URL (#1347)
 
 Each URL is requested with a browser-like user agent and a timeout (HEAD first, then GET when the server does
 not allow HEAD). A 404 gets one retry with a fuller browser-like user agent. For a DOI URL blocked with 403,
@@ -137,6 +138,44 @@ def collect_urls(paths, skip_hosts=SKIP_HOSTS) -> dict[str, list[str]]:
             if name not in files:
                 files.append(name)
     return found
+
+
+def mark_checked(url: str, reason: str, day: datetime.date | None = None,
+                 ignore_file: Path = IGNORE_FILE, urls: dict[str, list[str]] | None = None) -> tuple[bool, str]:
+    """Write a `checked:YYYY-MM-DD URL reason` line to the ignore file, refreshing the one for `url` (#1347).
+
+    `urls` is {url: files} from collect_urls; when omitted it is collected from the default tracked docs. A URL no
+    tracked file cites is refused (the same URLs that would show up as stale_ignored), so a typo cannot add a useless
+    entry. An existing `checked:` line for the same URL is replaced in place rather than duplicated. Returns
+    (changed, message); an empty reason or an uncited URL is refused with changed=False.
+    """
+    url = url.rstrip(".,;")
+    if not reason.strip():
+        return False, "a reason is required to mark a link checked"
+    if urls is None:
+        urls = collect_urls(default_paths())
+    if url not in urls:
+        return False, f"no tracked file cites {url}; nothing marked checked"
+    day = day or datetime.date.today()
+    line = f"checked:{day.isoformat()} {url} {reason.strip()}"
+    path = Path(ignore_file)
+    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    replaced = False
+    for number, existing in enumerate(lines):
+        rest = existing.strip()
+        if not rest.startswith("checked:"):
+            continue
+        _, _, detail = rest[len("checked:"):].partition(" ")
+        cited, _, _ = detail.partition(" ")
+        if cited == url:
+            lines[number] = line
+            replaced = True
+            break
+    if not replaced:
+        lines.append(line)
+    path.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+    action = "Updated" if replaced else "Added"
+    return True, f"{action} checked entry for {url} in {path}"
 
 
 def check_url(url: str, timeout: float = 15.0, retry_delay: float | None = None) -> tuple[str, str]:
@@ -467,9 +506,25 @@ def main(argv=None) -> int:
                         help="with --fix-moved: run scripts/build_explainers.py when an explainer was rewritten, so the generated files match")
     parser.add_argument("--json", action="store_true", help="print the report as JSON")
     parser.add_argument("--fail-on-broken", action="store_true", help="exit 1 when a link is broken (off by default)")
+    parser.add_argument("--mark-checked", metavar="URL", help="write a `checked:` line for a link you opened in a browser; needs --reason")
+    parser.add_argument("--reason", help="reason for --mark-checked")
+    parser.add_argument("--date", metavar="YYYY-MM-DD", help="date for --mark-checked (default: today)")
     args = parser.parse_args(argv)
     if args.rebuild and not args.fix_moved:
         parser.error("--rebuild only makes sense with --fix-moved")
+    if args.mark_checked is not None or args.reason is not None or args.date is not None:
+        if args.mark_checked is None:
+            parser.error("--reason and --date only make sense with --mark-checked")
+        if not args.reason or not args.reason.strip():
+            parser.error("--reason is required with --mark-checked")
+        try:
+            day = datetime.date.fromisoformat(args.date) if args.date else datetime.date.today()
+        except ValueError:
+            parser.error("--date must be YYYY-MM-DD")
+        changed, message = mark_checked(args.mark_checked, args.reason, day, args.ignore_file,
+                                        collect_urls(args.paths or default_paths(), () if args.check_local else SKIP_HOSTS))
+        print(message)
+        return 0 if changed else 1
     report = run(collect_urls(args.paths or default_paths(), () if args.check_local else SKIP_HOSTS), args.limit,
                  timeout=args.timeout, ignore=load_ignore_list(args.ignore_file), per_host=args.per_host,
                  retry_delay=args.retry_delay, checked=load_checked_list(args.ignore_file))
