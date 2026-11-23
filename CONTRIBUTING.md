@@ -82,7 +82,7 @@ python3 scripts/check_external_links.py --mark-checked URL --reason TEXT [--date
 python3 scripts/check_external_links.py --fix-moved --rebuild  # rewrite permanently moved links to their new address in the files that cite them, and regenerate the explainer pages if one changed (without --rebuild run `make build-explainers` yourself)
 make traction-live     # compare the traction figures with GitHub (needs gh; the same check runs weekly; `ARGS="--skip-figure issues_closed"` reproduces the push-triggered run)
 make contributors-commits  # compare CONTRIBUTORS.md PR and commit counts with GitHub at the snapshot (needs gh, about a minute)
-make contributors-pending  # list who merged after the CONTRIBUTORS.md snapshot (needs gh)
+make contributors-pending  # list who merged after the CONTRIBUTORS.md snapshot (needs gh); `python3 scripts/check_contributors.py --pending --json` prints the same as a JSON list of `{login, prs, first_merged, has_entry}` (`[]` when nobody), with the same exit code
 make metrics-row         # print the next weekly METRICS.md row from GitHub's live figures (needs gh; the social, countries and audits cells are carried over)
 make doctor              # (DOCTOR=warn never fails, e.g. `make check DOCTOR=warn`) warn when a package in site-packages shadows a standard library module (an old pathlib.py backport once broke the CLI tests with an ImportError on collections; it also warns, without failing, when pytest-xdist or pytest-timeout is missing, with `pip install -e ".[test]"` as the fix)
 make lint              # em-dash-free check + broken internal doc link check + issue-number check + explainer counts + traction figures + dataset source links + CONTRIBUTORS.md vs merged PRs + ruff

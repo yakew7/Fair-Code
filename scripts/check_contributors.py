@@ -28,6 +28,7 @@ counts are listed as skipped, not failed.
     python3 scripts/check_contributors.py --commits-data F # F: {"live": {login: n}, "after_snapshot": {login: n}}
     python3 scripts/check_contributors.py --identities   # every git commit author maps to an entry or an identity map row
     python3 scripts/check_contributors.py --pending       # who merged after the snapshot (exit 1 if anyone), for the weekly report
+    python3 scripts/check_contributors.py --pending --json  # the same as a JSON list of {login, prs, first_merged, has_entry}, [] when nobody (#1354)
     python3 scripts/check_contributors.py --stub LOGIN [LOGIN ...]  # start an entry for a new contributor (then --fix --commits)
     python3 scripts/check_contributors.py --stub LOGIN --area "Profiler - web"   # list them in another area row (default: Contributor tooling & docs)
     python3 scripts/check_contributors.py --stub LOGIN --commits   # the same, with the commit counts taken from GitHub too
@@ -67,34 +68,30 @@ from pathlib import Path
 if __package__:                         # imported as scripts.<name> (tests, python -m) or run as a script (scripts/ is sys.path[0])
     from .contributors_entries import (  # noqa: F401
         ENTRY, HANDLE, IDENTITY_ROW, MAINTAINER, SECTIONS, SNAPSHOT, area_table_problems, check, identity_map,
-        merged_by_author, parse, pending, todo_problems)
+        merged_by_author, parse, pending, pending_json, todo_problems)
     from .contributors_entries import commit_problems as _commit_problems
     from .contributors_entries import unmapped_authors as _unmapped_authors
     from .contributors_github import (  # noqa: F401
-        TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, snapshot_time)
+        TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, run_pending, snapshot_time)
     from .contributors_write import (  # noqa: F401
         AREA_RULES, DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, area_rule_problems,
         choose_areas, exception_suggestions, fix_document, foreign_commit_authors, load_area_rules, load_default_ok,
-        move_snapshot, stub_entry,
-        suggest_area,
-        summary_line)
+        move_snapshot, stub_entry, suggest_area, summary_line)
 else:
     import os as _os
     import sys as _sys
     _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
     from contributors_entries import (  # noqa: F401
         ENTRY, HANDLE, IDENTITY_ROW, MAINTAINER, SECTIONS, SNAPSHOT, area_table_problems, check, identity_map,
-        merged_by_author, parse, pending, todo_problems)
+        merged_by_author, parse, pending, pending_json, todo_problems)
     from contributors_entries import commit_problems as _commit_problems
     from contributors_entries import unmapped_authors as _unmapped_authors
     from contributors_github import (  # noqa: F401
-        TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, snapshot_time)
+        TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, run_pending, snapshot_time)
     from contributors_write import (  # noqa: F401
         AREA_RULES, DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, area_rule_problems,
         choose_areas, exception_suggestions, fix_document, foreign_commit_authors, load_area_rules, load_default_ok,
-        move_snapshot, stub_entry,
-        suggest_area,
-        summary_line)
+        move_snapshot, stub_entry, suggest_area, summary_line)
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -239,21 +236,6 @@ def run_fix(args, text: str, entries: list[dict], through: int | None, prs: list
     return fixed, parse(fixed)[1]
 
 
-def run_pending(entries: list[dict], prs: list[dict], through: int | None, fetch=None) -> int:
-    # the details of the pending PRs, unless the saved data already carries them (--prs FILE with commit_authors)
-    wanted = [pr["number"] for pr in prs if through is not None and pr["number"] > through and "commit_authors" not in pr
-              and not (pr.get("author") or {}).get("is_bot") and not ((pr.get("author") or {}).get("login") or "app/").startswith("app/")]
-    if wanted and fetch is not None:
-        add_details(prs, fetch(wanted))
-    later = pending(entries, prs, through)
-    for line in later:
-        print(line)
-    authors = sum(not line.startswith(" ") for line in later)
-    print(f"{authors} author(s) merged after the snapshot (PR #{through})." if later
-          else f"Nobody has merged since the snapshot (PR #{through}).")
-    return 1 if later else 0
-
-
 def run_check(args, text: str, entries: list[dict], prs: list[dict], through: int | None) -> int:
     problems, skipped = check(entries, prs, through)
     problems += area_table_problems(text, entries)
@@ -300,12 +282,15 @@ def main(argv=None) -> int:
     parser.add_argument("--save-commits", metavar="FILE", help="write the fetched commit data to FILE (usable later as --commits-data)")
     parser.add_argument("--identities", action="store_true", help="check that every git commit author maps to an entry or an identity map row (needs the git history)")
     parser.add_argument("--pending", action="store_true", help="list authors who merged after the snapshot and exit 1 if there are any")
+    parser.add_argument("--json", action="store_true", help="with --pending: print a JSON list of {login, prs, first_merged, has_entry} instead of text")
     parser.add_argument("--stub", metavar="LOGIN", nargs="+", help="add a starting entry for a new contributor (moves the snapshot, sorts, lists them in an area row)")
     parser.add_argument("--area", default=None, metavar="NAME",
                         help="with --stub: the Contributions by area row to list the new people in (default: the row that holds "
                              f"most of the files their PRs changed, else {DEFAULT_AREA!r})")
     parser.add_argument("--fix", action="store_true", help="rewrite known PR counts/dates and sort contributor entries")
     args = parser.parse_args(argv)
+    if args.json and not args.pending:
+        parser.error("--json only goes with --pending")
 
     if args.exceptions != EXCEPTIONS_FILE:
         COMMIT_EXCEPTIONS.clear()
@@ -340,7 +325,8 @@ def main(argv=None) -> int:
         print("note: no 'covering everything merged through **PR #N**' snapshot line found; counting every merged PR")
     if args.pending:
         # saved data (--prs FILE) is used as it is; only data fetched from GitHub gets the commit authors looked up too
-        return run_pending(entries, prs, through, fetch=None if args.prs else fetch_pr_details)
+        return run_pending(entries, prs, through, fetch=None if args.prs else fetch_pr_details,
+                           as_json=args.json)
     return run_check(args, text, entries, prs, through)
 
 

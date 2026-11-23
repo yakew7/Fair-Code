@@ -149,13 +149,9 @@ def commit_problems(entries: list[dict], live: dict[str, int], after: dict[str, 
     return problems, skipped
 
 
-def pending(entries: list[dict], prs: list[dict], through: int | None) -> list[str]:
-    """One line per human author with merged PRs after the snapshot PR: who has no entry yet and whose count has grown."""
-    listed = {e["handle"].lower() for e in entries}
+def merged_after(prs: list[dict], through: int | None) -> dict[str, list[int]]:
+    """{login: [PR numbers]} of the human authors (not bots, not the maintainer) whose PRs are numbered above the snapshot PR."""
     later: dict[str, list[int]] = {}
-    titles = {pr["number"]: pr.get("title") for pr in prs}
-    commit_authors = {pr["number"]: pr.get("commit_authors") or [] for pr in prs}
-    closing = {pr["number"]: pr.get("closing_issues") or [] for pr in prs}      # shown after each title (#1331)
     for pr in prs:
         author = pr.get("author") or {}
         login = author.get("login") or ""
@@ -163,6 +159,26 @@ def pending(entries: list[dict], prs: list[dict], through: int | None) -> list[s
             continue
         if through is not None and pr["number"] > through:
             later.setdefault(login, []).append(pr["number"])
+    return later
+
+
+def pending_json(entries: list[dict], prs: list[dict], through: int | None) -> list[dict]:
+    """The `--pending --json` form of `pending` (#1354): one `{login, prs, first_merged, has_entry}` object per author who merged after
+    the snapshot, sorted by login; `prs` are their PR numbers and `first_merged` the earliest merge date of those PRs."""
+    listed = {e["handle"].lower() for e in entries}
+    merged = {pr["number"]: (pr.get("mergedAt") or "")[:10] for pr in prs}
+    return [{"login": login, "prs": sorted(numbers), "first_merged": min(merged[n] for n in numbers) or None,
+             "has_entry": login.lower() in listed}
+            for login, numbers in sorted(merged_after(prs, through).items(), key=lambda item: item[0].lower())]
+
+
+def pending(entries: list[dict], prs: list[dict], through: int | None) -> list[str]:
+    """One line per human author with merged PRs after the snapshot PR: who has no entry yet and whose count has grown."""
+    listed = {e["handle"].lower() for e in entries}
+    later = merged_after(prs, through)
+    titles = {pr["number"]: pr.get("title") for pr in prs}
+    commit_authors = {pr["number"]: pr.get("commit_authors") or [] for pr in prs}
+    closing = {pr["number"]: pr.get("closing_issues") or [] for pr in prs}      # shown after each title (#1331)
     lines = []
     for login in sorted(later, key=str.lower):
         numbers = ", ".join(f"#{n}" for n in sorted(later[login]))

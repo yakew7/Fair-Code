@@ -1,4 +1,5 @@
-"""What check_contributors.py asks GitHub and git (#1319): merged PRs, commit counts and commit authors.
+"""What check_contributors.py asks GitHub and git (#1319): merged PRs, commit counts and commit authors, and the --pending report
+that looks the details of the pending PRs up.
 
 Split out of scripts/check_contributors.py. Every `gh` call goes through ghcall.run_gh and so has a timeout.
 """
@@ -12,8 +13,10 @@ import subprocess
 from pathlib import Path
 
 if __package__:                         # imported as scripts.<name> or run as a script (see ghcall's import for why)
+    from .contributors_entries import pending, pending_json
     from .ghcall import run_gh
 else:
+    from contributors_entries import pending, pending_json
     from ghcall import run_gh
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -115,3 +118,22 @@ def git_authors(runner=None) -> list[tuple[str, str, int]]:
             key = (found.group("name"), found.group("email"))
             counts[key] = counts.get(key, 0) + 1
     return sorted(((n, e, c) for (n, e), c in counts.items()), key=lambda item: (-item[2], item[0]))
+
+
+def run_pending(entries: list[dict], prs: list[dict], through: int | None, fetch=None, as_json: bool = False) -> int:
+    # the details of the pending PRs, unless the saved data already carries them (--prs FILE with commit_authors)
+    wanted = [pr["number"] for pr in prs if through is not None and pr["number"] > through and "commit_authors" not in pr
+              and not (pr.get("author") or {}).get("is_bot") and not ((pr.get("author") or {}).get("login") or "app/").startswith("app/")]
+    if wanted and fetch is not None:
+        add_details(prs, fetch(wanted))
+    if as_json:                         # the same exit code as the text form, for a script that reads the list (#1354)
+        listed = pending_json(entries, prs, through)
+        print(json.dumps(listed, indent=2))
+        return 1 if listed else 0
+    later = pending(entries, prs, through)
+    for line in later:
+        print(line)
+    authors = sum(not line.startswith(" ") for line in later)
+    print(f"{authors} author(s) merged after the snapshot (PR #{through})." if later
+          else f"Nobody has merged since the snapshot (PR #{through}).")
+    return 1 if later else 0
