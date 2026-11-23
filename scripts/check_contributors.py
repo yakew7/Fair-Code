@@ -29,6 +29,7 @@ counts are listed as skipped, not failed.
     python3 scripts/check_contributors.py --identities   # every git commit author maps to an entry or an identity map row
     python3 scripts/check_contributors.py --pending       # who merged after the snapshot (exit 1 if anyone), for the weekly report
     python3 scripts/check_contributors.py --pending --json  # the same as a JSON list of {login, prs, first_merged, has_entry}, [] when nobody (#1354)
+    python3 scripts/check_contributors.py --explain-area PATH [PATH ...]  # which area rule a changed path matches; changes nothing (#1351)
     python3 scripts/check_contributors.py --stub LOGIN [LOGIN ...]  # start an entry for a new contributor (then --fix --commits)
     python3 scripts/check_contributors.py --stub LOGIN --area "Profiler - web"   # list them in another area row (default: Contributor tooling & docs)
     python3 scripts/check_contributors.py --stub LOGIN --commits   # the same, with the commit counts taken from GitHub too
@@ -75,7 +76,7 @@ if __package__:                         # imported as scripts.<name> (tests, pyt
         TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, run_pending, snapshot_time)
     from .contributors_write import (  # noqa: F401
         AREA_RULES, DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, area_rule_problems,
-        choose_areas, exception_suggestions, fix_document, foreign_commit_authors, load_area_rules, load_default_ok,
+        choose_areas, exception_suggestions, explain_area, fix_document, foreign_commit_authors, load_area_rules, load_default_ok,
         move_snapshot, stub_entry, suggest_area, summary_line)
 else:
     import os as _os
@@ -90,7 +91,7 @@ else:
         TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, run_pending, snapshot_time)
     from contributors_write import (  # noqa: F401
         AREA_RULES, DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, area_rule_problems,
-        choose_areas, exception_suggestions, fix_document, foreign_commit_authors, load_area_rules, load_default_ok,
+        choose_areas, exception_suggestions, explain_area, fix_document, foreign_commit_authors, load_area_rules, load_default_ok,
         move_snapshot, stub_entry, suggest_area, summary_line)
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -283,6 +284,7 @@ def main(argv=None) -> int:
     parser.add_argument("--identities", action="store_true", help="check that every git commit author maps to an entry or an identity map row (needs the git history)")
     parser.add_argument("--pending", action="store_true", help="list authors who merged after the snapshot and exit 1 if there are any")
     parser.add_argument("--json", action="store_true", help="with --pending: print a JSON list of {login, prs, first_merged, has_entry} instead of text")
+    parser.add_argument("--explain-area", metavar="PATH", nargs="+", help="print the Contributions by area row each changed path maps to, and why; reads only")
     parser.add_argument("--stub", metavar="LOGIN", nargs="+", help="add a starting entry for a new contributor (moves the snapshot, sorts, lists them in an area row)")
     parser.add_argument("--area", default=None, metavar="NAME",
                         help="with --stub: the Contributions by area row to list the new people in (default: the row that holds "
@@ -302,6 +304,9 @@ def main(argv=None) -> int:
     if not entries:
         print(f"error: no contributor entries found in {args.file}")
         return 1
+    if args.explain_area:
+        print("\n".join(explain_area(path, area_names(text)) for path in args.explain_area))
+        return 0
     if args.identities:
         return run_identities(args, text)
     prs = json.loads(Path(args.prs).read_text(encoding="utf-8")) if args.prs else fetch_prs()

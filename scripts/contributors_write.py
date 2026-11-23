@@ -175,6 +175,22 @@ def suggest_area(login: str, prs: list[dict], names: list[str], rules: list[tupl
     return best, counts[best]
 
 
+def explain_area(path: str, names: list[str], rules: list[tuple[str, str]] | None = None, default_ok: list[str] | None = None) -> str:
+    """What `--stub` would do with a changed `path` (#1351): the rule that matches it and the row it names, or the default row and
+    whether the path's top-level entry is one of the `default_ok` paths. Reads only; `names` are the rows of the area table."""
+    rules = AREA_RULES if rules is None else rules
+    default_ok = load_default_ok() if default_ok is None else default_ok
+    found = next(((match, area) for match, area in rules if path.startswith(match) or path.endswith(match)), None)
+    if found:
+        match, area = found
+        note = "" if not names or area in names else "; the table has no such row, so --stub skips this rule"
+        return f"{path}: {area} (rule {match!r}{note})"
+    top = path.split("/")[0]
+    why = (f"{top} is listed in default_ok" if top in default_ok
+           else f"no rule matches and {top} is not in default_ok, so the area-rule test would fail for a tracked file there")
+    return f"{path}: {DEFAULT_AREA} (default; {why})"
+
+
 def choose_areas(logins: list[str], prs: list[dict], text: str, explicit: str | None) -> tuple[dict[str, str], list[str]]:
     """{login: area row} for a stub run and the notes saying where a suggestion came from (#1333): `explicit` (--area) for
     everyone, else the row holding most of each person's changed files, else DEFAULT_AREA."""
