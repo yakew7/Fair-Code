@@ -4,7 +4,7 @@
 
 ![Stars](https://img.shields.io/badge/Stars-75-brightgreen?style=flat-square&logo=github)
 ![Contributors](https://img.shields.io/badge/Contributors-65-blue?style=flat-square)
-![Forks](https://img.shields.io/badge/Forks-79-orange?style=flat-square)
+![Forks](https://img.shields.io/badge/Forks-82-orange?style=flat-square)
 ![Watching](https://img.shields.io/badge/Watching-8-yellow?style=flat-square)
 ![Explainers](https://img.shields.io/badge/Explainers-114-blueviolet?style=flat-square)
 ![Countries](https://img.shields.io/badge/Countries-20-informational?style=flat-square)
@@ -52,7 +52,8 @@ Weekly snapshot of project health. Updated every Friday.
 
 | 2026-W45 | 71 | 74 | 8 | 61 | 30K+ total | 20 | 44 | 7 total |
 | 2026-W46 | 73 | 77 | 8 | 64 | 30K+ total | 20 | 8 | 7 total |
-| 2026-W47 | 75 | 79 | 8 | 65 | 30K+ total | 20 | 22 | 7 total |
+| 2026-W47 | 75 | 82 | 8 | 65 | 30K+ total | 20 | 33 | 7 total |
+| 2026-W48 | 75 | 82 | 8 | 65 | 30K+ total | 20 | 10 | 7 total |
 > **2026-W27 - v1.2.0 shipped:** Open Dataset Profiler (CLI + client-side web tool) released; 23 explainers total.
 >
 > **2026-W30 - v1.3.0-v1.3.2 shipped since last snapshot:** Tenant Screening audit (#07) and intersectional bias analysis (v1.3.0), Unsupervised Learning + Model Drift explainers (v1.3.1), Selection Bias explainer (v1.3.2), plus author attribution/schema, `llms.txt`, and a canonical-URL/sitemap fix for AI-crawler and Google Search Console indexing. Watching tracked for the first time this week. **Gap notice:** no snapshot was logged for three weeks (W28-W29) - issues-closed reflects the trailing 7 days, not the full gap.
@@ -161,12 +162,12 @@ Weekly snapshot of project health. Updated every Friday.
 | Metric | Current | Target | Timeline |
 |--------|--------:|-------:|----------|
 | Stars | 75 | 50+ | End of 2026 |
-| Forks | 79 | 75+ | End of 2026 |
+| Forks | 82 | 75+ | End of 2026 |
 | Watching | 8 | 12+ | End of 2026 |
 | Contributors | 65 | 20+ | End of 2026 |
 | Social reach | 30K+ | 40K+ | End of 2026 |
 | Countries reached | 20 | 20+ | End of 2026 |
-| Issues closed | 22 (this week, since 2026-11-16) | Track weekly | Ongoing |
+| Issues closed | 10 (this week, since 2026-11-23) | Track weekly | Ongoing |
 | Code audits | 7 | 8+ | End of 2026 |
 | Explainers | 114 | 120+ | End of 2026 |
 
