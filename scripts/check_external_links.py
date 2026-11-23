@@ -75,22 +75,43 @@ def _ssl_context():
         return ssl.create_default_context()
 
 
-def load_ignore_list(path: Path | None = IGNORE_FILE) -> dict[str, str]:
-    """{url or "host:name": reason} from an ignore file: `URL reason` or `host:example.com reason` per line (the second
-    skips every URL on that host, #1233), blank lines and `#` comments skipped. A missing file is an empty list; a line
-    without a reason is an error, so every exception says why it exists."""
+def _ignore_entries(path: Path | None) -> list[tuple[str, str, datetime.date | None]]:
+    """(key, reason, until) for each plain line of an ignore file (`checked:` lines are load_checked_list's). A reason may start with
+    `until:YYYY-MM-DD` (#1352); a malformed date is an error like a missing reason."""
     if path is None or not Path(path).exists():
-        return {}
-    ignored: dict[str, str] = {}
+        return []
+    entries = []
     for number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
         line = line.strip()
-        if not line or line.startswith("#") or line.startswith("checked:"):     # `checked:` lines are load_checked_list's
+        if not line or line.startswith("#") or line.startswith("checked:"):
             continue
         url, _, reason = line.partition(" ")
-        if not (re.match(r"https?://\S+$", url) or re.match(r"host:[^\s/:]+$", url)) or not reason.strip():
+        reason = reason.strip()
+        until = None
+        if reason.startswith("until:"):
+            stamp, _, reason = reason[len("until:"):].partition(" ")
+            reason = reason.strip()
+            try:
+                until = datetime.date.fromisoformat(stamp)
+            except ValueError:
+                raise ValueError(f"{path}:{number}: expected `until:YYYY-MM-DD` before the reason, got {line!r}") from None
+        if not (re.match(r"https?://\S+$", url) or re.match(r"host:[^\s/:]+$", url)) or not reason:
             raise ValueError(f"{path}:{number}: expected `URL reason` or `host:name reason`, got {line!r}")
-        ignored[url.rstrip(".,;") if url.startswith("http") else url.lower()] = reason.strip()
-    return ignored
+        entries.append((url.rstrip(".,;") if url.startswith("http") else url.lower(), reason, until))
+    return entries
+
+
+def load_ignore_list(path: Path | None = IGNORE_FILE) -> dict[str, str]:
+    """{url or "host:name": reason} from an ignore file: `URL reason` or `host:example.com reason` per line (the second
+    skips every URL on that host, #1233), blank lines and `#` comments skipped. A reason may start with `until:YYYY-MM-DD`,
+    the last day the entry applies (#1352, see load_ignore_until). A missing file is an empty list; a line without a reason
+    is an error, so every exception says why it exists."""
+    return {key: reason for key, reason, _ in _ignore_entries(path)}
+
+
+def load_ignore_until(path: Path | None = IGNORE_FILE) -> dict[str, datetime.date]:
+    """{url or "host:name": last day} for the ignore entries that carry an `until:YYYY-MM-DD` date (#1352); the others never expire."""
+    return {key: until for key, _, until in _ignore_entries(path) if until}
 
 
 CHECKED_DAYS = 90      # how long a link opened by hand stays out of the unverified list (#1337)
@@ -323,10 +344,15 @@ def _check_doi(doi: str, timeout: float) -> tuple[str, str]:
 
 def run(urls: dict[str, list[str]], limit: int | None = None, workers: int = 8, timeout: float = 15.0,
         ignore: dict[str, str] | None = None, per_host: int | None = None, retry_delay: float | None = None,
-        checked: dict[str, tuple[datetime.date, str]] | None = None, today: datetime.date | None = None) -> dict:
+        checked: dict[str, tuple[datetime.date, str]] | None = None, today: datetime.date | None = None,
+        ignore_until: dict[str, datetime.date] | None = None) -> dict:
     ignore = ignore or {}
     checked = checked or {}
     today = today or datetime.date.today()
+    # an entry whose last day has passed stops hiding its link: the link is requested again and the line is reported (#1352)
+    expired = {key: day for key, day in (ignore_until or {}).items() if key in ignore and day < today}
+    expired_ignored = [{"url": key, "reason": ignore[key], "until": day.isoformat()} for key, day in sorted(expired.items())]
+    ignore = {key: reason for key, reason in ignore.items() if key not in expired}
     per_host = PER_HOST_REQUESTS if per_host is None else per_host
 
     def ignore_key(url: str) -> str | None:
@@ -362,7 +388,7 @@ def run(urls: dict[str, list[str]], limit: int | None = None, workers: int = 8, 
             results[kind].append(item)
     stale_ignored += [{"url": "checked:" + url, "reason": reason} for url, (_, reason) in sorted(checked.items()) if url not in urls_all]
     return {"checked": len(items), **{kind: results[kind] for kind in results},
-            "ignored": ignored, "stale_ignored": stale_ignored}
+            "ignored": ignored, "stale_ignored": stale_ignored, "expired_ignored": expired_ignored}
 
 
 def expiring_soon(report: dict) -> list[dict]:
@@ -400,6 +426,9 @@ def render(report: dict) -> str:
     if report.get("ignored"):
         lines += ["", "Ignored (listed in scripts/external-links-ignore.txt, not requested):"]
         lines += [f"  {item['url']}  ({item['reason']})" for item in report["ignored"]]
+    if report.get("expired_ignored"):
+        lines += ["", "Expired ignore entries (their until: date has passed, so the link was requested again; renew or remove the line):"]
+        lines += [f"  {item['until']}  {item['url']}  ({item['reason']})" for item in report["expired_ignored"]]
     if stale_ignored:
         lines += ["", f"Stale ignored URLs ({len(stale_ignored)} not found in checked documents):"]
         lines += [f"  {item['url']}  ({item['reason']})" for item in stale_ignored]
@@ -429,6 +458,10 @@ def render_issue_body(report: dict) -> str:
     if unverified:        # never counted as broken and never keeps the issue open, but listed so nobody has to rerun the script (#1330)
         lines += ["", "Unverified by hand (they answer scripts with 403 and the Internet Archive has no copy; not counted as broken):", ""]
         lines += [f"- {item['url']} (in {', '.join('`' + path + '`' for path in item['files'][:5])})" for item in unverified]
+    if report.get("expired_ignored"):
+        lines += ["", f"{len(report['expired_ignored'])} ignore-list entr{'y has' if len(report['expired_ignored']) == 1 else 'ies have'} "
+                      "expired (the `until:` date has passed, so the link was checked again this week; renew the date or remove the line):", ""]
+        lines += [f"- {item['url']} (until {item['until']}: {item['reason']})" for item in report["expired_ignored"]]
     lines += ["", "Fix any reported broken links and remove stale ignore-list entries, then run `make build-explainers`. "
               "This issue closes itself on the next weekly run once both are clear. "
               "Reproduce locally with `python3 scripts/check_external_links.py`."]
@@ -436,8 +469,8 @@ def render_issue_body(report: dict) -> str:
 
 
 def report_needs_issue(report: dict) -> bool:
-    """Keep the weekly issue open while broken links or stale ignores remain."""
-    return bool(report["broken"] or report.get("stale_ignored"))
+    """Keep the weekly issue open while broken links, stale ignores or expired ignores remain."""
+    return bool(report["broken"] or report.get("stale_ignored") or report.get("expired_ignored"))
 
 
 LOGIN_OR_ERROR = re.compile(r"/(?:log-?in|sign-?in|signup|auth|error|404)(?:[/?#]|$)", re.IGNORECASE)
@@ -545,7 +578,8 @@ def main(argv=None) -> int:
         return 0 if changed else 1
     report = run(collect_urls(args.paths or default_paths(), () if args.check_local else SKIP_HOSTS), args.limit,
                  timeout=args.timeout, ignore=load_ignore_list(args.ignore_file), per_host=args.per_host,
-                 retry_delay=args.retry_delay, checked=load_checked_list(args.ignore_file))
+                 retry_delay=args.retry_delay, checked=load_checked_list(args.ignore_file),
+                 ignore_until=load_ignore_until(args.ignore_file))
     print(json.dumps(report, indent=2) if args.json else render(report))
     if args.fix_moved:
         count, files = fix_moved(report)

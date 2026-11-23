@@ -171,7 +171,7 @@ def test_main_reports_without_failing_unless_asked(server, tmp_path, capsys):
     assert script.main([str(doc), "--timeout", "5", "--json", "--limit", "2", "--check-local"]) == 0
     report = json.loads(capsys.readouterr().out)
     assert report["checked"] == 2 and set(report) == {
-        "checked", "ok", "moved", "broken", "unknown", "ignored", "stale_ignored", "checked_by_hand"
+        "checked", "ok", "moved", "broken", "unknown", "ignored", "stale_ignored", "checked_by_hand", "expired_ignored"
     }
 
 
@@ -715,3 +715,63 @@ def test_nothing_is_added_when_no_checked_link_is_near_its_limit(monkeypatch):
     assert script.expiring_soon(report) == [] and script.expiring_soon({"ok": []}) == []
     assert "Back in the unverified list" not in script.render(report)
     assert "come back to the unverified list" not in script.render_issue_body(report)
+
+
+def test_an_ignore_entry_can_carry_an_until_date_and_the_other_loaders_agree_on_it(tmp_path):
+    # #1352: a link ignored years ago because a site was down was never looked at again
+    path = tmp_path / "ignore.txt"
+    path.write_text("https://a.example/x until:2026-12-31 site is down for a rebuild\n"
+                    "host:b.example until:2027-03-01 needs a login\n"
+                    "https://c.example/y never expires\n"
+                    "checked:2026-11-18 https://d.example/z opened\n", encoding="utf-8")
+    assert script.load_ignore_list(path) == {"https://a.example/x": "site is down for a rebuild", "host:b.example": "needs a login",
+                                            "https://c.example/y": "never expires"}
+    assert script.load_ignore_until(path) == {"https://a.example/x": script.datetime.date(2026, 12, 31),
+                                              "host:b.example": script.datetime.date(2027, 3, 1)}
+    assert script.load_ignore_until(tmp_path / "missing.txt") == {}
+
+
+def test_a_malformed_until_date_or_an_until_without_a_reason_is_a_clear_error(tmp_path):
+    path = tmp_path / "ignore.txt"
+    for bad, message in (("https://a.example/x until:soon why", "until:YYYY-MM-DD"),
+                         ("https://a.example/x until:2026-12-31", "expected `URL reason`"),
+                         ("https://a.example/x until: why", "until:YYYY-MM-DD")):
+        path.write_text(bad + "\n", encoding="utf-8")
+        with pytest.raises(ValueError, match=message):
+            script.load_ignore_list(path)
+
+
+def _expired_run(monkeypatch, until):
+    monkeypatch.setattr(script, "check_url", lambda url, timeout, **kw: ("ok", "200"))
+    urls = {"https://a.example/x": ["a.md"], "https://b.example/y": ["a.md"]}
+    ignore = {"https://a.example/x": "site is down", "host:b.example": "login"}
+    return script.run(urls, ignore=ignore, ignore_until=until, today=TODAY)
+
+
+def test_an_entry_whose_last_day_has_passed_stops_hiding_its_link_and_is_reported_expired(monkeypatch):
+    report = _expired_run(monkeypatch, {"https://a.example/x": script.datetime.date(2026, 11, 18)})
+    assert [i["url"] for i in report["ok"]] == ["https://a.example/x"]                    # requested again
+    assert report["expired_ignored"] == [{"url": "https://a.example/x", "reason": "site is down", "until": "2026-11-18"}]
+    assert [i["url"] for i in report["ignored"]] == ["https://b.example/y"] and report["stale_ignored"] == []
+    assert script.report_needs_issue(report) is True
+
+
+def test_the_last_day_itself_and_an_entry_with_no_date_still_apply(monkeypatch):
+    report = _expired_run(monkeypatch, {"https://a.example/x": TODAY})
+    assert report["expired_ignored"] == [] and report["ok"] == []
+    assert sorted(i["url"] for i in report["ignored"]) == ["https://a.example/x", "https://b.example/y"]
+    assert script.report_needs_issue(report) is False
+
+
+def test_an_expired_host_entry_checks_every_url_on_that_host(monkeypatch):
+    report = _expired_run(monkeypatch, {"host:b.example": script.datetime.date(2026, 1, 1)})
+    assert [i["url"] for i in report["ok"]] == ["https://b.example/y"]
+    assert report["expired_ignored"][0]["url"] == "host:b.example"
+
+
+def test_the_report_and_the_issue_body_name_the_expired_entries(monkeypatch):
+    report = _expired_run(monkeypatch, {"https://a.example/x": script.datetime.date(2026, 11, 18)})
+    assert "Expired ignore entries" in script.render(report) and "2026-11-18  https://a.example/x  (site is down)" in script.render(report)
+    body = script.render_issue_body(report)
+    assert "1 ignore-list entry has expired" in body and "- https://a.example/x (until 2026-11-18: site is down)" in body
+    assert "expired" not in script.render_issue_body(_expired_run(monkeypatch, {}))
