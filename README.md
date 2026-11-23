@@ -1315,7 +1315,7 @@ The benchmark's logistic regression runs for at most 1,000 iterations on unscale
 limit scikit-learn raises a `ConvergenceWarning`: the coefficients, and the numbers built on them, then depend on where the solver
 stopped. `faircode benchmark` counts those warnings per strategy/model combination instead of printing each one and ends with one
 line per audit, for example `German Credit Lending: 5 of 15 combinations had a fit stop at max_iter (...)`. Nothing is changed or
-hidden in the results: the line says which rows rest on a fit that did not converge. The combinations known to stop early today
+hidden in the results: the line says which rows rest on a fit that did not converge. To make that a failure, pass `--fail-on-nonconvergence`: the results are still written, then the command prints an error and exits 1 when any fit stopped (the default only warns). The combinations known to stop early today
 are German Credit Lending, Healthcare Readmission and the baseline and unawareness sets of Benefits Denial; the test that pins them
 is `tests/test_benchmark_convergence.py`, which fails if a new combination starts warning and says when one of them is fixed.
 

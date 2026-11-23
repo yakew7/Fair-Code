@@ -542,6 +542,9 @@ def build_parser() -> argparse.ArgumentParser:
                    help="suppress per-combination benchmark progress on stderr")
     b.add_argument("--merge", action="store_true",
                    help="replace selected audits in existing provenance-verified results")
+    b.add_argument("--fail-on-nonconvergence", action="store_true",
+                   help="exit 1 after writing the results when any fit stopped at max_iter, for a CI job or a results refresh "
+                        "that must not rest on a fit that did not converge (default: only warn)")
 
     return parser
 
@@ -893,7 +896,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "benchmark":
         try:
-            from .benchmark import collect_provenance, convergence_summary, run_benchmark, write_report
+            from .benchmark import CONVERGENCE_DOC, collect_provenance, convergence_summary, run_benchmark, write_report
         except ImportError as exc:
             print(f"error: the benchmark command needs scikit-learn and pyyaml "
                   f"(pip install faircode[benchmark]): {exc}", file=sys.stderr)
@@ -932,7 +935,8 @@ def main(argv: list[str] | None = None) -> int:
         if fairness_df.empty:
             print(f"error: no audit.yaml manifests found under {args.root}", file=sys.stderr)
             return 2
-        for line in convergence_summary(diagnostics):          # one line per audit instead of raw scikit-learn warnings
+        stopped_lines = convergence_summary(diagnostics)
+        for line in stopped_lines:                             # one line per audit instead of raw scikit-learn warnings
             print(f"warning: {line}", file=sys.stderr)
 
         try:
@@ -951,6 +955,10 @@ def main(argv: list[str] | None = None) -> int:
         n_audits = fairness_df["audit"].nunique()
         print(f"Ran {n_audits} audit(s), wrote {len(fairness_df)} fairness rows and "
               f"{len(performance_df)} performance rows to {args.out}/", file=sys.stderr)
+        if args.fail_on_nonconvergence and stopped_lines:
+            print(f"error: --fail-on-nonconvergence: {len(stopped_lines)} audit(s) had a fit stop at max_iter "
+                  f"(the results were still written; see {CONVERGENCE_DOC})", file=sys.stderr)
+            return 1
         return 0
 
     # parse_args() (required=True) exits on a missing command, so reaching here means a

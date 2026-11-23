@@ -6,6 +6,7 @@ PROVENANCE.json entry. None of it may change a result.
 """
 import json
 import warnings
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -148,3 +149,39 @@ def test_provenance_records_the_convergence_counts_of_a_model_that_warns(tmp_pat
                            provenance=benchmark.collect_provenance(["toy"], 20, 20, timings=diagnostics))
     timings = json.loads((out / benchmark.PROVENANCE_FILE).read_text(encoding="utf-8"))["runs"][0]["timings"]
     assert len(timings) == len(benchmark.STRATEGIES) and all(t["convergence_warnings"] >= 1 for t in timings)
+
+
+def _benchmark_args(tmp_path, *extra):
+    audit = tmp_path / "audit"
+    audit.mkdir(exist_ok=True)
+    _write_toy_audit(audit)
+    return ["benchmark", str(audit / "audit.yaml"), "--n-resamples", "20", "--n-permutations", "20", "--no-plots",
+            "--out", str(tmp_path / "results"), "--quiet", *extra]
+
+
+def test_fail_on_nonconvergence_exits_1_after_the_results_are_written(tmp_path, monkeypatch, capsys):
+    # #1349: a CI job or a results refresh could not stop on a fit that did not converge
+    _use(monkeypatch, STOPS_EARLY)
+    assert main(_benchmark_args(tmp_path, "--fail-on-nonconvergence")) == 1
+    err = capsys.readouterr().err
+    assert "warning: toy: 5 of 5 combinations had a fit stop at max_iter" in err
+    assert "error: --fail-on-nonconvergence: 1 audit(s) had a fit stop at max_iter (the results were still written; see " in err
+    assert benchmark.CONVERGENCE_DOC in err
+    assert (tmp_path / "results" / "results_fairness.csv").is_file() and (tmp_path / "results" / benchmark.PROVENANCE_FILE).is_file()
+
+
+def test_without_the_flag_a_stopped_fit_only_warns_and_a_converging_run_passes_with_it(tmp_path, monkeypatch, capsys):
+    _use(monkeypatch, STOPS_EARLY)
+    assert main(_benchmark_args(tmp_path)) == 0
+    assert "error:" not in capsys.readouterr().err
+    _use(monkeypatch, LR_ONLY)
+    assert main(_benchmark_args(tmp_path, "--fail-on-nonconvergence")) == 0
+    assert "stop at max_iter" not in capsys.readouterr().err        # the reduced-resamples warning is unrelated
+
+
+def test_the_flag_is_in_the_benchmark_help_and_the_readme_section(capsys):
+    with pytest.raises(SystemExit):
+        main(["benchmark", "--help"])
+    assert "--fail-on-nonconvergence" in capsys.readouterr().out
+    readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8")
+    assert "--fail-on-nonconvergence" in readme.split("#### Convergence warnings", 1)[1].split("**Layer 3", 1)[0]
