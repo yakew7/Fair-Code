@@ -9,7 +9,7 @@ and prints the per-row change, so nobody has to diff two CSVs by hand:
     python3 scripts/diff_results.py --threshold 0.02      # flag rows that moved by more than 0.02
     python3 scripts/diff_results.py --kind fairness --all # every row, not just the ones that moved
     python3 scripts/diff_results.py --limit 100           # list at most 100 rows per kind
-    python3 scripts/diff_results.py --json                # machine-readable
+    python3 scripts/diff_results.py --json                # machine-readable: one list per kind plus a "provenance" key
     python3 scripts/diff_results.py --fail-on-change      # exit 1 if any row is flagged (for CI)
     python3 scripts/diff_results.py --audit COMPAS        # only these audits (repeatable)
     python3 scripts/diff_results.py --summary             # one line per audit and kind
@@ -204,21 +204,35 @@ def describe_provenance(label, info) -> str:
     return f"{label}: commit {commit}, Python {info['python']}{runs}; {libs or 'no library versions'}"
 
 
-def timing_lines(cur, ref, top: int = 5) -> list[str]:
-    """How long the fits took on each side (#1334): the totals and the `top` combinations whose seconds changed most, from the
-    `timings` of the two runs' provenance entries; says so when a side recorded none (an older run or the frozen snapshot)."""
+def _missing_side(now, before) -> str:
+    return "both sides" if not now and not before else "the reference side" if not before else "the current side"
+
+
+def timing_data(cur, ref, top: int = 5) -> dict:
+    """The structure behind `timing_lines` (#1345): `{"recorded": False, "missing": ...}` when a side has no timings, else the two totals
+    and the `top` combinations whose seconds changed most, each as `{combination, reference, current, delta}`."""
     def seconds(info):
         return {f"{t['audit']}/{t['strategy']}/{t['model']}": t["seconds"] for t in (info or {}).get("timings") or []}
 
     now, before = seconds(cur), seconds(ref)
     if not now or not before:
-        return ["timings: not recorded on " + ("both sides" if not now and not before
-                                               else "the reference side" if not before else "the current side")]
-    total_before, total_now = sum(before.values()), sum(now.values())
-    line = f"timings: total {total_before:.1f} s -> {total_now:.1f} s ({total_now - total_before:+.1f} s)"
+        return {"recorded": False, "missing": _missing_side(now, before)}
     changes = sorted(((now[k] - before[k], k) for k in now.keys() & before.keys()), key=lambda item: (-abs(item[0]), item[1]))[:top]
-    if changes:
-        line += "; largest changes: " + ", ".join(f"{k} {before[k]:.1f} -> {now[k]:.1f} s ({delta:+.1f})" for delta, k in changes)
+    return {"recorded": True, "total_reference": sum(before.values()), "total_current": sum(now.values()),
+            "changes": [{"combination": k, "reference": before[k], "current": now[k], "delta": delta} for delta, k in changes]}
+
+
+def timing_lines(cur, ref, top: int = 5) -> list[str]:
+    """How long the fits took on each side (#1334): the totals and the `top` combinations whose seconds changed most, from the
+    `timings` of the two runs' provenance entries; says so when a side recorded none (an older run or the frozen snapshot)."""
+    data = timing_data(cur, ref, top)
+    if not data["recorded"]:
+        return ["timings: not recorded on " + data["missing"]]
+    before, now = data["total_reference"], data["total_current"]
+    line = f"timings: total {before:.1f} s -> {now:.1f} s ({now - before:+.1f} s)"
+    if data["changes"]:
+        line += "; largest changes: " + ", ".join(f"{c['combination']} {c['reference']:.1f} -> {c['current']:.1f} s ({c['delta']:+.1f})"
+                                                  for c in data["changes"])
     return [line]
 
 
@@ -230,20 +244,48 @@ def _stopped(info) -> set[str] | None:
     return {f"{t['audit']}/{t['strategy']}/{t['model']}" for t in entries if t["convergence_warnings"]}
 
 
+def convergence_data(cur, ref) -> dict:
+    """The structure behind `convergence_lines` (#1345): `{"recorded": False, "missing": ...}` or the two counts and the sorted lists
+    of combinations that started and stopped stopping at max_iter."""
+    now, before = _stopped(cur), _stopped(ref)
+    if now is None or before is None:
+        return {"recorded": False, "missing": _missing_side(now is not None, before is not None)}
+    return {"recorded": True, "reference": len(before), "current": len(now),
+            "newly_stopping": sorted(now - before), "no_longer_stopping": sorted(before - now)}
+
+
 def convergence_lines(cur, ref) -> list[str]:
     """How the fits that stopped at max_iter changed between the two sides (#1341): the counts and the combinations that
     started or stopped stopping; says so when a side recorded nothing (an older run, or the frozen snapshot)."""
-    now, before = _stopped(cur), _stopped(ref)
-    if now is None or before is None:
-        return ["convergence: not recorded on " + ("both sides" if now is None and before is None
-                                                   else "the reference side" if before is None else "the current side")]
-    started, fixed = sorted(now - before), sorted(before - now)
-    line = f"convergence: combinations that stopped at max_iter {len(before)} -> {len(now)}"
-    if started:
-        line += "; newly stopping: " + ", ".join(started)
-    if fixed:
-        line += "; no longer stopping: " + ", ".join(fixed)
+    data = convergence_data(cur, ref)
+    if not data["recorded"]:
+        return ["convergence: not recorded on " + data["missing"]]
+    line = f"convergence: combinations that stopped at max_iter {data['reference']} -> {data['current']}"
+    if data["newly_stopping"]:
+        line += "; newly stopping: " + ", ".join(data["newly_stopping"])
+    if data["no_longer_stopping"]:
+        line += "; no longer stopping: " + ", ".join(data["no_longer_stopping"])
     return [line]
+
+
+def _versions_differ(cur, ref) -> list[str]:
+    names = sorted(set(cur["libraries"]) & set(ref["libraries"]))   # only libraries both sides recorded
+    differ = [f"{n} {ref['libraries'][n]} -> {cur['libraries'][n]}" for n in names if cur["libraries"][n] != ref["libraries"][n]]
+    if cur["python"] != ref["python"]:
+        differ.insert(0, f"python {ref['python']} -> {cur['python']}")
+    return differ
+
+
+def provenance_data(current_dir, reference_dir) -> dict:
+    """What the text report's provenance block says, as data for `--json` (#1345): both sides' provenance (without the raw timings),
+    the versions that differ, and the timing and convergence changes. The last three are None unless both sides have provenance."""
+    cur, ref = read_provenance(current_dir), read_provenance(reference_dir)
+    side = lambda info: None if info is None else {k: v for k, v in info.items() if k != "timings"}
+    both = bool(cur and ref)
+    return {"current": side(cur), "reference": side(ref),
+            "versions_differ": _versions_differ(cur, ref) if both else None,
+            "timings": timing_data(cur, ref) if both else None,
+            "convergence": convergence_data(cur, ref) if both else None}
 
 
 def provenance_report(current_dir, reference_dir) -> str:
@@ -251,10 +293,7 @@ def provenance_report(current_dir, reference_dir) -> str:
     cur, ref = read_provenance(current_dir), read_provenance(reference_dir)
     lines = [describe_provenance("current  ", cur), describe_provenance("reference", ref)]
     if cur and ref:
-        names = sorted(set(cur["libraries"]) & set(ref["libraries"]))   # only libraries both sides recorded
-        differ = [f"{n} {ref['libraries'][n]} -> {cur['libraries'][n]}" for n in names if cur["libraries"][n] != ref["libraries"][n]]
-        if cur["python"] != ref["python"]:
-            differ.insert(0, f"python {ref['python']} -> {cur['python']}")
+        differ = _versions_differ(cur, ref)
         lines.append("versions that differ: " + (", ".join(differ) if differ else "none"))
         lines += timing_lines(cur, ref)
         lines += convergence_lines(cur, ref)
@@ -373,9 +412,12 @@ def main(argv=None) -> int:
         print(provenance_report(args.current, args.reference), end="")
     if args.summary:
         summary = summarize(diff)
-        print(json.dumps(summary, indent=2) if args.json else render_summary(summary), end="\n" if args.json else "")
+        if args.json:
+            print(json.dumps({**summary, "provenance": provenance_data(args.current, args.reference)}, indent=2))
+        else:
+            print(render_summary(summary), end="")
     elif args.json:
-        print(json.dumps(diff, indent=2))
+        print(json.dumps({**diff, "provenance": provenance_data(args.current, args.reference)}, indent=2))
     else:
         print(render(diff, args.all, args.threshold, args.limit), end="")
     if args.fail_on_change and any(_flagged(r) for rows in diff.values() for r in rows):

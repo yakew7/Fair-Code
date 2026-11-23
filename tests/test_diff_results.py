@@ -304,3 +304,50 @@ def test_the_provenance_report_says_when_timings_were_not_recorded(tmp_path):
     assert "timings: not recorded on the reference side" in dr.provenance_report(with_timings, without)
     assert "timings: not recorded on the current side" in dr.provenance_report(without, with_timings)
     assert "timings: not recorded on both sides" in dr.provenance_report(without, without)
+
+
+def _compared_dirs(tmp_path, cur_timings, ref_timings):
+    rows = _fair([["a", "baseline", "lr", "sex", "dp", 0.10]])
+    for name, timings in (("cur", cur_timings), ("ref", ref_timings)):
+        _write(tmp_path / name, rows)
+        _provenance_dir(tmp_path / name, timings)
+    return ["--current", str(tmp_path / "cur"), "--reference", str(tmp_path / "ref"), "--kind", "fairness"]
+
+
+def test_json_carries_the_provenance_timings_and_convergence_the_text_report_shows(tmp_path, capsys):
+    # #1345: a script reading --json could not tell a moved row from a slower or non-converging fit
+    args = _compared_dirs(tmp_path, [_timing("baseline", 11.0, 4), _timing("in_processing", 130.0, 0)],
+                          [_timing("baseline", 10.0, 0), _timing("in_processing", 98.0, 0)])
+    assert dr.main([*args, "--json"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["fairness"][0]["status"] == "unchanged"                      # the existing keys keep their shape
+    provenance = out["provenance"]
+    assert provenance["current"]["commit"] == "abc1234" and "timings" not in provenance["current"]
+    assert provenance["versions_differ"] == []
+    timings = provenance["timings"]
+    assert (timings["recorded"], timings["total_reference"], timings["total_current"]) == (True, 108.0, 141.0)
+    assert timings["changes"][0] == {"combination": "a/in_processing/lr", "reference": 98.0, "current": 130.0, "delta": 32.0}
+    assert provenance["convergence"] == {"recorded": True, "reference": 0, "current": 1,
+                                         "newly_stopping": ["a/baseline/lr"], "no_longer_stopping": []}
+
+
+def test_json_provenance_says_what_was_not_recorded_and_is_null_without_provenance(tmp_path, capsys):
+    args = _compared_dirs(tmp_path, [_timing("baseline", 1.0)], None)
+    assert dr.main([*args, "--json"]) == 0
+    provenance = json.loads(capsys.readouterr().out)["provenance"]
+    assert provenance["timings"] == {"recorded": False, "missing": "the reference side"}
+    assert provenance["convergence"] == {"recorded": False, "missing": "both sides"}      # neither side recorded counts
+    (tmp_path / "ref" / "PROVENANCE.json").unlink()
+    assert dr.main([*args, "--json"]) == 0
+    provenance = json.loads(capsys.readouterr().out)["provenance"]
+    assert provenance["reference"] is None
+    assert provenance["versions_differ"] is None and provenance["timings"] is None and provenance["convergence"] is None
+
+
+def test_summary_json_has_the_provenance_key_too_and_the_text_output_is_unchanged(tmp_path, capsys):
+    args = _compared_dirs(tmp_path, [_timing("baseline", 2.0)], [_timing("baseline", 1.0)])
+    assert dr.main([*args, "--summary", "--json"]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["fairness"][0]["audit"] == "a" and out["provenance"]["timings"]["total_current"] == 2.0
+    assert dr.main([*args, "--summary"]) == 0
+    assert "provenance" not in capsys.readouterr().out.split("\n\n", 1)[1]    # the text report keeps its own block above the summary
