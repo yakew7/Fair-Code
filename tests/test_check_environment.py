@@ -102,3 +102,33 @@ def test_warn_only_prints_the_report_but_exits_0_and_the_default_says_how_to_con
 def test_warn_only_is_quiet_about_options_on_a_clean_environment(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(script, "search_directories", lambda: [(tmp_path, "site-packages")])
     assert script.main(["--warn-only"]) == 0 and "OK:" in capsys.readouterr().out
+
+
+def test_missing_test_plugins_names_each_one_that_cannot_be_imported():
+    # #1346: make test-fast silently ran in one process, and the timeout setting only produced a pytest warning
+    assert script.missing_test_plugins(lambda name: object()) == []
+    only_xdist_gone = script.missing_test_plugins(lambda name: None if name == "xdist" else object())
+    assert [dist for dist, _ in only_xdist_gone] == ["pytest-xdist"] and "every core" in only_xdist_gone[0][1]
+    assert [dist for dist, _ in script.missing_test_plugins(lambda name: None)] == ["pytest-xdist", "pytest-timeout"]
+
+
+def test_main_warns_about_missing_plugins_with_the_fix_and_keeps_the_exit_code(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(script, "search_directories", lambda: [(tmp_path, "site-packages")])
+    monkeypatch.setattr(script.importlib.util, "find_spec", lambda name: None)
+    assert script.main() == 0                                          # a clean environment still passes
+    out = capsys.readouterr().out
+    assert "OK:" in out and "warning: pytest-xdist is not installed" in out and "warning: pytest-timeout is not installed" in out
+    assert 'pip install -e ".[test]"' in out
+    (tmp_path / "shadow").mkdir()
+    site = _site(tmp_path / "shadow")
+    monkeypatch.setattr(script, "search_directories", lambda: [(site, "site-packages")])
+    monkeypatch.setattr(script, "owner_of", lambda name: None)
+    assert script.main() == 1 and "warning: pytest-xdist" in capsys.readouterr().out      # and a shadowing module still fails
+    assert script.main(["--warn-only"]) == 0
+
+
+def test_main_is_quiet_about_plugins_when_both_are_installed(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(script, "search_directories", lambda: [(tmp_path, "site-packages")])
+    monkeypatch.setattr(script.importlib.util, "find_spec", lambda name: object())
+    assert script.main() == 0
+    assert "warning:" not in capsys.readouterr().out

@@ -12,12 +12,17 @@ says which of these a module was found in:
     python3 scripts/check_environment.py          # also: make doctor
     python3 scripts/check_environment.py --warn-only   # same report, exit 0 (make check DOCTOR=warn)
 
+It also warns, without ever changing the exit code, when pytest-xdist or pytest-timeout is not installed (#1346): without the first
+`make test-fast` runs in one process, and without the second a hung test is never stopped and pytest warns about the `timeout`
+option in pyproject.toml. The fix it prints is `python3 -m pip install -e ".[test]"`.
+
 Exit code: 0 = nothing shadows the standard library (or --warn-only), 1 = at least one module does.
 """
 from __future__ import annotations
 
 import argparse
 import importlib.metadata
+import importlib.util
 import os
 import site
 import sys
@@ -79,7 +84,34 @@ def owner_of(name: str) -> str | None:
     return owners[0] if owners else None
 
 
+# (importable module, distribution, what is missing without it) for the pytest plugins the `test` extra installs (#1346)
+TEST_PLUGINS = (
+    ("xdist", "pytest-xdist", "make test-fast and make coverage run in one process instead of on every core"),
+    ("pytest_timeout", "pytest-timeout", "a hung test is never stopped, and pytest warns about the `timeout` option"),
+)
+
+
+def missing_test_plugins(find_spec=None) -> list[tuple[str, str]]:
+    """(distribution, consequence) for each plugin in TEST_PLUGINS that cannot be imported."""
+    find_spec = find_spec or importlib.util.find_spec
+    return [(dist, effect) for module, dist, effect in TEST_PLUGINS if find_spec(module) is None]
+
+
+def warn_about_test_plugins() -> None:
+    missing = missing_test_plugins()
+    for dist, effect in missing:
+        print(f"warning: {dist} is not installed: {effect}.")
+    if missing:
+        print('  fix: python3 -m pip install -e ".[test]"   (a warning only; it does not change the exit code)')
+
+
 def main(argv: list[str] | None = None) -> int:
+    code = check_shadowing(argv)
+    warn_about_test_plugins()
+    return code
+
+
+def check_shadowing(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--warn-only", action="store_true",
                         help="print the report but exit 0, for a machine with a shadowing module that cannot be removed (#1290)")
