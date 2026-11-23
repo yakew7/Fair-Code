@@ -678,3 +678,40 @@ def test_main_mark_checked_records_a_link_and_refuses_an_uncited_one(tmp_path, c
     assert script.main([str(doc), "--ignore-file", str(ignore), "--mark-checked", "https://uncited.example/z",
                         "--reason", "why"]) == 1
     assert "no tracked file cites" in capsys.readouterr().out
+
+
+def _aged(days):
+    return TODAY - script.datetime.timedelta(days=days)
+
+
+def test_checked_links_report_the_day_they_come_back_and_those_within_14_days_are_called_out(monkeypatch):
+    # #1348: a link used to return to the unverified list with no warning
+    names = {"soon": 80, "edge": 77, "later": 76, "fresh": 1, "last": 90}
+    answers = {f"https://{n}.example/a": UNVERIFIED for n in names}
+    report = _run_with(monkeypatch, answers, {f"https://{n}.example/a": (_aged(age), "opened") for n, age in names.items()})
+    by_url = {i["url"]: i for i in report["checked_by_hand"]}
+    assert by_url["https://soon.example/a"]["back_on"] == (_aged(80) + script.datetime.timedelta(days=91)).isoformat()
+    assert by_url["https://soon.example/a"]["days_left"] == 11 and by_url["https://last.example/a"]["days_left"] == 1
+    assert [i["url"] for i in script.expiring_soon(report)] == ["https://last.example/a", "https://soon.example/a", "https://edge.example/a"]
+    assert by_url["https://later.example/a"]["days_left"] == 15 and by_url["https://fresh.example/a"]["days_left"] == 90
+
+
+def test_the_report_and_the_issue_body_list_the_expiring_links_with_the_command_that_renews_them(monkeypatch):
+    report = _run_with(monkeypatch, {"https://soon.example/a": UNVERIFIED, "https://fresh.example/b": UNVERIFIED},
+                       {"https://soon.example/a": (_aged(80), "opened"), "https://fresh.example/b": (_aged(1), "opened")})
+    text = script.render(report)
+    soon = next(i for i in report["checked_by_hand"] if i["url"] == "https://soon.example/a")
+    assert "Back in the unverified list within 14 days" in text
+    assert f"{soon['back_on']}  https://soon.example/a" in text.split("Back in the unverified list", 1)[1]
+    assert "fresh.example/b" not in text.split("Back in the unverified list", 1)[1]
+    body = script.render_issue_body(report)
+    assert "come back to the unverified list within 14 days" in body and "--mark-checked URL --reason TEXT" in body
+    assert f"- https://soon.example/a (back on {soon['back_on']}" in body and "- https://fresh.example/b" not in body
+    assert script.report_needs_issue(report) is False                         # a warning, never a reason to open the issue
+
+
+def test_nothing_is_added_when_no_checked_link_is_near_its_limit(monkeypatch):
+    report = _run_with(monkeypatch, {"https://fresh.example/b": UNVERIFIED}, {"https://fresh.example/b": (_aged(1), "opened")})
+    assert script.expiring_soon(report) == [] and script.expiring_soon({"ok": []}) == []
+    assert "Back in the unverified list" not in script.render(report)
+    assert "come back to the unverified list" not in script.render_issue_body(report)

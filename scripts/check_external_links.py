@@ -94,6 +94,7 @@ def load_ignore_list(path: Path | None = IGNORE_FILE) -> dict[str, str]:
 
 
 CHECKED_DAYS = 90      # how long a link opened by hand stays out of the unverified list (#1337)
+EXPIRY_WARNING_DAYS = 14   # a checked link is called out when it will be listed again within this many days (#1348)
 
 
 def load_checked_list(path: Path | None = IGNORE_FILE) -> dict[str, tuple[datetime.date, str]]:
@@ -354,12 +355,21 @@ def run(urls: dict[str, list[str]], limit: int | None = None, workers: int = 8, 
             item = {"url": url, "detail": detail, "files": urls[url]}
             if kind == "unknown" and "no archive copy" in detail and url in checked \
                     and (today - checked[url][0]).days <= CHECKED_DAYS:
-                results["checked_by_hand"].append({**item, "checked": checked[url][0].isoformat(), "reason": checked[url][1]})
+                returns = checked[url][0] + datetime.timedelta(days=CHECKED_DAYS + 1)      # the first day it counts as unverified again
+                results["checked_by_hand"].append({**item, "checked": checked[url][0].isoformat(), "reason": checked[url][1],
+                                                   "back_on": returns.isoformat(), "days_left": (returns - today).days})
                 continue                    # opened by hand recently: not listed as unverified (#1337)
             results[kind].append(item)
     stale_ignored += [{"url": "checked:" + url, "reason": reason} for url, (_, reason) in sorted(checked.items()) if url not in urls_all]
     return {"checked": len(items), **{kind: results[kind] for kind in results},
             "ignored": ignored, "stale_ignored": stale_ignored}
+
+
+def expiring_soon(report: dict) -> list[dict]:
+    """The checked-by-hand links that come back to the unverified list within EXPIRY_WARNING_DAYS (#1348), soonest first, so someone
+    can open them again before that happens."""
+    return sorted((item for item in report.get("checked_by_hand", []) if item.get("days_left", EXPIRY_WARNING_DAYS + 1) <= EXPIRY_WARNING_DAYS),
+                  key=lambda item: (item["days_left"], item["url"]))
 
 
 def render(report: dict) -> str:
@@ -381,6 +391,9 @@ def render(report: dict) -> str:
     if report.get("checked_by_hand"):
         lines += ["", f"Checked by hand (a maintainer opened them within {CHECKED_DAYS} days; not listed as unverified):"]
         lines += [f"  {item['checked']}  {item['url']}  ({item['reason']})" for item in report["checked_by_hand"]]
+    if expiring_soon(report):
+        lines += ["", f"Back in the unverified list within {EXPIRY_WARNING_DAYS} days (open them again, then `--mark-checked`):"]
+        lines += [f"  {item['back_on']}  {item['url']}" for item in expiring_soon(report)]
     if report.get("moved"):
         lines += ["", "Moved (permanent 301 or 308 redirect; update the link, not counted as broken):"]
         lines += [f"  {item['url']}  ->  {item['detail']}  ({', '.join(item['files'][:3])})" for item in report["moved"]]
@@ -407,6 +420,11 @@ def render_issue_body(report: dict) -> str:
     if report.get("checked_by_hand"):
         lines += ["", f"{len(report['checked_by_hand'])} more 403 link(s) with no archive copy were checked by hand within the last "
                       f"{CHECKED_DAYS} days (`checked:` lines in `scripts/external-links-ignore.txt`) and are not listed below."]
+    if expiring_soon(report):       # so the link does not come back unannounced (#1348)
+        lines += ["", f"These come back to the unverified list within {EXPIRY_WARNING_DAYS} days; open them again and run "
+                      "`python3 scripts/check_external_links.py --mark-checked URL --reason TEXT` to keep them out:", ""]
+        lines += [f"- {item['url']} (back on {item['back_on']}; in {', '.join('`' + path + '`' for path in item['files'][:5])})"
+                  for item in expiring_soon(report)]
     unverified = [item for item in report["unknown"] if "no archive copy" in item["detail"]]
     if unverified:        # never counted as broken and never keeps the issue open, but listed so nobody has to rerun the script (#1330)
         lines += ["", "Unverified by hand (they answer scripts with 403 and the Internet Archive has no copy; not counted as broken):", ""]
