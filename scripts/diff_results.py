@@ -13,6 +13,7 @@ and prints the per-row change, so nobody has to diff two CSVs by hand:
     python3 scripts/diff_results.py --fail-on-change      # exit 1 if any row is flagged (for CI)
     python3 scripts/diff_results.py --audit COMPAS        # only these audits (repeatable)
     python3 scripts/diff_results.py --summary             # one line per audit and kind
+    python3 scripts/diff_results.py --timing-threshold 2  # mark a fit SLOWER in the timing line from 2x (and 1 s) up
 
 Each row also carries a `sample` field: `same` when both sides report the same group sizes
 (fairness: n_disadvantaged and n_advantaged; performance: n), `different` when they differ (the two
@@ -50,6 +51,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 CURRENT_DIR = REPO_ROOT / "results"
 REFERENCE_DIR = REPO_ROOT / "paper" / "results-frozen"
 DEFAULT_THRESHOLD = 0.01
+DEFAULT_TIMING_RATIO = 1.5      # a combination is marked slower when it took this many times as long ... (#1353)
+TIMING_MIN_SECONDS = 1.0        # ... and at least this many seconds longer, so a 0.2 s fit that doubled is not a finding
 
 SIZE_COLUMNS = {
     "fairness": ["n_disadvantaged", "n_advantaged"],
@@ -208,9 +211,11 @@ def _missing_side(now, before) -> str:
     return "both sides" if not now and not before else "the reference side" if not before else "the current side"
 
 
-def timing_data(cur, ref, top: int = 5) -> dict:
+def timing_data(cur, ref, top: int = 5, ratio: float = DEFAULT_TIMING_RATIO) -> dict:
     """The structure behind `timing_lines` (#1345): `{"recorded": False, "missing": ...}` when a side has no timings, else the two totals
-    and the `top` combinations whose seconds changed most, each as `{combination, reference, current, delta}`."""
+    and the `top` combinations whose seconds changed most, each as `{combination, reference, current, delta, ratio, slower}`
+    (#1353): `ratio` is current over reference (None when the reference took no time) and `slower` is true when it is at least
+    `ratio` and the fit took at least TIMING_MIN_SECONDS longer."""
     def seconds(info):
         return {f"{t['audit']}/{t['strategy']}/{t['model']}": t["seconds"] for t in (info or {}).get("timings") or []}
 
@@ -219,20 +224,25 @@ def timing_data(cur, ref, top: int = 5) -> dict:
         return {"recorded": False, "missing": _missing_side(now, before)}
     changes = sorted(((now[k] - before[k], k) for k in now.keys() & before.keys()), key=lambda item: (-abs(item[0]), item[1]))[:top]
     return {"recorded": True, "total_reference": sum(before.values()), "total_current": sum(now.values()),
-            "changes": [{"combination": k, "reference": before[k], "current": now[k], "delta": delta} for delta, k in changes]}
+            "changes": [{"combination": k, "reference": before[k], "current": now[k], "delta": delta,
+                         "ratio": now[k] / before[k] if before[k] else None,
+                         "slower": bool(before[k]) and now[k] / before[k] >= ratio and delta >= TIMING_MIN_SECONDS}
+                        for delta, k in changes]}
 
 
-def timing_lines(cur, ref, top: int = 5) -> list[str]:
+def timing_lines(cur, ref, top: int = 5, ratio: float = DEFAULT_TIMING_RATIO) -> list[str]:
     """How long the fits took on each side (#1334): the totals and the `top` combinations whose seconds changed most, from the
     `timings` of the two runs' provenance entries; says so when a side recorded none (an older run or the frozen snapshot)."""
-    data = timing_data(cur, ref, top)
+    data = timing_data(cur, ref, top, ratio)
     if not data["recorded"]:
         return ["timings: not recorded on " + data["missing"]]
     before, now = data["total_reference"], data["total_current"]
     line = f"timings: total {before:.1f} s -> {now:.1f} s ({now - before:+.1f} s)"
     if data["changes"]:
-        line += "; largest changes: " + ", ".join(f"{c['combination']} {c['reference']:.1f} -> {c['current']:.1f} s ({c['delta']:+.1f})"
-                                                  for c in data["changes"])
+        line += "; largest changes: " + ", ".join(
+            f"{c['combination']} {c['reference']:.1f} -> {c['current']:.1f} s ({c['delta']:+.1f}"
+            + (f", {c['ratio']:.1f}x" if c["ratio"] is not None else "") + ")" + (" SLOWER" if c["slower"] else "")
+            for c in data["changes"])
     return [line]
 
 
@@ -276,7 +286,7 @@ def _versions_differ(cur, ref) -> list[str]:
     return differ
 
 
-def provenance_data(current_dir, reference_dir) -> dict:
+def provenance_data(current_dir, reference_dir, ratio: float = DEFAULT_TIMING_RATIO) -> dict:
     """What the text report's provenance block says, as data for `--json` (#1345): both sides' provenance (without the raw timings),
     the versions that differ, and the timing and convergence changes. The last three are None unless both sides have provenance."""
     cur, ref = read_provenance(current_dir), read_provenance(reference_dir)
@@ -284,18 +294,18 @@ def provenance_data(current_dir, reference_dir) -> dict:
     both = bool(cur and ref)
     return {"current": side(cur), "reference": side(ref),
             "versions_differ": _versions_differ(cur, ref) if both else None,
-            "timings": timing_data(cur, ref) if both else None,
+            "timings": timing_data(cur, ref, ratio=ratio) if both else None,
             "convergence": convergence_data(cur, ref) if both else None}
 
 
-def provenance_report(current_dir, reference_dir) -> str:
+def provenance_report(current_dir, reference_dir, ratio: float = DEFAULT_TIMING_RATIO) -> str:
     """Both sides' provenance and the library versions that differ, so a moved row can be told apart from a library bump."""
     cur, ref = read_provenance(current_dir), read_provenance(reference_dir)
     lines = [describe_provenance("current  ", cur), describe_provenance("reference", ref)]
     if cur and ref:
         differ = _versions_differ(cur, ref)
         lines.append("versions that differ: " + (", ".join(differ) if differ else "none"))
-        lines += timing_lines(cur, ref)
+        lines += timing_lines(cur, ref, ratio=ratio)
         lines += convergence_lines(cur, ref)
     return "\n".join(lines) + "\n\n"
 
@@ -366,6 +376,13 @@ def render(diff: dict, show_all: bool = False, threshold: float = DEFAULT_THRESH
     return "\n".join(lines).rstrip() + "\n"
 
 
+def _ratio(value: str) -> float:
+    number = float(value)
+    if number <= 1:
+        raise argparse.ArgumentTypeError("must be greater than 1 (a ratio of current to reference seconds)")
+    return number
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--current", type=Path, default=CURRENT_DIR, help="directory holding the live results (default: results/)")
@@ -374,6 +391,9 @@ def main(argv=None) -> int:
     p.add_argument("--kind", choices=["fairness", "performance", "both"], default="both")
     p.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD,
                    help=f"flag a row whose value moved by more than this (default {DEFAULT_THRESHOLD})")
+    p.add_argument("--timing-threshold", type=_ratio, default=DEFAULT_TIMING_RATIO, metavar="RATIO",
+                   help=f"mark a fit SLOWER in the timing line when it took at least RATIO times as long and at least {TIMING_MIN_SECONDS:g} s "
+                        f"longer (default {DEFAULT_TIMING_RATIO}); informational, never changes the exit code")
     p.add_argument("--all", action="store_true", help="list unchanged rows too")
     p.add_argument("--json", action="store_true", help="print the diff as JSON")
     p.add_argument("--fail-on-change", action="store_true", help="exit 1 if any row is flagged")
@@ -409,15 +429,15 @@ def main(argv=None) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     if not args.json:
-        print(provenance_report(args.current, args.reference), end="")
+        print(provenance_report(args.current, args.reference, args.timing_threshold), end="")
     if args.summary:
         summary = summarize(diff)
         if args.json:
-            print(json.dumps({**summary, "provenance": provenance_data(args.current, args.reference)}, indent=2))
+            print(json.dumps({**summary, "provenance": provenance_data(args.current, args.reference, args.timing_threshold)}, indent=2))
         else:
             print(render_summary(summary), end="")
     elif args.json:
-        print(json.dumps({**diff, "provenance": provenance_data(args.current, args.reference)}, indent=2))
+        print(json.dumps({**diff, "provenance": provenance_data(args.current, args.reference, args.timing_threshold)}, indent=2))
     else:
         print(render(diff, args.all, args.threshold, args.limit), end="")
     if args.fail_on_change and any(_flagged(r) for rows in diff.values() for r in rows):

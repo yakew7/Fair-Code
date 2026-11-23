@@ -285,8 +285,8 @@ def test_the_provenance_report_shows_the_total_and_the_largest_timing_changes(tm
     ref = _provenance_dir(tmp_path / "ref", [_timing("baseline", 10.0), _timing("in_processing", 98.0), _timing("post_processing", 5.0)])
     cur = _provenance_dir(tmp_path / "cur", [_timing("baseline", 11.0), _timing("in_processing", 130.0), _timing("post_processing", 5.0)])
     line = next(l for l in dr.provenance_report(cur, ref).splitlines() if l.startswith("timings:"))
-    assert line == ("timings: total 113.0 s -> 146.0 s (+33.0 s); largest changes: a/in_processing/lr 98.0 -> 130.0 s (+32.0), "
-                    "a/baseline/lr 10.0 -> 11.0 s (+1.0), a/post_processing/lr 5.0 -> 5.0 s (+0.0)")
+    assert line == ("timings: total 113.0 s -> 146.0 s (+33.0 s); largest changes: a/in_processing/lr 98.0 -> 130.0 s (+32.0, 1.3x), "
+                    "a/baseline/lr 10.0 -> 11.0 s (+1.0, 1.1x), a/post_processing/lr 5.0 -> 5.0 s (+0.0, 1.0x)")
 
 
 def test_only_the_five_largest_timing_changes_are_listed_and_unmatched_combinations_are_left_out(tmp_path):
@@ -326,7 +326,8 @@ def test_json_carries_the_provenance_timings_and_convergence_the_text_report_sho
     assert provenance["versions_differ"] == []
     timings = provenance["timings"]
     assert (timings["recorded"], timings["total_reference"], timings["total_current"]) == (True, 108.0, 141.0)
-    assert timings["changes"][0] == {"combination": "a/in_processing/lr", "reference": 98.0, "current": 130.0, "delta": 32.0}
+    assert timings["changes"][0] == {"combination": "a/in_processing/lr", "reference": 98.0, "current": 130.0, "delta": 32.0,
+                              "ratio": pytest.approx(130 / 98), "slower": False}
     assert provenance["convergence"] == {"recorded": True, "reference": 0, "current": 1,
                                          "newly_stopping": ["a/baseline/lr"], "no_longer_stopping": []}
 
@@ -351,3 +352,48 @@ def test_summary_json_has_the_provenance_key_too_and_the_text_output_is_unchange
     assert out["fairness"][0]["audit"] == "a" and out["provenance"]["timings"]["total_current"] == 2.0
     assert dr.main([*args, "--summary"]) == 0
     assert "provenance" not in capsys.readouterr().out.split("\n\n", 1)[1]    # the text report keeps its own block above the summary
+
+
+def _timing_line(tmp_path, ref_seconds, cur_seconds, **options):
+    ref = _provenance_dir(tmp_path / "ref", [_timing(f"s{i}", v) for i, v in enumerate(ref_seconds)])
+    cur = _provenance_dir(tmp_path / "cur", [_timing(f"s{i}", v) for i, v in enumerate(cur_seconds)])
+    return next(l for l in dr.provenance_report(cur, ref, **options).splitlines() if l.startswith("timings:"))
+
+
+def test_a_fit_that_took_much_longer_is_marked_slower_and_a_small_change_is_not(tmp_path):
+    # #1353: a 3x slowdown and 0.4 s of noise printed the same way
+    line = _timing_line(tmp_path, [10.0, 0.5, 20.0], [30.0, 0.9, 21.0])
+    assert "a/s0/lr 10.0 -> 30.0 s (+20.0, 3.0x) SLOWER" in line
+    assert "a/s1/lr 0.5 -> 0.9 s (+0.4, 1.8x)," in line + "," and "(+0.4, 1.8x) SLOWER" not in line     # 1.8x but under 1 s longer
+    assert "a/s2/lr 20.0 -> 21.0 s (+1.0, 1.1x)" in line and "(+1.0, 1.1x) SLOWER" not in line
+
+
+def test_the_timing_threshold_option_moves_the_marking_ratio(tmp_path):
+    ref, cur = [10.0], [16.0]
+    assert "SLOWER" in _timing_line(tmp_path, ref, cur)                              # 1.6x is over the default 1.5
+    assert "SLOWER" not in _timing_line(tmp_path, ref, cur, ratio=2.0)
+    assert "SLOWER" in _timing_line(tmp_path, ref, [21.0], ratio=2.0)
+
+
+def test_a_speedup_and_a_zero_second_reference_are_never_marked(tmp_path):
+    line = _timing_line(tmp_path, [30.0, 0.0], [10.0, 5.0])
+    assert "SLOWER" not in line and "a/s1/lr 0.0 -> 5.0 s (+5.0)" in line            # no ratio against a reference that took no time
+
+
+def test_json_timings_carry_the_ratio_and_the_slower_flag_and_the_cli_takes_the_threshold(tmp_path, capsys):
+    args = _compared_dirs(tmp_path, [_timing("baseline", 30.0)], [_timing("baseline", 10.0)])
+    assert dr.main([*args, "--json"]) == 0
+    change = json.loads(capsys.readouterr().out)["provenance"]["timings"]["changes"][0]
+    assert change["ratio"] == 3.0 and change["slower"] is True
+    assert dr.main([*args, "--json", "--timing-threshold", "4"]) == 0
+    assert json.loads(capsys.readouterr().out)["provenance"]["timings"]["changes"][0]["slower"] is False
+    assert dr.main([*args, "--fail-on-change", "--timing-threshold", "1.2"]) == 0      # never changes the exit code
+
+
+def test_the_timing_threshold_must_be_a_ratio_above_one(tmp_path, capsys):
+    args = _compared_dirs(tmp_path, [_timing("baseline", 1.0)], [_timing("baseline", 1.0)])
+    for bad in ("1", "0.5", "x"):
+        with pytest.raises(SystemExit) as stopped:
+            dr.main([*args, "--timing-threshold", bad])
+        assert stopped.value.code == 2
+    assert "greater than 1" in capsys.readouterr().err
