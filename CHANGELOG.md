@@ -21,6 +21,11 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Added
 
+- `diff_results.py --json` carries a `provenance` key with the versions, timings and convergence counts (#1345), and its timing line marks a fit that got much slower (`--timing-threshold`, #1353).
+- `faircode benchmark --fail-on-nonconvergence` exits 1 after writing the results when a fit stopped at `max_iter` (#1349).
+- `check_contributors.py --pending --json` (#1354) and `--explain-area PATH ...` (#1351); `make doctor` warns when pytest-xdist or pytest-timeout is missing (#1346).
+- The external-links report lists the checked-by-hand links that come back within 14 days (#1348), and an ignore entry can carry `until:YYYY-MM-DD` (#1352).
+- `tests/test_ci_timeouts.py` checks the 900 s test timeout against every CI job that runs pytest (#1350).
 - `diff_results.py` reports how the per-combination timings (#1334) and the fits that stopped at `max_iter` (#1341) changed between two result sets; `make traction-live ARGS=...` passes options through (#1343).
 - `check_external_links.py` reads `checked:YYYY-MM-DD URL reason` lines from the ignore file and keeps a 403 link out of the unverified list for 90 days (#1337).
 - `pytest-timeout` in the `test` extra: a hung test fails after 300 s, 900 s for the `slow` and `browser` tests through `tests/conftest.py` (#1342).
@@ -37,6 +42,7 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Changed
 
+- `scripts/check_environment.py` and `scripts/check_contributors.py` moved `run_pending` to `contributors_github.py` to stay under the module size limit; the traction figures follow GitHub again (#1355).
 - The `--stub` area rules are in `scripts/contributors-areas.json` and every top-level path has a rule or an explicit default (#1335, #1336); the saved `--prs` JSON's optional keys are documented (#1339); the convergence message points at the README (#1340); the empty-cell benchmark test uses the shared toy-audit helper (#1338).
 - `check_contributors.py` fetches each pull request's commit authors, closing issues and files with one `gh pr view` call (#1332).
 - The contributors tests are split into four files of under 300 lines (#1327); `traction-live` skips the Issues Closed comparison on a push run (#1324).
