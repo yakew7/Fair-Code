@@ -825,3 +825,34 @@ def test_the_renew_option_runs_from_the_command_line_and_needs_both_arguments(tm
         with pytest.raises(SystemExit) as stopped:
             script.main(["--ignore-file", str(path), *bad])
         assert stopped.value.code == 2
+
+
+def test_list_ignores_covers_all_kinds_sorted_by_days_left_with_undated_entries_last(tmp_path):
+    # #1360: finding what expires soon meant reading the file and doing the date arithmetic
+    path = _ignore_file(tmp_path, IGNORE_TEXT + "https://e.example/old until:2026-11-01 lapsed already\n"
+                                  "checked:2026-09-01 https://f.example/c opened long ago\n")
+    rows = script.list_ignores(path, today=TODAY)
+    assert [(r["kind"], r["key"], r["days_left"]) for r in rows] == [
+        ("url", "https://e.example/old", -18),             # its until: day was 18 days ago
+        ("checked", "https://f.example/c", 11),            # checked 79 days ago: 11 of its 90 days left
+        ("url", "https://a.example/x", 42),
+        ("checked", "https://d.example/z", 89),
+        ("host", "host:b.example", 102),
+        ("url", "https://c.example/y", None),
+    ]
+    assert rows[-1]["date"] is None and rows[1]["date"] == "2026-09-01" and rows[2]["reason"] == "site is down for a rebuild"
+
+
+def test_the_table_says_lapsed_days_left_and_never_expires_and_json_gives_the_rows(tmp_path, capsys):
+    path = _ignore_file(tmp_path, IGNORE_TEXT + "https://e.example/old until:2000-01-01 lapsed already\n")
+    text = script.render_ignore_list(script.list_ignores(path, today=TODAY))
+    assert "url      https://e.example/old  [until 2000-01-01, lapsed]  lapsed already" in text
+    assert "[until 2026-12-31, 42 day(s) left]" in text and "[checked 2026-11-18, 89 day(s) left]" in text
+    assert "[no date (never expires)]  never expires" in text and text.endswith("5 entries.")
+    assert script.render_ignore_list([]) == "No ignore or checked entries."
+    assert script.main(["--ignore-file", str(path), "--list-ignores"]) == 0               # requests nothing: it would hang on the example hosts
+    assert "5 entries." in capsys.readouterr().out
+    assert script.main(["--ignore-file", str(path), "--list-ignores", "--json"]) == 0
+    rows = json.loads(capsys.readouterr().out)
+    assert len(rows) == 5 and {"kind", "key", "reason", "date", "days_left"} == set(rows[0])
+    assert script.list_ignores(tmp_path / "missing.txt") == []

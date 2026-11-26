@@ -14,6 +14,7 @@ keeps one issue up to date, and nothing in `make lint` or a pull request depends
     python3 scripts/check_external_links.py --fix-moved       # rewrite permanently moved links in the files that cite them
     python3 scripts/check_external_links.py --fail-on-broken # exit 1 when something is broken (off by default)
     python3 scripts/check_external_links.py --ignore-file F  # use another ignore list (default: the one below)
+    python3 scripts/check_external_links.py --list-ignores   # every ignore and checked entry with its date and days left; requests nothing (#1360)
     python3 scripts/check_external_links.py --renew-ignore URL_OR_host:NAME --until YYYY-MM-DD  # move an until: date forward, keeping the reason (#1361)
     python3 scripts/check_external_links.py --mark-checked URL --reason TEXT [--date YYYY-MM-DD]  # write a valid `checked:` line (today by default), replacing any earlier one for that URL (#1347)
 
@@ -199,6 +200,36 @@ def mark_checked(url: str, reason: str, day: datetime.date | None = None,
     path.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
     action = "Updated" if replaced else "Added"
     return True, f"{action} checked entry for {url} in {path}"
+
+
+def list_ignores(path: Path | None = IGNORE_FILE, today: datetime.date | None = None) -> list[dict]:
+    """Every entry of the ignore file as `{kind, key, reason, date, days_left}` (#1360), soonest first and the entries with no date last.
+    kind is `url`, `host` or `checked`; for a dated entry `date` is its `until:` day or the day it was checked and `days_left` counts
+    to the last day it applies (negative once it has lapsed: an expired ignore, or a checked link back on the unverified list)."""
+    today = today or datetime.date.today()
+    rows = []
+    for key, reason, until in _ignore_entries(path):
+        rows.append({"kind": "host" if key.startswith("host:") else "url", "key": key, "reason": reason,
+                     "date": until.isoformat() if until else None, "days_left": (until - today).days if until else None})
+    for url, (day, reason) in load_checked_list(path).items():
+        rows.append({"kind": "checked", "key": url, "reason": reason, "date": day.isoformat(),
+                     "days_left": (day + datetime.timedelta(days=CHECKED_DAYS) - today).days})
+    return sorted(rows, key=lambda row: (row["days_left"] is None, row["days_left"] if row["days_left"] is not None else 0, row["key"]))
+
+
+def render_ignore_list(rows: list[dict]) -> str:
+    """The `--list-ignores` table: kind, what it applies to, its date and days left, and the reason."""
+    if not rows:
+        return "No ignore or checked entries."
+    def when(row):
+        if row["date"] is None:
+            return "no date (never expires)"
+        label = "until" if row["kind"] != "checked" else "checked"
+        left = row["days_left"]
+        state = "lapsed" if left < 0 else f"{left} day(s) left"
+        return f"{label} {row['date']}, {state}"
+    lines = [f"{row['kind']:<8} {row['key']}  [{when(row)}]  {row['reason']}" for row in rows]
+    return "\n".join(lines + ["", f"{len(rows)} entr{'y' if len(rows) == 1 else 'ies'}."])
 
 
 def renew_ignore(key: str, until: datetime.date, ignore_file: Path = IGNORE_FILE,
@@ -581,6 +612,7 @@ def main(argv=None) -> int:
     parser.add_argument("--json", action="store_true", help="print the report as JSON")
     parser.add_argument("--fail-on-broken", action="store_true", help="exit 1 when a link is broken (off by default)")
     parser.add_argument("--mark-checked", metavar="URL", help="write a `checked:` line for a link you opened in a browser; needs --reason")
+    parser.add_argument("--list-ignores", action="store_true", help="print every ignore and checked entry with its date and the days left, then exit (no link is requested)")
     parser.add_argument("--renew-ignore", metavar="KEY", help="move the until: date of this ignore entry (a URL or host:name) to --until")
     parser.add_argument("--until", metavar="YYYY-MM-DD", help="the new last day for --renew-ignore")
     parser.add_argument("--reason", help="reason for --mark-checked")
@@ -588,6 +620,10 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if args.rebuild and not args.fix_moved:
         parser.error("--rebuild only makes sense with --fix-moved")
+    if args.list_ignores:
+        rows = list_ignores(args.ignore_file)
+        print(json.dumps(rows, indent=2) if args.json else render_ignore_list(rows))
+        return 0
     if args.renew_ignore is not None or args.until is not None:
         if args.renew_ignore is None or args.until is None:
             parser.error("--renew-ignore and --until go together")
