@@ -12,9 +12,9 @@ says which of these a module was found in:
     python3 scripts/check_environment.py          # also: make doctor
     python3 scripts/check_environment.py --warn-only   # same report, exit 0 (make check DOCTOR=warn)
 
-It also warns, without ever changing the exit code, when pytest-xdist or pytest-timeout is not installed (#1346): without the first
-`make test-fast` runs in one process, and without the second a hung test is never stopped and pytest warns about the `timeout`
-option in pyproject.toml. The fix it prints is `python3 -m pip install -e ".[test]"`.
+It also warns, without ever changing the exit code, when a package of the `test` extra in pyproject.toml is not installed (#1346, #1357). Without pytest-xdist
+`make test-fast` runs in one process, and without pytest-timeout a hung test is never stopped and pytest warns about the `timeout`
+option in pyproject.toml; any other missing package makes the tests that import it fail. The fix it prints is `python3 -m pip install -e ".[test]"`.
 
 Exit code: 0 = nothing shadows the standard library (or --warn-only), 1 = at least one module does.
 """
@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import argparse
 import importlib.metadata
-import importlib.util
 import os
+import re
 import site
 import sys
 import sysconfig
@@ -84,21 +84,42 @@ def owner_of(name: str) -> str | None:
     return owners[0] if owners else None
 
 
-# (importable module, distribution, what is missing without it) for the pytest plugins the `test` extra installs (#1346)
-TEST_PLUGINS = (
-    ("xdist", "pytest-xdist", "make test-fast and make coverage run in one process instead of on every core"),
-    ("pytest_timeout", "pytest-timeout", "a hung test is never stopped, and pytest warns about the `timeout` option"),
-)
+ROOT = Path(__file__).resolve().parent.parent
+# What is missing without the two plugins whose absence changes how `make` behaves (#1346); any other package of the extra gets
+# the generic sentence below.
+CONSEQUENCES = {
+    "pytest-xdist": "make test-fast and make coverage run in one process instead of on every core",
+    "pytest-timeout": "a hung test is never stopped, and pytest warns about the `timeout` option",
+}
+GENERIC_CONSEQUENCE = "the tests that import it fail with an ImportError"
 
 
-def missing_test_plugins(find_spec=None) -> list[tuple[str, str]]:
-    """(distribution, consequence) for each plugin in TEST_PLUGINS that cannot be imported."""
-    find_spec = find_spec or importlib.util.find_spec
-    return [(dist, effect) for module, dist, effect in TEST_PLUGINS if find_spec(module) is None]
+def declared_test_extra(pyproject: Path | None = None) -> list[str]:
+    """The distributions of the `test` extra in pyproject.toml, version specifiers dropped (#1357), so the check follows the extra
+    instead of a list kept here. Reads the `test = [...]` line directly because Python 3.10 has no tomllib."""
+    text = (pyproject or ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    found = re.search(r"^test\s*=\s*\[(.*?)\]", text, re.MULTILINE | re.DOTALL)
+    if not found:
+        return []
+    return [re.match(r"[A-Za-z0-9][A-Za-z0-9._-]*", item).group(0) for item in re.findall(r'"([^"]+)"', found.group(1))]
+
+
+def missing_test_packages(declared: list[str] | None = None, version=None) -> list[tuple[str, str]]:
+    """(distribution, consequence) for each package of the `test` extra that is not installed. `version` is
+    importlib.metadata.version by default (a PackageNotFoundError means missing); it also handles names like PyYAML and the
+    difference between a distribution and its import name."""
+    version = version or importlib.metadata.version
+    missing = []
+    for dist in declared_test_extra() if declared is None else declared:
+        try:
+            version(dist)
+        except importlib.metadata.PackageNotFoundError:
+            missing.append((dist, CONSEQUENCES.get(dist.lower(), GENERIC_CONSEQUENCE)))
+    return missing
 
 
 def warn_about_test_plugins() -> None:
-    missing = missing_test_plugins()
+    missing = missing_test_packages()
     for dist, effect in missing:
         print(f"warning: {dist} is not installed: {effect}.")
     if missing:
