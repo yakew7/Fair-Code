@@ -3,6 +3,7 @@
     "ayaan-20-11": "commit email not linked to the GitHub account",
     "raonishanth2000-hub": "commit email not linked to the GitHub account",
     "ege-arhan": "commit email not linked to the GitHub account",
+    "nitishchauhan002": "the one commit (2b2366d, PR #410) is authored with nitishkumar910209@gmail.com, which is not linked to the GitHub account: the commits API returns author null for it, so the contributors API omits the account",
     "ranjanasri6": "the one commit of PR #1311 is authored by PRIYANKA2272004, so no API counts it for this account",
     "avaldivieso-meraki": "the commit of #1356 is authored by arianvaldivieso, so no API counts it for this account"
   },
