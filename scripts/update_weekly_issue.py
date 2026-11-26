@@ -63,15 +63,19 @@ def traction_issue_body(stderr: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def contributors_issue_body(stdout: str) -> str:
-    """Build the contributors report body from `check_contributors.py --pending` output (the last line is a summary)."""
+def contributors_issue_body(stdout: str, pending: list[dict] | None = None) -> str:
+    """Build the contributors report body from `check_contributors.py --pending` output (the last line is a summary).
+
+    `pending` is the `--pending --json` list (#1364): when it is given, the people who need a `--stub` command are the ones with
+    `has_entry` false, read as data instead of from the wording of the text lines."""
     lines = stdout.strip().splitlines()
     people = lines[:-1]
     body = ["The weekly `check_contributors.py --pending` run found people who merged pull requests after the "
             "snapshot in CONTRIBUTORS.md:", ""]
     # a line indented under an author is one of their pull requests with its title: a nested bullet
     body += [f"  - {line.strip()}" if line.startswith(" ") else f"- {line}" for line in people]
-    newcomers = [line.split(":")[0] for line in people if not line.startswith(" ") and line.endswith("no entry yet")]
+    newcomers = ([item["login"] for item in pending if not item.get("has_entry")] if pending is not None
+                 else [line.split(":")[0] for line in people if not line.startswith(" ") and line.endswith("no entry yet")])
     if newcomers:
         body += ["", "Start the entry of each person with no entry (this also moves the snapshot, sorts and lists them in an area row):", ""]
         body += [f"- `python3 scripts/check_contributors.py --stub {login} --commits`" for login in newcomers]
@@ -79,6 +83,17 @@ def contributors_issue_body(stdout: str) -> str:
              "`python3 scripts/check_contributors.py --fix` (then `--commits` to check commit counts). "
              "This issue closes itself on the next weekly run once nobody is pending."]
     return "\n".join(body) + "\n"
+
+
+def read_pending_json(path: Path | None) -> list[dict] | None:
+    """The `--pending --json` list from `path`, or None (so the text is used) when there is no file or it is not a list of objects."""
+    if path is None:
+        return None
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, list) and all(isinstance(item, dict) and "login" in item for item in data) else None
 
 
 def external_links_issue_body(report: dict) -> str:
@@ -197,6 +212,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("kind", choices=REPORTS)
     parser.add_argument("report", type=Path, help="external-links JSON report or traction status file")
     parser.add_argument("details", type=Path, nargs="?", help="traction stderr file or contributors stdout file")
+    parser.add_argument("--pending-json", type=Path, metavar="FILE",
+                        help="contributors only: the output of `check_contributors.py --pending --json`; the newcomers who get a --stub "
+                             "command are read from it instead of from the text (an unreadable file falls back to the text)")
     parser.add_argument("--dry-run", action="store_true",
                         help="print the decision and the issue body instead of calling gh (needs no GITHUB_REPOSITORY)")
     return parser
@@ -215,8 +233,13 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(f"{args.kind} requires a status file and an output file")
         status = args.report.read_text(encoding="utf-8").strip()
         state = True if status == "1" else False if status == "0" else None
-        build = traction_issue_body if args.kind == "traction" else contributors_issue_body
-        body = build(args.details.read_text(encoding="utf-8")) if state else ""
+        details = args.details.read_text(encoding="utf-8")
+        if not state:
+            body = ""
+        elif args.kind == "traction":
+            body = traction_issue_body(details)
+        else:
+            body = contributors_issue_body(details, read_pending_json(args.pending_json))
 
     if state is None and args.kind != "external-links":
         if args.dry_run:

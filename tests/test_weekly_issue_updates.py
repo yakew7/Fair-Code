@@ -295,3 +295,51 @@ def test_a_failed_or_timed_out_gh_call_gives_an_error_annotation_and_exit_1(erro
 def test_the_annotation_names_an_unexpected_error_type_too(monkeypatch):
     monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
     assert "ValueError: bad" in script.gh_call_failed("traction", ValueError("bad"))
+
+
+PENDING_TEXT = ("bob: 2 merged PR(s) after the snapshot (#101, #102); count to update\n"
+                "newbie: 1 merged PR(s) after the snapshot (#103); no entry yet\n"
+                "2 author(s) merged after the snapshot (PR #100).\n")
+
+
+def test_the_stub_commands_come_from_the_json_when_it_is_given_not_from_the_wording_of_the_text():
+    # #1364: a change to the text wording used to silently drop the stub commands
+    pending = [{"login": "bob", "prs": [101, 102], "first_merged": "2026-10-30", "has_entry": True},
+               {"login": "newbie", "prs": [103], "first_merged": "2026-10-31", "has_entry": False},
+               {"login": "other-new", "prs": [104], "first_merged": "2026-11-01", "has_entry": False}]
+    reworded = PENDING_TEXT.replace("no entry yet", "has no entry").replace("count to update", "needs a new count")
+    body = script.contributors_issue_body(reworded, pending)
+    assert "- `python3 scripts/check_contributors.py --stub newbie --commits`" in body
+    assert "- `python3 scripts/check_contributors.py --stub other-new --commits`" in body and "--stub bob" not in body
+    assert "--stub" not in script.contributors_issue_body(reworded)                       # the text alone no longer matches
+    assert "--stub" not in script.contributors_issue_body(PENDING_TEXT, [pending[0]])      # nobody without an entry: no section
+    assert script.contributors_issue_body(PENDING_TEXT, []).count("--stub") == 0          # an empty list is data too, not "missing"
+
+
+def test_read_pending_json_returns_the_list_or_none_for_a_missing_or_unusable_file(tmp_path):
+    good = tmp_path / "pending.json"
+    good.write_text('[{"login": "a", "prs": [1], "first_merged": "2026-11-01", "has_entry": false}]', encoding="utf-8")
+    assert script.read_pending_json(good)[0]["login"] == "a" and script.read_pending_json(None) is None
+    assert script.read_pending_json(tmp_path / "missing.json") is None
+    for bad in ("", "not json", '{"login": "a"}', '[1, 2]', '[{"prs": [1]}]'):
+        good.write_text(bad, encoding="utf-8")
+        assert script.read_pending_json(good) is None, bad
+
+
+def test_main_uses_the_json_file_and_falls_back_to_the_text_when_it_is_unusable(tmp_path, monkeypatch, capsys):
+    status, out, data = tmp_path / "status", tmp_path / "out.txt", tmp_path / "pending.json"
+    status.write_text("1\n")
+    out.write_text(PENDING_TEXT.replace("no entry yet", "has no entry"), encoding="utf-8")
+    data.write_text('[{"login": "newbie", "prs": [103], "first_merged": "2026-10-31", "has_entry": false}]', encoding="utf-8")
+    args = ["contributors", str(status), str(out), "--dry-run"]
+    assert script.main([*args, "--pending-json", str(data)]) == 0 and "--stub newbie --commits" in capsys.readouterr().out
+    data.write_text("garbage", encoding="utf-8")
+    assert script.main([*args, "--pending-json", str(data)]) == 0 and "--stub" not in capsys.readouterr().out    # text wording changed: none found
+    out.write_text(PENDING_TEXT, encoding="utf-8")
+    assert script.main([*args, "--pending-json", str(data)]) == 0 and "--stub newbie --commits" in capsys.readouterr().out    # the text still works
+
+
+def test_the_contributors_workflow_saves_the_json_it_hands_to_the_script():
+    text = (WORKFLOWS / "contributors-drift.yml").read_text(encoding="utf-8")
+    assert 'check_contributors.py --pending --json > "$RUNNER_TEMP/pending.json"' in text
+    assert '--pending-json "$RUNNER_TEMP/pending.json"' in text

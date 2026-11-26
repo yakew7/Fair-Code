@@ -45,8 +45,9 @@ jobs:
           set +e
           python3 scripts/check_contributors.py --pending > "$RUNNER_TEMP/out.txt"
           echo "$?" > "$RUNNER_TEMP/status"
+          python3 scripts/check_contributors.py --pending --json > "$RUNNER_TEMP/pending.json"
           cat "$RUNNER_TEMP/out.txt"
           exit 0
 
       - name: Open, update or close the tracking issue
-        run: python3 scripts/update_weekly_issue.py contributors "$RUNNER_TEMP/status" "$RUNNER_TEMP/out.txt"
+        run: python3 scripts/update_weekly_issue.py contributors "$RUNNER_TEMP/status" "$RUNNER_TEMP/out.txt" --pending-json "$RUNNER_TEMP/pending.json"
