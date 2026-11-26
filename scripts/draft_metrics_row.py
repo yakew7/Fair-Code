@@ -12,6 +12,7 @@ and carries the cells GitHub cannot supply (social views, countries, code audits
     python3 scripts/draft_metrics_row.py --note             # also print a draft sweep note: closed issues, figure changes, new people
     python3 scripts/draft_metrics_row.py --update           # refresh the newest row when it is already this week's (with --apply: in place)
     python3 scripts/draft_metrics_row.py --apply            # also write the row and the figures into METRICS.md, README.md and ROADMAP.md
+    python3 scripts/draft_metrics_row.py --row 2026-W47 --update  # refresh an EARLIER week's row (with --apply: in place, that row only, #1359)
     python3 scripts/draft_metrics_row.py --pending-closes   # also count the open issues the commits ahead of the base close on merge
 
 A sweep row's Issues Closed is what is already closed this week plus what the sweep's commits close when they merge, so
@@ -76,9 +77,45 @@ def build_row(previous: list[str], live: dict, day: datetime.date, update: bool 
     return "| " + " | ".join(cells) + " |"
 
 
-def fetch_issues_closed(since: datetime.date, repo: str) -> int | None:
+def find_row(text: str, week: str) -> list[str]:
+    """The cells of the weekly row for ISO week `week` (`2026-W47`), or an error naming the weeks the table has (#1359)."""
+    rows = [[cell.strip() for cell in row.strip().strip("|").split("|")] for row in ROW.findall(text)]
+    found = next((cells for cells in rows if cells[0] == week), None)
+    if found is None:
+        raise ValueError(f"METRICS.md has no row for {week}; the weeks are {', '.join(cells[0] for cells in rows[-5:])}")
+    return found
+
+
+def week_range(week: str) -> tuple[datetime.date, datetime.date]:
+    """(Monday, Sunday) of ISO week `week` such as `2026-W47`."""
+    found = re.fullmatch(r"(\d{4})-W(\d{2})", week)
+    if not found:
+        raise ValueError(f"{week!r} is not a week like 2026-W47")
+    try:
+        monday = datetime.date.fromisocalendar(int(found.group(1)), int(found.group(2)), 1)
+    except ValueError:
+        raise ValueError(f"{week!r} is not a week of that year") from None
+    return monday, monday + datetime.timedelta(days=6)
+
+
+def refresh_earlier_row(text: str, week: str, live: dict) -> tuple[str, str]:
+    """(new METRICS text, the new row) with the row for `week`, an earlier week than the newest, rebuilt from `live`: GitHub's current
+    stars, forks, watching and contributors and `issues_closed` counted over that week (#1359). The other cells of the row stay; no
+    other row, badge or table changes. The newest week is refused: `--update` without `--row` refreshes that one."""
+    week_range(week)
+    cells = find_row(text, week)
+    if latest_row(text)[0] == week:
+        raise ValueError(f"{week} is the newest row: use --update without --row to refresh it")
+    row = "| " + " | ".join([week, str(live["stars"]), str(live["forks"]), str(live["watching"]), str(live["contributors"]),
+                            cells[5], cells[6], str(live["issues_closed"]), cells[8]]) + " |"
+    old = next(m for m in ROW.finditer(text) if m.group(0).strip().strip("|").split("|")[0].strip() == week)
+    return text[:old.start()] + row + text[old.end():], row
+
+
+def fetch_issues_closed(since: datetime.date, repo: str, until: datetime.date | None = None) -> int | None:
+    window = f"closed:{since.isoformat()}..{until.isoformat()}" if until else f"closed:>={since.isoformat()}"
     done = run_gh(["gh", "api", "-X", "GET", "search/issues", "-f",
-                   f"q=repo:{repo} is:issue is:closed closed:>={since.isoformat()}", "--jq", ".total_count"])
+                   f"q=repo:{repo} is:issue is:closed {window}", "--jq", ".total_count"])
     return int(done.stdout.strip()) if done.returncode == 0 and done.stdout.strip().isdigit() else None
 
 
@@ -253,6 +290,36 @@ def fetch_open_issues(numbers, repo: str) -> list[dict] | None:
 
     return issues
 
+def refresh_row(args) -> int:
+    """`--row WEEK --update [--apply]` (#1359): print or rewrite the row of an earlier week and nothing else."""
+    if not args.update or args.note or args.pending_closes:
+        print("error: --row goes with --update (and --apply) only", file=sys.stderr)
+        return 1
+    try:
+        monday, sunday = week_range(args.row)
+        if args.live_data:
+            live = json.loads(Path(args.live_data).read_text(encoding="utf-8"))
+        else:
+            if str(ROOT) not in sys.path:
+                sys.path.insert(0, str(ROOT))
+            traction = importlib.import_module("scripts.check_traction")
+            live = traction.fetch_live() if shutil.which("gh") else None
+            closed = fetch_issues_closed(monday, traction.REPO, sunday) if live is not None else None
+            if live is None or closed is None:
+                print("error: needs the GitHub CLI (gh) signed in and online, or --live-data FILE", file=sys.stderr)
+                return 2
+            live["issues_closed"] = closed
+        text, row = refresh_earlier_row(args.file.read_text(encoding="utf-8"), args.row, live)
+    except ValueError as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 1
+    print(row)
+    if args.apply:
+        args.file.write_text(text, encoding="utf-8")
+        print(f"updated: {args.file.name}", file=sys.stderr)
+    return 0
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--file", type=Path, default=ROOT / "METRICS.md")
@@ -264,10 +331,15 @@ def main(argv=None) -> int:
                         help="also print a draft sweep note (closed issues, figure changes, people merged since the snapshot)")
     parser.add_argument("--update", action="store_true",
                         help="refresh the newest row when it is already for this week (instead of refusing), with --apply in place")
+    parser.add_argument("--row", metavar="WEEK",
+                        help="with --update: refresh the row of an earlier ISO week such as 2026-W47 (stars, forks, watching and contributors "
+                             "as GitHub says now, issues closed counted over that week); with --apply only that row is rewritten")
     parser.add_argument("--apply", action="store_true",
                         help="also write the row and the figures into METRICS.md, README.md and ROADMAP.md (next to --file)")
     args = parser.parse_args(argv)
     day = args.date or datetime.date.today()
+    if args.row is not None:
+        return refresh_row(args)
 
     if args.live_data:
         live = json.loads(Path(args.live_data).read_text(encoding="utf-8"))

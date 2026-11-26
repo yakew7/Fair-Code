@@ -310,3 +310,64 @@ def test_latest_row_can_look_back_and_complains_when_there_is_nothing_there():
     assert script.latest_row(METRICS, back=1)[0] == "2026-W42"
     with pytest.raises(ValueError, match="no weekly row 2 before"):
         script.latest_row(METRICS, back=2)
+
+
+EARLIER = {"stars": 54, "forks": 82, "watching": 8, "contributors": 65, "issues_closed": 33}
+
+
+def test_an_earlier_row_is_rebuilt_from_the_figures_with_its_hand_written_cells_kept():
+    # #1359: the W47 row stayed at 79 forks and 22 issues closed after the W48 row was added, and --update refused it
+    text, row = script.refresh_earlier_row(METRICS, "2026-W42", EARLIER)
+    assert row == "| 2026-W42 | 54 | 82 | 8 | 65 | 30K+ total | 20 | 33 | 7 total |"
+    assert text == METRICS.replace("| 2026-W42 | 51 | 58 | 8 | 53 | 30K+ total | 20 | 123 | 7 total |", row)      # nothing else moved
+
+
+def test_the_newest_week_an_unknown_week_and_a_malformed_week_are_refused():
+    with pytest.raises(ValueError, match="newest row: use --update without --row"):
+        script.refresh_earlier_row(METRICS, "2026-W43", EARLIER)
+    with pytest.raises(ValueError, match=r"no row for 2026-W30; the weeks are 2026-W42, 2026-W43"):
+        script.refresh_earlier_row(METRICS, "2026-W30", EARLIER)
+    for bad in ("W42", "2026-W99", "2026-42"):
+        with pytest.raises(ValueError):
+            script.refresh_earlier_row(METRICS, bad, EARLIER)
+
+
+def test_week_range_is_monday_to_sunday():
+    assert script.week_range("2026-W47") == (datetime.date(2026, 11, 16), datetime.date(2026, 11, 22))
+    assert script.week_range("2026-W53")[0] == datetime.date(2026, 12, 28)
+
+
+def test_the_issues_closed_query_for_an_earlier_week_is_bounded_on_both_sides(monkeypatch):
+    seen = []
+    monkeypatch.setattr(script, "run_gh", lambda cmd: seen.append(cmd) or subprocess.CompletedProcess(cmd, 0, "33\n", ""))
+    assert script.fetch_issues_closed(datetime.date(2026, 11, 16), "o/r", datetime.date(2026, 11, 22)) == 33
+    assert "closed:2026-11-16..2026-11-22" in " ".join(seen[0])
+    script.fetch_issues_closed(datetime.date(2026, 11, 16), "o/r")
+    assert "closed:>=2026-11-16" in " ".join(seen[1])
+
+
+def test_row_with_apply_rewrites_only_that_row_and_without_it_prints(tmp_path, capsys):
+    site = _site(tmp_path)
+    before = (site / "METRICS.md").read_text(encoding="utf-8")
+    live = tmp_path / "earlier.json"
+    live.write_text(json.dumps(EARLIER), encoding="utf-8")
+    base = ["--file", str(site / "METRICS.md"), "--live-data", str(live), "--row", "2026-W42", "--update"]
+    assert script.main(base) == 0 and capsys.readouterr().out.strip() == "| 2026-W42 | 54 | 82 | 8 | 65 | 30K+ total | 20 | 33 | 7 total |"
+    assert (site / "METRICS.md").read_text(encoding="utf-8") == before            # printing changes nothing
+    assert script.main([*base, "--apply"]) == 0
+    after = (site / "METRICS.md").read_text(encoding="utf-8")
+    assert len(after.splitlines()) == len(before.splitlines())
+    assert [l for l in after.splitlines() if "2026-W42" in l] == ["| 2026-W42 | 54 | 82 | 8 | 65 | 30K+ total | 20 | 33 | 7 total |"]
+    assert {l for l in before.splitlines()} - {l for l in after.splitlines()} <= {l for l in before.splitlines() if "2026-W42" in l}
+    assert (site / "README.md").read_text(encoding="utf-8") == README_FIXTURE            # the figures and badges follow the newest row only
+    assert (site / "ROADMAP.md").read_text(encoding="utf-8") == ROADMAP_FIXTURE
+
+
+def test_row_needs_update_and_reports_its_own_errors(tmp_path, capsys):
+    site = _site(tmp_path)
+    live = tmp_path / "earlier.json"
+    live.write_text(json.dumps(EARLIER), encoding="utf-8")
+    common = ["--file", str(site / "METRICS.md"), "--live-data", str(live)]
+    assert script.main([*common, "--row", "2026-W42"]) == 1 and "--row goes with --update" in capsys.readouterr().err
+    assert script.main([*common, "--row", "2026-W44", "--update"]) == 1 and "no row for 2026-W44" in capsys.readouterr().err
+    assert script.main([*common, "--row", "2026-W99", "--update"]) == 1 and "not a week" in capsys.readouterr().err
