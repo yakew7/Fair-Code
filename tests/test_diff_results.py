@@ -425,3 +425,41 @@ def test_the_bump_workflow_shows_the_provenance_block_once():
     workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "benchmark-diff.yml").read_text(encoding="utf-8")
     calls = [line for line in workflow.splitlines() if "scripts/diff_results.py" in line and "bump-results" in line]
     assert len(calls) == 2 and sum("--no-provenance" in line for line in calls) == 1
+
+
+def test_fail_on_convergence_change_exits_1_when_a_combination_newly_stops_and_names_it(tmp_path, capsys):
+    # #1363: a bump could make a new fit stop at max_iter and still pass while the numbers stayed within the threshold
+    args = _compared_dirs(tmp_path, [_timing("baseline", 1.0, 0), _timing("in_processing", 1.0, 4)],
+                          [_timing("baseline", 1.0, 0), _timing("in_processing", 1.0, 0)])
+    assert dr.main([*args]) == 0
+    capsys.readouterr()
+    assert dr.main([*args, "--fail-on-convergence-change"]) == 1
+    captured = capsys.readouterr()
+    assert "error: 1 combination(s) newly stop at max_iter: a/in_processing/lr" in captured.err
+    assert "convergence:" in captured.out                                      # the report itself is still printed
+
+
+def test_a_combination_that_stops_stopping_or_no_counts_do_not_fail(tmp_path, capsys):
+    fixed = _compared_dirs(tmp_path / "a", [_timing("baseline", 1.0, 0)], [_timing("baseline", 1.0, 3)])
+    assert dr.main([*fixed, "--fail-on-convergence-change"]) == 0
+    unrecorded = _compared_dirs(tmp_path / "b", [_timing("baseline", 1.0)], [_timing("baseline", 1.0, 3)])
+    assert dr.main([*unrecorded, "--fail-on-convergence-change"]) == 0
+    none = _compared_dirs(tmp_path / "c", None, None)
+    assert dr.main([*none, "--fail-on-convergence-change"]) == 0
+    assert "newly stop" not in capsys.readouterr().err
+
+
+def test_the_two_failure_flags_each_fail_alone_and_together(tmp_path, capsys):
+    rows = _fair([["a", "baseline", "lr", "sex", "dp", 0.10]])
+    moved = _fair([["a", "baseline", "lr", "sex", "dp", 0.50]])
+    for name, table, timings in (("cur", moved, [_timing("baseline", 1.0, 2)]), ("ref", rows, [_timing("baseline", 1.0, 0)])):
+        _write(tmp_path / name, table)
+        _provenance_dir(tmp_path / name, timings)
+    args = ["--current", str(tmp_path / "cur"), "--reference", str(tmp_path / "ref"), "--kind", "fairness"]
+    assert dr.main([*args, "--fail-on-change"]) == 1
+    assert dr.main([*args, "--fail-on-convergence-change"]) == 1
+    assert dr.main([*args, "--fail-on-change", "--fail-on-convergence-change"]) == 1
+    assert dr.main([*args]) == 0
+    capsys.readouterr()
+    assert dr.main([*args, "--json", "--fail-on-convergence-change"]) == 1
+    json.loads(capsys.readouterr().out)                                         # stdout stays valid JSON; the error goes to stderr

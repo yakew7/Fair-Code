@@ -11,6 +11,7 @@ and prints the per-row change, so nobody has to diff two CSVs by hand:
     python3 scripts/diff_results.py --limit 100           # list at most 100 rows per kind
     python3 scripts/diff_results.py --json                # machine-readable: one list per kind plus a "provenance" key
     python3 scripts/diff_results.py --fail-on-change      # exit 1 if any row is flagged (for CI)
+    python3 scripts/diff_results.py --fail-on-convergence-change  # exit 1 if a fit newly stops at max_iter (for CI, #1363)
     python3 scripts/diff_results.py --audit COMPAS        # only these audits (repeatable)
     python3 scripts/diff_results.py --summary             # one line per audit and kind
     python3 scripts/diff_results.py --no-provenance       # leave out the provenance block (a second call in one report, #1362)
@@ -401,6 +402,9 @@ def main(argv=None) -> int:
     p.add_argument("--all", action="store_true", help="list unchanged rows too")
     p.add_argument("--json", action="store_true", help="print the diff as JSON")
     p.add_argument("--fail-on-change", action="store_true", help="exit 1 if any row is flagged")
+    p.add_argument("--fail-on-convergence-change", action="store_true",
+                   help="exit 1 if a strategy/model combination newly stops at max_iter on the current side (one that stops "
+                        "stopping does not count, and nothing is flagged when a side recorded no counts)")
     p.add_argument("--audit", action="append", metavar="NAME",
                    help="only compare this audit (repeatable; default: every audit)")
     p.add_argument("--limit", type=int, metavar="N",
@@ -444,9 +448,13 @@ def main(argv=None) -> int:
         print(json.dumps({**diff, "provenance": provenance_data(args.current, args.reference, args.timing_threshold)}, indent=2))
     else:
         print(render(diff, args.all, args.threshold, args.limit), end="")
-    if args.fail_on_change and any(_flagged(r) for rows in diff.values() for r in rows):
-        return 1
-    return 0
+    failed = args.fail_on_change and any(_flagged(r) for rows in diff.values() for r in rows)
+    if args.fail_on_convergence_change:
+        newly = convergence_data(read_provenance(args.current), read_provenance(args.reference)).get("newly_stopping", [])
+        if newly:
+            print(f"error: {len(newly)} combination(s) newly stop at max_iter: {', '.join(newly)}", file=sys.stderr)
+            failed = True
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
