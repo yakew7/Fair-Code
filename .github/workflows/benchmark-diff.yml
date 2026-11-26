@@ -114,7 +114,7 @@ jobs:
             echo "<details><summary>Moved rows</summary>"
             echo
             echo '```'
-            python3 scripts/diff_results.py --current "$RUNNER_TEMP/bump-results" --reference results --threshold 0.001 --limit 100 | head -c 50000
+            python3 scripts/diff_results.py --current "$RUNNER_TEMP/bump-results" --reference results --threshold 0.001 --no-provenance --limit 100 | head -c 50000
             echo '```'
             echo "</details>"
             echo

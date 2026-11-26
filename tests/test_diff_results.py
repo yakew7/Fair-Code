@@ -397,3 +397,31 @@ def test_the_timing_threshold_must_be_a_ratio_above_one(tmp_path, capsys):
             dr.main([*args, "--timing-threshold", bad])
         assert stopped.value.code == 2
     assert "greater than 1" in capsys.readouterr().err
+
+
+def test_no_provenance_leaves_out_only_the_provenance_block(tmp_path, capsys):
+    # #1362: the dependency-bump comment calls the script twice and showed the block twice
+    args = _compared_dirs(tmp_path, [_timing("baseline", 30.0)], [_timing("baseline", 10.0)])
+    assert dr.main([*args, "--all"]) == 0
+    with_block = capsys.readouterr().out
+    assert dr.main([*args, "--all", "--no-provenance"]) == 0
+    without = capsys.readouterr().out
+    assert with_block.startswith("current  :") and "timings:" in with_block
+    assert "current  :" not in without and "timings:" not in without and "convergence:" not in without
+    assert with_block.endswith(without) and without.strip()                          # the rows after the block are the same
+    assert dr.main([*args, "--summary", "--no-provenance"]) == 0 and "provenance" not in capsys.readouterr().out.lower()
+
+
+def test_no_provenance_does_not_change_the_json(tmp_path, capsys):
+    args = _compared_dirs(tmp_path, [_timing("baseline", 30.0)], [_timing("baseline", 10.0)])
+    assert dr.main([*args, "--json"]) == 0
+    first = capsys.readouterr().out
+    assert dr.main([*args, "--json", "--no-provenance"]) == 0
+    assert capsys.readouterr().out == first
+
+
+def test_the_bump_workflow_shows_the_provenance_block_once():
+    from pathlib import Path
+    workflow = (Path(__file__).resolve().parents[1] / ".github" / "workflows" / "benchmark-diff.yml").read_text(encoding="utf-8")
+    calls = [line for line in workflow.splitlines() if "scripts/diff_results.py" in line and "bump-results" in line]
+    assert len(calls) == 2 and sum("--no-provenance" in line for line in calls) == 1

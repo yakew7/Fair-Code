@@ -13,6 +13,7 @@ and prints the per-row change, so nobody has to diff two CSVs by hand:
     python3 scripts/diff_results.py --fail-on-change      # exit 1 if any row is flagged (for CI)
     python3 scripts/diff_results.py --audit COMPAS        # only these audits (repeatable)
     python3 scripts/diff_results.py --summary             # one line per audit and kind
+    python3 scripts/diff_results.py --no-provenance       # leave out the provenance block (a second call in one report, #1362)
     python3 scripts/diff_results.py --timing-threshold 2  # mark a fit SLOWER in the timing line from 2x (and 1 s) up
 
 Each row also carries a `sample` field: `same` when both sides report the same group sizes
@@ -394,6 +395,9 @@ def main(argv=None) -> int:
     p.add_argument("--timing-threshold", type=_ratio, default=DEFAULT_TIMING_RATIO, metavar="RATIO",
                    help=f"mark a fit SLOWER in the timing line when it took at least RATIO times as long and at least {TIMING_MIN_SECONDS:g} s "
                         f"longer (default {DEFAULT_TIMING_RATIO}); informational, never changes the exit code")
+    p.add_argument("--no-provenance", action="store_true",
+                   help="do not print the provenance, version, timing and convergence block that starts the text report "
+                        "(for a report that calls this script twice and shows it once)")
     p.add_argument("--all", action="store_true", help="list unchanged rows too")
     p.add_argument("--json", action="store_true", help="print the diff as JSON")
     p.add_argument("--fail-on-change", action="store_true", help="exit 1 if any row is flagged")
@@ -428,7 +432,7 @@ def main(argv=None) -> int:
     except FileNotFoundError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
-    if not args.json:
+    if not args.json and not args.no_provenance:
         print(provenance_report(args.current, args.reference, args.timing_threshold), end="")
     if args.summary:
         summary = summarize(diff)
