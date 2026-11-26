@@ -191,6 +191,33 @@ def explain_area(path: str, names: list[str], rules: list[tuple[str, str]] | Non
     return f"{path}: {DEFAULT_AREA} (default; {why})"
 
 
+def run_explain(paths: list[str], pr: int | None, text: str, prs: list[dict] | None, fetch_pr=None) -> int:
+    """`--explain-area [PATH ...] [--pr N]` (#1351, #1366): print the row of each path and, for a pull request, the row `--stub` would
+    choose for its author. The pull request's files come from the saved data `prs` when it has them, else from `fetch_pr(N)` (gh).
+    Exit 0 even when gh is unavailable (a note), like the other gh-backed options; 1 only when there is nothing to explain."""
+    names = area_names(text)
+    login = None
+    if pr is not None:
+        saved = next((p for p in prs or [] if p.get("number") == pr and p.get("files") is not None), None)
+        found = ({"login": (saved.get("author") or {}).get("login"), "files": saved["files"]} if saved
+                 else fetch_pr(pr) if fetch_pr else None)
+        if found is None:
+            print(f"note: could not read the files of pull request #{pr} (gh missing or offline, or no such pull request)")
+            return 0
+        login, paths = found.get("login"), [*paths, *found["files"]]
+        print(f"#{pr} by {login or 'an unknown author'}: {len(found['files'])} changed file(s)")
+    if not paths:
+        print("nothing to explain: give PATH arguments or a pull request with changed files" if pr is None else f"#{pr} has no changed files")
+        return 1 if pr is None else 0
+    for path in paths:
+        print(explain_area(path, names))
+    if pr is not None and login:
+        pick = suggest_area(login, [{"author": {"login": login}, "files": found["files"]}], names)
+        print(f"--stub would list {login} in: " + (f"{pick[0]} ({pick[1]} changed file(s))" if pick
+                                                    else f"{DEFAULT_AREA} (no changed file matches a row of the table)"))
+    return 0
+
+
 def choose_areas(logins: list[str], prs: list[dict], text: str, explicit: str | None) -> tuple[dict[str, str], list[str]]:
     """{login: area row} for a stub run and the notes saying where a suggestion came from (#1333): `explicit` (--area) for
     everyone, else the row holding most of each person's changed files, else DEFAULT_AREA."""

@@ -69,3 +69,79 @@ def test_main_explains_several_paths_and_changes_nothing(tmp_path, capsys):
     assert "rule 'faircode/benchmark'" in lines[0] and "the table has no such row" in lines[0]      # the toy table has no benchmark row
     assert "default_ok" in lines[1] and "zzz is not in default_ok" in lines[2]
     assert (tmp_path / "CONTRIBUTORS.md").read_text(encoding="utf-8") == before            # and it never asked GitHub for anything
+
+
+PR_DATA = [dict(pr(210, "dave", "2026-11-05"), files=["faircode/benchmark.py", "faircode/strategies.py", "README.md", "zzz/q.py"]),
+           dict(pr(211, "erin", "2026-11-06"), files=[]), pr(212, "dave", "2026-11-07")]
+
+
+def _explain(tmp_path, capsys, *extra, prs=PR_DATA, doc=STUB_DOC):
+    (tmp_path / "CONTRIBUTORS.md").write_text(doc, encoding="utf-8")
+    (tmp_path / "prs.json").write_text(json.dumps(prs), encoding="utf-8")
+    code = script.main(["--file", str(tmp_path / "CONTRIBUTORS.md"), "--prs", str(tmp_path / "prs.json"), "--explain-area", *extra])
+    return code, capsys.readouterr().out
+
+
+def test_explain_area_with_a_pr_explains_every_file_and_the_row_stub_would_choose(tmp_path, capsys):
+    # #1366: the paths are already on the pull request, and --stub suggests the area from the same list
+    code, out = _explain(tmp_path, capsys, "--pr", "210")
+    lines = out.splitlines()
+    assert code == 0 and lines[0] == "#210 by dave: 4 changed file(s)"
+    assert [line.split(":")[0] for line in lines[1:5]] == ["faircode/benchmark.py", "faircode/strategies.py", "README.md", "zzz/q.py"]
+    assert "--stub would list dave in:" in lines[-1]
+
+
+def test_the_row_for_the_author_is_the_one_with_most_files_and_the_default_when_nothing_matches(tmp_path, capsys):
+    doc = STUB_DOC.replace("Audits", "Benchmark harness & paper freeze", 1)
+    _, out = _explain(tmp_path, capsys, "--pr", "210", doc=doc)
+    assert out.splitlines()[-1] == "--stub would list dave in: Benchmark harness & paper freeze (2 changed file(s))"
+    data = [dict(pr(220, "dave", "2026-11-05"), files=["zzz/q.py", "newdir/x.py"])]
+    _, out = _explain(tmp_path, capsys, "--pr", "220", prs=data)
+    assert out.splitlines()[-1] == f"--stub would list dave in: {script.DEFAULT_AREA} (no changed file matches a row of the table)"
+
+
+def test_paths_and_a_pr_can_be_combined_and_a_pr_without_files_is_said_so(tmp_path, capsys):
+    code, out = _explain(tmp_path, capsys, "Makefile", "--pr", "210")
+    assert code == 0
+    assert out.splitlines()[1].startswith("Makefile:") and out.splitlines()[2].startswith("faircode/benchmark.py:")
+    code, out = _explain(tmp_path, capsys, "--pr", "211")
+    assert code == 0 and out.strip().splitlines()[-1] == "#211 has no changed files"
+
+
+def test_a_pr_that_the_saved_data_lacks_is_fetched_and_a_failed_fetch_is_a_note_not_an_error(tmp_path, capsys, monkeypatch):
+    asked = []
+    monkeypatch.setattr(script, "fetch_pr_files", lambda number: asked.append(number) or {"login": "frank", "files": ["tests/a.py"]})
+    code, out = _explain(tmp_path, capsys, "--pr", "999", prs=[])
+    assert asked == [999] and code == 0 and out.splitlines()[0] == "#999 by frank: 1 changed file(s)"      # not in the saved data: fetched
+    monkeypatch.setattr(script, "fetch_pr_files", lambda number: None)
+    code, out = _explain(tmp_path, capsys, "--pr", "999", prs=[])
+    assert code == 0 and "could not read the files of pull request #999" in out
+    from scripts import contributors_write as write
+    assert write.run_explain([], 7, STUB_DOC, None, lambda number: {"login": "frank", "files": ["tests/a.py"]}) == 0
+    assert write.run_explain([], 7, STUB_DOC, None, lambda number: None) == 0
+    assert "could not read the files of pull request #7" in capsys.readouterr().out.splitlines()[-1]
+
+
+def test_fetch_pr_files_reads_the_author_and_files_and_returns_none_on_any_failure(monkeypatch):
+    import subprocess
+    done = subprocess.CompletedProcess([], 0, '{"login": "frank", "files": ["a.py"]}', "")
+    monkeypatch.setattr(script.shutil, "which", lambda name: "/usr/bin/gh")
+    seen = []
+    monkeypatch.setattr("scripts.contributors_github.run_gh", lambda cmd: seen.append(cmd) or done)
+    assert script.fetch_pr_files(5) == {"login": "frank", "files": ["a.py"]}
+    assert seen[0][:4] == ["gh", "pr", "view", "5"] and "author,files" in seen[0]
+    for bad in (subprocess.CompletedProcess([], 1, "", "not found"), subprocess.CompletedProcess([], 0, "", ""),
+                subprocess.CompletedProcess([], 0, "not json", "")):
+        monkeypatch.setattr("scripts.contributors_github.run_gh", lambda cmd, bad=bad: bad)
+        assert script.fetch_pr_files(5) is None
+    monkeypatch.setattr(script.shutil, "which", lambda name: None)
+    assert script.fetch_pr_files(5) is None
+
+
+def test_pr_without_explain_area_and_explain_area_with_nothing_are_usage_problems(tmp_path, capsys):
+    (tmp_path / "CONTRIBUTORS.md").write_text(STUB_DOC, encoding="utf-8")
+    with pytest.raises(SystemExit) as stopped:
+        script.main(["--file", str(tmp_path / "CONTRIBUTORS.md"), "--pr", "5"])
+    assert stopped.value.code == 2 and "--pr only goes with --explain-area" in capsys.readouterr().err
+    code, out = _explain(tmp_path, capsys)
+    assert code == 1 and "nothing to explain" in out

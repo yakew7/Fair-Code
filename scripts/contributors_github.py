@@ -76,6 +76,19 @@ def fetch_pr_details(numbers: list[int], repo: str = "yakew7/Fair-Code") -> dict
     return None if any(details is None for details in found) else dict(zip(numbers, found))
 
 
+def fetch_pr_files(number: int, repo: str = "yakew7/Fair-Code") -> dict | None:
+    """`{"login": author, "files": [paths]}` of one pull request from `gh pr view` (#1366), or None when gh is missing, the call fails
+    or the pull request does not exist."""
+    if shutil.which("gh") is None:
+        return None
+    done = run_gh(["gh", "pr", "view", str(number), "--repo", repo, "--json", "author,files",
+                   "--jq", "{login: .author.login, files: [.files[].path]}"])
+    try:
+        return json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else None
+    except json.JSONDecodeError:
+        return None
+
+
 def add_details(prs: list[dict], details: dict | None) -> None:
     """Put the fetched per-PR details (`commit_authors`, `closing_issues`) on the PR dicts, without overwriting what saved data
     already carries."""

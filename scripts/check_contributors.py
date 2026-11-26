@@ -30,6 +30,7 @@ counts are listed as skipped, not failed.
     python3 scripts/check_contributors.py --pending       # who merged after the snapshot (exit 1 if anyone), for the weekly report
     python3 scripts/check_contributors.py --pending --json  # the same as a JSON list of {login, prs, first_merged, has_entry}, [] when nobody (#1354)
     python3 scripts/check_contributors.py --explain-area PATH [PATH ...]  # which area rule a changed path matches; changes nothing (#1351)
+    python3 scripts/check_contributors.py --explain-area --pr 1356  # the same for every file of a pull request, plus the row --stub would pick (#1366)
     python3 scripts/check_contributors.py --stub LOGIN [LOGIN ...]  # start an entry for a new contributor (then --fix --commits)
     python3 scripts/check_contributors.py --stub LOGIN --area "Profiler - web"   # list them in another area row (default: Contributor tooling & docs)
     python3 scripts/check_contributors.py --stub LOGIN --commits   # the same, with the commit counts taken from GitHub too
@@ -73,10 +74,10 @@ if __package__:                         # imported as scripts.<name> (tests, pyt
     from .contributors_entries import commit_problems as _commit_problems
     from .contributors_entries import unmapped_authors as _unmapped_authors
     from .contributors_github import (  # noqa: F401
-        TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, run_pending, snapshot_time)
+        TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, run_pending, snapshot_time, fetch_pr_files)
     from .contributors_write import (  # noqa: F401
         AREA_RULES, DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, area_rule_problems,
-        choose_areas, exception_suggestions, explain_area, fix_document, foreign_commit_authors, load_area_rules, load_default_ok,
+        choose_areas, exception_suggestions, explain_area, fix_document, run_explain, foreign_commit_authors, load_area_rules, load_default_ok,
         move_snapshot, stub_entry, suggest_area, summary_line)
 else:
     import os as _os
@@ -88,10 +89,10 @@ else:
     from contributors_entries import commit_problems as _commit_problems
     from contributors_entries import unmapped_authors as _unmapped_authors
     from contributors_github import (  # noqa: F401
-        TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, run_pending, snapshot_time)
+        TRAILER, add_details, fetch_commit_data, fetch_pr_details, fetch_prs, git_authors, run_pending, snapshot_time, fetch_pr_files)
     from contributors_write import (  # noqa: F401
         AREA_RULES, DEFAULT_AREA, SNAPSHOT_LINE, SUMMARY_HEADING, add_stub, area_names, area_rule_problems,
-        choose_areas, exception_suggestions, explain_area, fix_document, foreign_commit_authors, load_area_rules, load_default_ok,
+        choose_areas, exception_suggestions, explain_area, fix_document, run_explain, foreign_commit_authors, load_area_rules, load_default_ok,
         move_snapshot, stub_entry, suggest_area, summary_line)
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -284,7 +285,8 @@ def main(argv=None) -> int:
     parser.add_argument("--identities", action="store_true", help="check that every git commit author maps to an entry or an identity map row (needs the git history)")
     parser.add_argument("--pending", action="store_true", help="list authors who merged after the snapshot and exit 1 if there are any")
     parser.add_argument("--json", action="store_true", help="with --pending: print a JSON list of {login, prs, first_merged, has_entry} instead of text")
-    parser.add_argument("--explain-area", metavar="PATH", nargs="+", help="print the Contributions by area row each changed path maps to, and why; reads only")
+    parser.add_argument("--explain-area", metavar="PATH", nargs="*", help="print the Contributions by area row each changed path maps to, and why; reads only")
+    parser.add_argument("--pr", type=int, metavar="N", help="with --explain-area: also explain the files of pull request N and the row --stub would choose for its author (needs gh, or --prs data with files)")
     parser.add_argument("--stub", metavar="LOGIN", nargs="+", help="add a starting entry for a new contributor (moves the snapshot, sorts, lists them in an area row)")
     parser.add_argument("--area", default=None, metavar="NAME",
                         help="with --stub: the Contributions by area row to list the new people in (default: the row that holds "
@@ -293,6 +295,8 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     if args.json and not args.pending:
         parser.error("--json only goes with --pending")
+    if args.pr is not None and args.explain_area is None:
+        parser.error("--pr only goes with --explain-area")
 
     if args.exceptions != EXCEPTIONS_FILE:
         COMMIT_EXCEPTIONS.clear()
@@ -304,9 +308,9 @@ def main(argv=None) -> int:
     if not entries:
         print(f"error: no contributor entries found in {args.file}")
         return 1
-    if args.explain_area:
-        print("\n".join(explain_area(path, area_names(text)) for path in args.explain_area))
-        return 0
+    if args.explain_area is not None:
+        saved = json.loads(Path(args.prs).read_text(encoding="utf-8")) if args.prs else None
+        return run_explain(args.explain_area, args.pr, text, saved, fetch_pr_files)
     if args.identities:
         return run_identities(args, text)
     prs = json.loads(Path(args.prs).read_text(encoding="utf-8")) if args.prs else fetch_prs()
