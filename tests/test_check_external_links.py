@@ -775,3 +775,53 @@ def test_the_report_and_the_issue_body_name_the_expired_entries(monkeypatch):
     body = script.render_issue_body(report)
     assert "1 ignore-list entry has expired" in body and "- https://a.example/x (until 2026-11-18: site is down)" in body
     assert "expired" not in script.render_issue_body(_expired_run(monkeypatch, {}))
+
+
+IGNORE_TEXT = ("# header comment\n"
+               "https://a.example/x until:2026-12-31 site is down for a rebuild\n"
+               "host:b.example   until:2027-03-01   needs a login   \n"
+               "https://c.example/y never expires\n"
+               "checked:2026-11-18 https://d.example/z opened\n"
+               "\n")
+
+
+def _ignore_file(tmp_path, text=IGNORE_TEXT):
+    path = tmp_path / "ignore.txt"
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_renew_ignore_moves_the_date_and_keeps_the_reason_and_every_other_line(tmp_path):
+    # #1361: renewing an until: date meant editing the file by hand
+    path = _ignore_file(tmp_path)
+    changed, message = script.renew_ignore("https://a.example/x", script.datetime.date(2027, 6, 1), path, today=TODAY)
+    assert changed and "Renewed https://a.example/x to 2027-06-01 (was 2026-12-31)" in message
+    assert path.read_text(encoding="utf-8") == IGNORE_TEXT.replace("until:2026-12-31", "until:2027-06-01")
+    changed, _ = script.renew_ignore("HOST:B.example", script.datetime.date(2028, 1, 1), path, today=TODAY)
+    assert changed and "host:b.example   until:2028-01-01   needs a login   " in path.read_text(encoding="utf-8")   # spacing kept
+    assert script.load_ignore_until(path) == {"https://a.example/x": script.datetime.date(2027, 6, 1),
+                                              "host:b.example": script.datetime.date(2028, 1, 1)}
+
+
+def test_renew_ignore_refuses_an_unknown_key_an_entry_without_a_date_and_a_past_date(tmp_path):
+    path = _ignore_file(tmp_path)
+    for key, day, text in (("https://nope.example/q", script.datetime.date(2027, 1, 1), "no ignore entry for https://nope.example/q"),
+                           ("https://c.example/y", script.datetime.date(2027, 1, 1), "never expires; nothing renewed"),
+                           ("https://a.example/x", script.datetime.date(2026, 11, 18), "is in the past")):
+        changed, message = script.renew_ignore(key, day, path, today=TODAY)
+        assert not changed and text in message
+    assert script.renew_ignore("https://d.example/z", script.datetime.date(2027, 1, 1), path, today=TODAY)[0] is False   # a checked: line is not an ignore
+    assert path.read_text(encoding="utf-8") == IGNORE_TEXT                       # nothing was written
+    assert script.renew_ignore("https://a.example/x", script.datetime.date(2027, 1, 1), tmp_path / "missing.txt", today=TODAY)[0] is False
+
+
+def test_the_renew_option_runs_from_the_command_line_and_needs_both_arguments(tmp_path, capsys):
+    path = _ignore_file(tmp_path)
+    tomorrow = (script.datetime.date.today() + script.datetime.timedelta(days=30)).isoformat()
+    assert script.main(["--ignore-file", str(path), "--renew-ignore", "https://a.example/x", "--until", tomorrow]) == 0
+    assert f"until:{tomorrow} site is down" in path.read_text(encoding="utf-8") and "Renewed" in capsys.readouterr().out
+    assert script.main(["--ignore-file", str(path), "--renew-ignore", "https://c.example/y", "--until", tomorrow]) == 1
+    for bad in (["--renew-ignore", "https://a.example/x"], ["--until", tomorrow], ["--renew-ignore", "https://a.example/x", "--until", "soon"]):
+        with pytest.raises(SystemExit) as stopped:
+            script.main(["--ignore-file", str(path), *bad])
+        assert stopped.value.code == 2

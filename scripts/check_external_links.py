@@ -14,6 +14,7 @@ keeps one issue up to date, and nothing in `make lint` or a pull request depends
     python3 scripts/check_external_links.py --fix-moved       # rewrite permanently moved links in the files that cite them
     python3 scripts/check_external_links.py --fail-on-broken # exit 1 when something is broken (off by default)
     python3 scripts/check_external_links.py --ignore-file F  # use another ignore list (default: the one below)
+    python3 scripts/check_external_links.py --renew-ignore URL_OR_host:NAME --until YYYY-MM-DD  # move an until: date forward, keeping the reason (#1361)
     python3 scripts/check_external_links.py --mark-checked URL --reason TEXT [--date YYYY-MM-DD]  # write a valid `checked:` line (today by default), replacing any earlier one for that URL (#1347)
 
 Each URL is requested with a browser-like user agent and a timeout (HEAD first, then GET when the server does
@@ -198,6 +199,28 @@ def mark_checked(url: str, reason: str, day: datetime.date | None = None,
     path.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
     action = "Updated" if replaced else "Added"
     return True, f"{action} checked entry for {url} in {path}"
+
+
+def renew_ignore(key: str, until: datetime.date, ignore_file: Path = IGNORE_FILE,
+                 today: datetime.date | None = None) -> tuple[bool, str]:
+    """Move the `until:` date of the ignore entry `key` (an exact URL or `host:name`) to `until` (#1361), keeping its reason and every
+    other line of the file as it was. Refused, with changed=False, when the file has no entry for `key`, the entry has no `until:`
+    date (it never expires, so there is nothing to renew) or the new date is in the past. Returns (changed, message)."""
+    today = today or datetime.date.today()
+    key = key.rstrip(".,;") if key.startswith("http") else key.lower()
+    path = Path(ignore_file)
+    if until < today:
+        return False, f"{until.isoformat()} is in the past; nothing renewed"
+    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    for number, existing in enumerate(lines):
+        found = re.match(r"^(\s*)(\S+)(\s+)until:(\S+)(.*)$", existing)
+        if found and not existing.lstrip().startswith(("#", "checked:")) and found.group(2).rstrip(".,;") == key:
+            lines[number] = f"{found.group(1)}{found.group(2)}{found.group(3)}until:{until.isoformat()}{found.group(5)}"
+            path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            return True, f"Renewed {key} to {until.isoformat()} (was {found.group(4)}) in {path}"
+    listed = key in load_ignore_list(path)
+    return False, (f"{key} has no until: date, so it never expires; nothing renewed" if listed
+                   else f"{path} has no ignore entry for {key}; nothing renewed")
 
 
 def check_url(url: str, timeout: float = 15.0, retry_delay: float | None = None) -> tuple[str, str]:
@@ -558,11 +581,23 @@ def main(argv=None) -> int:
     parser.add_argument("--json", action="store_true", help="print the report as JSON")
     parser.add_argument("--fail-on-broken", action="store_true", help="exit 1 when a link is broken (off by default)")
     parser.add_argument("--mark-checked", metavar="URL", help="write a `checked:` line for a link you opened in a browser; needs --reason")
+    parser.add_argument("--renew-ignore", metavar="KEY", help="move the until: date of this ignore entry (a URL or host:name) to --until")
+    parser.add_argument("--until", metavar="YYYY-MM-DD", help="the new last day for --renew-ignore")
     parser.add_argument("--reason", help="reason for --mark-checked")
     parser.add_argument("--date", metavar="YYYY-MM-DD", help="date for --mark-checked (default: today)")
     args = parser.parse_args(argv)
     if args.rebuild and not args.fix_moved:
         parser.error("--rebuild only makes sense with --fix-moved")
+    if args.renew_ignore is not None or args.until is not None:
+        if args.renew_ignore is None or args.until is None:
+            parser.error("--renew-ignore and --until go together")
+        try:
+            day = datetime.date.fromisoformat(args.until)
+        except ValueError:
+            parser.error("--until must be YYYY-MM-DD")
+        changed, message = renew_ignore(args.renew_ignore, day, args.ignore_file)
+        print(message)
+        return 0 if changed else 1
     if args.mark_checked is not None or args.reason is not None or args.date is not None:
         if args.mark_checked is None:
             parser.error("--reason and --date only make sense with --mark-checked")
