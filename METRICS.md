@@ -3,8 +3,8 @@
 # Fair Code - Metrics Tracker
 
 ![Stars](https://img.shields.io/badge/Stars-75-brightgreen?style=flat-square&logo=github)
-![Contributors](https://img.shields.io/badge/Contributors-65-blue?style=flat-square)
-![Forks](https://img.shields.io/badge/Forks-82-orange?style=flat-square)
+![Contributors](https://img.shields.io/badge/Contributors-64-blue?style=flat-square)
+![Forks](https://img.shields.io/badge/Forks-80-orange?style=flat-square)
 ![Watching](https://img.shields.io/badge/Watching-8-yellow?style=flat-square)
 ![Explainers](https://img.shields.io/badge/Explainers-114-blueviolet?style=flat-square)
 ![Countries](https://img.shields.io/badge/Countries-20-informational?style=flat-square)
@@ -53,7 +53,7 @@ Weekly snapshot of project health. Updated every Friday.
 | 2026-W45 | 71 | 74 | 8 | 61 | 30K+ total | 20 | 44 | 7 total |
 | 2026-W46 | 73 | 77 | 8 | 64 | 30K+ total | 20 | 8 | 7 total |
 | 2026-W47 | 75 | 82 | 8 | 65 | 30K+ total | 20 | 33 | 7 total |
-| 2026-W48 | 75 | 82 | 8 | 65 | 30K+ total | 20 | 10 | 7 total |
+| 2026-W48 | 75 | 80 | 8 | 64 | 30K+ total | 20 | 20 | 7 total |
 > **2026-W27 - v1.2.0 shipped:** Open Dataset Profiler (CLI + client-side web tool) released; 23 explainers total.
 >
 > **2026-W30 - v1.3.0-v1.3.2 shipped since last snapshot:** Tenant Screening audit (#07) and intersectional bias analysis (v1.3.0), Unsupervised Learning + Model Drift explainers (v1.3.1), Selection Bias explainer (v1.3.2), plus author attribution/schema, `llms.txt`, and a canonical-URL/sitemap fix for AI-crawler and Google Search Console indexing. Watching tracked for the first time this week. **Gap notice:** no snapshot was logged for three weeks (W28-W29) - issues-closed reflects the trailing 7 days, not the full gap.
@@ -158,6 +158,9 @@ Weekly snapshot of project health. Updated every Friday.
 >
 > **2026-W48 (Monday) - the twenty-third sweep: ten tooling issues fixed, one new contributor:** `diff_results.py --json` carries the provenance, timings and convergence counts (#1345) and its timing line marks a fit that got much slower (#1353); `faircode benchmark --fail-on-nonconvergence` exits 1 when a fit stopped at `max_iter` (#1349); `make doctor` warns when pytest-xdist or pytest-timeout is missing (#1346) and a new test checks the 900 s test timeout against every CI job that runs pytest (#1350); the link checker calls out checked-by-hand links that come back within 14 days (#1348) and takes `until:` dates on plain ignore entries (#1352); `check_contributors.py` got `--pending --json` (#1354) and `--explain-area` (#1351); the traction figures were brought back to GitHub's (82 forks, 33 issues closed in W47, #1355). Another contributor closed #1347 (`--mark-checked`, PR #1356) and has an entry now. Ten new issues were opened (#1357 to #1366), with #1362, #1363 and #1365 pinned. #1320 and #1283 stay open for the reasons on the issues. No audit or result file was touched. `check_contributors.py --commits` also found that nitishchauhan002 is missing from GitHub's contributors API (#1365).
 
+>
+> **2026-W48 (Thursday) - the twenty-fourth sweep: ten tooling issues fixed:** the dependency-bump comment shows the provenance block once (`--no-provenance`, #1362) and `diff_results.py --fail-on-convergence-change` fails when a fit newly stops at `max_iter` (#1363); the link checker lists every ignore and checked entry with its days left (`--list-ignores`, #1360) and renews an `until:` date (`--renew-ignore`, #1361); `draft_metrics_row.py --row WEEK --update` refreshes an earlier week's row (#1359, which is how the W47 row was fixed last time by hand); `make doctor` checks every package of the test extra (#1357) and the CI timeout guard reads step-level limits (#1358); the contributors-drift workflow builds its stub commands from the JSON (#1364); `--explain-area --pr N` explains a pull request's files (#1366). #1365 was a real drift: `check_contributors.py --commits` failed for nitishchauhan002 (a commit email not linked to the account, now a documented exception) and showed that the nivedmahendran account no longer exists, so its entry is marked deleted like TanishGoyal-Dev's. GitHub's figures went down from this week's first row: forks `82 → 80` and contributors `65 → 64`. Ten new issues were opened (#1367 to #1376), with #1367, #1374 and #1376 pinned. #1320 and #1283 stay open for the reasons on the issues. No audit or result file was touched; nobody new merged.
+
 ---
 
 ## Targets
@@ -165,12 +168,12 @@ Weekly snapshot of project health. Updated every Friday.
 | Metric | Current | Target | Timeline |
 |--------|--------:|-------:|----------|
 | Stars | 75 | 50+ | End of 2026 |
-| Forks | 82 | 75+ | End of 2026 |
+| Forks | 80 | 75+ | End of 2026 |
 | Watching | 8 | 12+ | End of 2026 |
-| Contributors | 65 | 20+ | End of 2026 |
+| Contributors | 64 | 20+ | End of 2026 |
 | Social reach | 30K+ | 40K+ | End of 2026 |
 | Countries reached | 20 | 20+ | End of 2026 |
-| Issues closed | 10 (this week, since 2026-11-23) | Track weekly | Ongoing |
+| Issues closed | 20 (this week, since 2026-11-23) | Track weekly | Ongoing |
 | Code audits | 7 | 8+ | End of 2026 |
 | Explainers | 114 | 120+ | End of 2026 |
 

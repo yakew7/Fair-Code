@@ -27,7 +27,7 @@ Fair Code is an open-source responsible AI platform explaining algorithmic bias,
 
 | Stars | Contributors | Forks | Watching | Social Reach | Countries | Audits | Explainers | CI |
 |:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| 75 | 65 | 82 | 8 | 30K+ | 20 | 7 | 114 | ✅ every push/PR |
+| 75 | 64 | 80 | 8 | 30K+ | 20 | 7 | 114 | ✅ every push/PR |
 
 > The earlier paper freeze has lifted - the real paper, with fresh results, is now planned for next
 > year. `paper/results-frozen/` (tag `v1.0-paper`, commit `bbef2ba`) is kept as a reference snapshot.
@@ -267,7 +267,8 @@ Go deeper on measurement - fairness dashboards, interactive notebooks, and stati
 - [x] Tooling follow-ups, round eight, fixed in this sweep: convergence warnings summarised per audit, per-fit timings, unverified links in the weekly link issue, closing issues in `--pending`, one gh call per PR and a suggested stub area (#1328, #1329, #1330, #1331, #1332, #1333)
 - [x] Tooling follow-ups, round nine, fixed in this sweep: timing and convergence in `diff_results.py` and the provenance record, `--stub` area rules as data and with full coverage, checked-by-hand links, the empty-cell test helper, documenting the saved PR JSON, the convergence message wording, `pytest-timeout` and `make traction-live ARGS` (#1334, #1335, #1336, #1337, #1338, #1339, #1340, #1341, #1342, #1343); the slow benchmark fixtures and the repeated import block stay open with the reasons on their issues
 - [x] Tooling follow-ups, round ten, fixed in this sweep: provenance in `diff_results.py --json`, `make doctor` warning about missing test plugins, `--mark-checked` and expiring checked links, `--fail-on-nonconvergence`, a guard for the test timeout against the CI limits, `--explain-area`, dated ignore entries, a timing threshold and `--pending --json` (#1345, #1346, #1347, #1348, #1349, #1350, #1351, #1352, #1353, #1354)
-- [ ] Tooling follow-ups, round eleven: `make doctor` reading the test extra, step-level limits in the CI timeout guard, refreshing an earlier METRICS row, `--list-ignores` and `--renew-ignore` for the link checker, one provenance block in the bump comment, `--fail-on-convergence-change`, JSON in the weekly contributors issue, the `--commits` gap for one contributor and `--explain-area --pr` (#1357, #1358, #1359, #1360, #1361, #1362, #1363, #1364, #1365, #1366)
+- [x] Tooling follow-ups, round eleven, fixed in this sweep: `make doctor` reading the test extra, step-level limits in the CI timeout guard, refreshing an earlier METRICS row, `--list-ignores` and `--renew-ignore` for the link checker, one provenance block in the bump comment, `--fail-on-convergence-change`, JSON in the weekly contributors issue, the `--commits` gap for one contributor and `--explain-area --pr` (#1357, #1358, #1359, #1360, #1361, #1362, #1363, #1364, #1365, #1366)
+- [ ] Tooling follow-ups, round twelve: detecting a deleted contributor account, a caveat on `--row` figures, one fetch in the contributors-drift workflow, a make target for the ignore tooling, version minimums in `make doctor`, `--fail-on-slower`, a cited column in `--list-ignores`, `--expect-nonconvergence`, stale area rules and earlier rows in the traction check (#1367, #1368, #1369, #1370, #1371, #1372, #1373, #1374, #1375, #1376)
 
 ---
 

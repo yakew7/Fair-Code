@@ -21,6 +21,11 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Added
 
+- `diff_results.py --no-provenance` (#1362) and `--fail-on-convergence-change` (#1363); the bump comment shows the provenance block once.
+- `check_external_links.py --list-ignores` (#1360) and `--renew-ignore KEY --until DATE` (#1361).
+- `draft_metrics_row.py --row WEEK --update` refreshes an earlier week's row (#1359); `check_contributors.py --explain-area --pr N` (#1366).
+- `make doctor` checks every package of the `test` extra, not a fixed pair (#1357); the CI timeout guard reads step-level limits (#1358).
+- The contributors-drift workflow builds the stub commands from `--pending --json` (#1364).
 - `diff_results.py --json` carries a `provenance` key with the versions, timings and convergence counts (#1345), and its timing line marks a fit that got much slower (`--timing-threshold`, #1353).
 - `faircode benchmark --fail-on-nonconvergence` exits 1 after writing the results when a fit stopped at `max_iter` (#1349).
 - `check_contributors.py --pending --json` (#1354) and `--explain-area PATH ...` (#1351); `make doctor` warns when pytest-xdist or pytest-timeout is missing (#1346).
@@ -42,6 +47,7 @@ All notable changes to Fair Code are documented here, newest first.
 
 ### Changed
 
+- `nitishchauhan002`'s commit is a documented commit exception and `nivedmahendran`'s entry is marked as a deleted account (#1365).
 - `scripts/check_environment.py` and `scripts/check_contributors.py` moved `run_pending` to `contributors_github.py` to stay under the module size limit; the traction figures follow GitHub again (#1355).
 - The `--stub` area rules are in `scripts/contributors-areas.json` and every top-level path has a rule or an explicit default (#1335, #1336); the saved `--prs` JSON's optional keys are documented (#1339); the convergence message points at the README (#1340); the empty-cell benchmark test uses the shared toy-audit helper (#1338).
 - `check_contributors.py` fetches each pull request's commit authors, closing issues and files with one `gh pr view` call (#1332).
